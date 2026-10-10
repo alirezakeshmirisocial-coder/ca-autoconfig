@@ -35,6 +35,14 @@ The ZIP contains a separate optional `CAGpuHelper.exe`. It is not installed by `
 
 The plan shows the selected cards, current/default/supported power limits, current/vendor-maximum graphics clocks, and migration readiness without emitting GPU UUIDs. It can calculate a shared no-raise power starting point, but deliberately leaves the clock suggestion empty because a safe ceiling needs workload evidence. Fixture plans and blocked migrations can never authorize installation.
 
+For Windows GPU research beyond the current NVIDIA provider, the ZIP also includes a query-only capability probe:
+
+```powershell
+.\Get-WindowsGpuCapability.ps1 | Format-List
+```
+
+It reports sanitized video-controller names and whether Windows exposes GPU engine and memory counter families. It performs no hardware write, never emits raw adapter identifiers, and always keeps `CanUseInHud=false` until per-adapter mapping and cross-hardware validation are complete.
+
 To opt in, review your exact board limits and run `Install-GpuLimits.ps1` with explicit GPU indices, MHz, watts, and `-AcceptHardwareRisk`. The installer reruns the plan before UAC, hash-pins the helper across elevation, and registers fixed Apply and Reset SYSTEM tasks. Raising an existing current power cap additionally requires `-AcknowledgePowerIncrease`, which is retained in the reviewed fixed task and independently enforced by the helper. Manual changes require confirmation in the control panel; the protected reset record restores the exact pre-apply power values rather than guessing a universal default.
 
 ## Remove
@@ -54,6 +62,7 @@ From a source checkout, use the .NET 8 SDK:
 .\Build-GpuHelper.ps1 -SelfContained
 .\tests\DesktopApp.Smoke.Tests.ps1 -SelfContained
 .\tests\DesktopPackageVerifier.Tests.ps1
+.\tests\WindowsGpuCapability.Tests.ps1
 .\tests\GpuLimits.Safety.Tests.ps1
 .\tests\GpuLimitPlan.Tests.ps1
 ```

@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "counterStatus": "available",
+  "counterSetNames": [
+    "GPU Engine",
+    "GPU Adapter Memory"
+  ],
+  "controllers": [
+    {
+      "name": "Fixture Discrete GPU",
+      "driverVersion": "1.2.3.4"
+    },
+    {
+      "name": "Fixture Integrated GPU",
+      "driverVersion": "5.6.7.8"
+    }
+  ]
+}

@@ -43,7 +43,7 @@ The HUD must continue showing unknown/red when the provider cannot meet the cont
 
 ## Implementation sequence
 
-1. **Capability probe:** enumerate available counter sets and adapter identities as a normal user. Return only capability/status metadata and sanitized adapter names.
+1. **Capability probe — implemented:** `Get-WindowsGpuCapability.ps1` enumerates available counter sets and video-controller names as a normal user. It returns only capability/status metadata and sanitized names, rejects raw identifier fields from fixtures, and can never authorize HUD use.
 2. **Recorded provider:** define deterministic multi-adapter fixtures for enumeration reorder, duplicate engine names, inaccessible counters, missing memory, integrated plus discrete graphics, and driver reset.
 3. **Read-only live provider:** sample without shell commands, network access, elevation, persistence, or hardware writes. Keep the existing two-second collector overlap guard.
 4. **Cross-hardware validation:** require Windows 10 and 11 results covering AMD, Intel, NVIDIA, integrated/discrete, and at least one inaccessible-counter environment.
@@ -59,3 +59,11 @@ The HUD must continue showing unknown/red when the provider cannot meet the cont
 - architecture, privacy, diagnostics, and hardware-matrix documents state the observed field scope.
 
 Until those items exist, CA AutoConfig remains honest by reporting NVIDIA telemetry where supported and `unknown` elsewhere.
+
+Run the first-stage probe without changing the HUD or hardware:
+
+```powershell
+.\Get-WindowsGpuCapability.ps1 | Format-List
+```
+
+`CanProceedToMappingValidation` means only that the machine exposes the inputs needed for the next research stage. `CanUseInHud` remains `false` until the mapping and cross-hardware evidence above exists.

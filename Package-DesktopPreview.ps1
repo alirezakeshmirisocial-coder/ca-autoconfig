@@ -40,6 +40,7 @@ foreach ($relativePath in @(
     'Uninstall-SystemOverlay.ps1',
     'Install-GpuLimits.ps1',
     'Get-GpuLimitPlan.ps1',
+    'Get-WindowsGpuCapability.ps1',
     'Uninstall-GpuLimits.ps1',
     'CA-ControlPanel.ps1',
     'LICENSE',

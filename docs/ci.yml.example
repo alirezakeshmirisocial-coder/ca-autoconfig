@@ -34,6 +34,9 @@ jobs:
       - name: Clean-machine sandbox preparation tests
         shell: pwsh
         run: .\tests\CleanMachineSandbox.Tests.ps1
+      - name: Windows GPU capability probe tests
+        shell: pwsh
+        run: .\tests\WindowsGpuCapability.Tests.ps1
       - name: Privileged helper safety tests
         shell: pwsh
         run: .\tests\GpuLimits.Safety.Tests.ps1

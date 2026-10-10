@@ -18,6 +18,7 @@ CA AutoConfig is being built for people running local LLMs, diffusion models, an
 .\tests\DesktopApp.Smoke.Tests.ps1
 .\tests\DesktopPackageVerifier.Tests.ps1
 .\tests\CleanMachineSandbox.Tests.ps1
+.\tests\WindowsGpuCapability.Tests.ps1
 .\tests\GpuLimits.Safety.Tests.ps1
 .\tests\GpuLimitPlan.Tests.ps1
 .\benchmark\Run-Tests.ps1
