@@ -1,0 +1,23 @@
+# Changelog
+
+This project follows semantic versioning after `v1.0.0`. Pre-1.0 releases may change installation and configuration details while preserving documented safety boundaries.
+
+## v0.1.0-alpha — Interactive HUD foundation
+
+- Added a tiny lock/unlock control that leaves the locked HUD click-through.
+- Added draggable placement, a visual Windows monitor map, and persisted per-display position.
+- Added a configurable global shortcut with conflict detection; the default is `Ctrl+Alt+L`.
+- Added tray and control-panel access to HUD settings.
+- Added NVIDIA power draw, cap, vendor range, temperature, clock, CUDA/SM load, and VRAM telemetry.
+- Replaced hardcoded HUD health assumptions with current-boot profile verification.
+- Added a conservative read-only power starting point that never raises an existing lower cap.
+- Added an adaptive fan-policy prototype and isolated policy tests.
+- Added smoke tests, security and privacy guidance, contribution documentation, issue forms, and an open-source roadmap.
+
+Known limitations:
+
+- The HUD remains a PowerShell-hosted WinForms alpha rather than a packaged .NET application.
+- Windows and NVIDIA are the only supported public-alpha platform and GPU provider.
+- Power suggestions are benchmark starting points, not measured workload recommendations.
+- The optional camera/presence experiment remains in the same repository and is not installed by the standalone HUD installer.
+- GitHub Actions is prepared in `docs/ci.yml.example` but is not active until the maintainer authorizes the GitHub CLI `workflow` scope.

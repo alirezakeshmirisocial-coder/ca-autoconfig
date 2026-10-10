@@ -2,6 +2,8 @@
 
 CA AutoConfig is a lightweight Windows HUD and conservative GPU power companion for local-AI and multi-GPU workstations. It keeps essential CPU, memory, storage, CUDA/SM, VRAM, temperature, and board-power information visible without stealing focus from the applications underneath it.
 
+[Latest alpha](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/releases/latest) · [Roadmap](ROADMAP.md) · [Discussions](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/discussions)
+
 > Status: personal alpha moving toward an open-source public preview. Windows and NVIDIA are the first supported platform; the face-presence experiment remains optional and is not a replacement for Windows Hello.
 
 ## Current HUD features
