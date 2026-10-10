@@ -31,6 +31,9 @@ jobs:
       - name: Desktop package verifier tests
         shell: pwsh
         run: .\tests\DesktopPackageVerifier.Tests.ps1
+      - name: Clean-machine sandbox preparation tests
+        shell: pwsh
+        run: .\tests\CleanMachineSandbox.Tests.ps1
       - name: Privileged helper safety tests
         shell: pwsh
         run: .\tests\GpuLimits.Safety.Tests.ps1

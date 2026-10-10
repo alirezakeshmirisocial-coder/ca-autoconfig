@@ -4,6 +4,9 @@ This project follows semantic versioning after `v1.0.0`. Pre-1.0 releases may ch
 
 ## Unreleased
 
+- Added a deterministic Windows Sandbox clean-machine harness that verifies a release, maps package inputs read-only, disables network/vGPU/clipboard/device redirection, checks least-privilege Logon/SessionUnlock installation, uninstalls, and emits a privacy-safe result JSON to one narrow writable folder.
+- Added five preparation-policy tests in both PowerShell runtimes. A real Sandbox result is still required before claiming clean-machine coverage.
+
 ## v0.2.6-alpha.3 — Offline package verification
 
 - Added an offline desktop-package verifier that checks the published SHA-256 filename and digest, rejects unsafe or duplicate ZIP paths and oversized expansion, requires the install-critical files, and validates the declared package version without extracting or executing the bundle.

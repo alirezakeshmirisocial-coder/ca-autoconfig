@@ -44,6 +44,8 @@ Contributors can build and smoke-test the same app from source:
 .\tests\DesktopApp.Smoke.Tests.ps1 -SelfContained
 ```
 
+Maintainers can prepare an offline, disposable install/task/uninstall check with the [Windows Sandbox harness](docs/CLEAN_MACHINE_SANDBOX.md). The generator does not enable Sandbox or claim a pass until a real result JSON exists.
+
 The original `Install-SystemOverlay.ps1` PowerShell-hosted path remains available as a compatibility fallback.
 
 The compiled elevated GPU helper is deliberately separate and opt-in. It accepts only fixed `apply` or `reset` commands and runs through two ACL-protected SYSTEM tasks; the standard-user control panel cannot construct privileged arguments. Installation requires explicit GPU indices, clock, power, and risk acknowledgement. Indices select cards once, then the tasks pin stable NVIDIA UUIDs. Apply stores exact pre-change power values in a protected atomic rollback record; Reset restores those values and vendor-managed clocks. The `280 W / 1700 MHz` values used on the maintainer's workstation are not universal recommendations. Treat advisor values as benchmark candidates for your exact board and workload.
