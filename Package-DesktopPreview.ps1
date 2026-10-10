@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [ValidatePattern('^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$')]
-    [string]$Version = '0.2.6-alpha.1',
+    [string]$Version = '0.2.6-alpha.2',
 
     [ValidateSet('win-x64')]
     [string]$Runtime = 'win-x64'
@@ -37,6 +37,7 @@ foreach ($relativePath in @(
     'Install-SystemOverlay.ps1',
     'Uninstall-SystemOverlay.ps1',
     'Install-GpuLimits.ps1',
+    'Get-GpuLimitPlan.ps1',
     'Uninstall-GpuLimits.ps1',
     'CA-ControlPanel.ps1',
     'LICENSE',

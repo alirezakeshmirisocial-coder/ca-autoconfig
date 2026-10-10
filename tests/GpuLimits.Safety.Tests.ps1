@@ -9,6 +9,7 @@ $helperPath = Join-Path $root 'src\CAAutoConfig.GpuHelper\Program.cs'
 $helperProjectPath = Join-Path $root 'src\CAAutoConfig.GpuHelper\CAAutoConfig.GpuHelper.csproj'
 $helperTestsProjectPath = Join-Path $root 'src\CAAutoConfig.GpuHelper.Tests\CAAutoConfig.GpuHelper.Tests.csproj'
 $buildPath = Join-Path $root 'Build-GpuHelper.ps1'
+$planPath = Join-Path $root 'Get-GpuLimitPlan.ps1'
 $installPath = Join-Path $root 'Install-GpuLimits.ps1'
 $combinedPath = Join-Path $root 'Install-CombinedAutoconfig.ps1'
 $controlPanelPath = Join-Path $root 'CA-ControlPanel.ps1'
@@ -21,7 +22,7 @@ function Assert-True {
     if (-not $Condition) { throw $Message }
 }
 
-foreach ($path in @($buildPath, $installPath, $combinedPath, $controlPanelPath)) {
+foreach ($path in @($buildPath, $planPath, $installPath, $combinedPath, $controlPanelPath)) {
     $tokens = $null
     $errors = $null
     [void][Management.Automation.Language.Parser]::ParseFile($path, [ref]$tokens, [ref]$errors)
@@ -44,6 +45,8 @@ Assert-True ($helper -match 'EnsureElevated\(\)' -and $helper -match 'WindowsBui
 Assert-True ($helper -match 'ArgumentList\.Add\(argument\)' -and $helper -notmatch 'cmd\.exe') 'nvidia-smi arguments must bypass shell command parsing.'
 Assert-True ($helper -match 'args\.Length != 7' -and $helper -match 'args\.Length == 1' -and $helper -match 'canonical NVIDIA GPU UUID') 'The helper must expose only strict apply/reset grammars with canonical UUID targets.'
 Assert-True ($helper -match 'powerLimitWatts > row\.DefaultPowerWatts \+ 0\.5') 'The helper must refuse a limit above the vendor default.'
+Assert-True ($helper -match 'maxClockMHz > row\.MaximumGraphicsClockMHz' -and $helper -match 'clocks\.max\.gr') 'The helper must preflight the vendor-reported maximum graphics clock.'
+Assert-True ($helper -match 'row\.CurrentPowerLimitWatts \+ 0\.5 && !allowPowerIncrease') 'The helper must require an explicit flag before raising a current power cap.'
 
 $preflightPosition = $helper.IndexOf('inventory = targets.Select(Preflight).ToList()')
 $mutationPosition = $helper.IndexOf('RunChecked("set power"')
@@ -54,6 +57,7 @@ Assert-True ($helper -match 'restore applied power after failed reset' -and $hel
 
 Assert-True ($install -match 'if \(-not \$AcceptHardwareRisk\)') 'GPU installation must require explicit hardware-risk acknowledgement.'
 Assert-True ($install -match 'ExpectedHelperSha256' -and $install -match 'changed between validation and elevation') 'The helper binary must be hash-pinned across UAC.'
+Assert-True ($install -match 'Get-GpuLimitPlan\.ps1' -and $install -match 'CanProceedToInstaller' -and $install -match '--allow-power-increase') 'Installer must consume the read-only plan and preserve explicit power-increase acknowledgement in the fixed task.'
 Assert-True ($install -match 'internal elevation handoff fields') 'Unprivileged callers must not inject installer-resolved identity or hash handoff fields.'
 Assert-True ($install -match 'FileAttributes\]::ReparsePoint' -and $install -match 'SetAccessRuleProtection\(\$true, \$false\)') 'The privileged install path and source must reject reparse points and use a protected ACL.'
 Assert-True ($install -match '\$resetTaskName = ''CA GPU Limits Reset''' -and $install -match '-Arguments ''reset''' -and $install -match 'apply --targets') 'Installer must create separate fixed apply and reset tasks.'

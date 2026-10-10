@@ -17,6 +17,7 @@ CA AutoConfig is being built for people running local LLMs, diffusion models, an
 .\tests\Guard.Smoke.Tests.ps1
 .\tests\DesktopApp.Smoke.Tests.ps1
 .\tests\GpuLimits.Safety.Tests.ps1
+.\tests\GpuLimitPlan.Tests.ps1
 .\benchmark\Run-Tests.ps1
 .\fan-control\Run-Tests.ps1
 ```

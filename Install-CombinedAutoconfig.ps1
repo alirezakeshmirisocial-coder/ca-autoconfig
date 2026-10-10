@@ -13,7 +13,9 @@ param(
 
     [int]$PowerLimitWatts,
 
-    [switch]$AcceptHardwareRisk
+    [switch]$AcceptHardwareRisk,
+
+    [switch]$AcknowledgePowerIncrease
 )
 
 Set-StrictMode -Version Latest
@@ -40,11 +42,14 @@ if ($InstallGpuLimits -or $ReinstallGpuTask) {
     if (-not $AcceptHardwareRisk) {
         throw 'GPU installation is opt-in. Review the board-specific limits and add -AcceptHardwareRisk.'
     }
-    & (Join-Path $PSScriptRoot 'Install-GpuLimits.ps1') `
-        -GpuIndexList $GpuIndexList `
-        -MaxGraphicsClockMHz $MaxGraphicsClockMHz `
-        -PowerLimitWatts $PowerLimitWatts `
-        -AcceptHardwareRisk
+    $gpuParameters = @{
+        GpuIndexList = $GpuIndexList
+        MaxGraphicsClockMHz = $MaxGraphicsClockMHz
+        PowerLimitWatts = $PowerLimitWatts
+        AcceptHardwareRisk = $true
+    }
+    if ($AcknowledgePowerIncrease) { $gpuParameters.AcknowledgePowerIncrease = $true }
+    & (Join-Path $PSScriptRoot 'Install-GpuLimits.ps1') @gpuParameters
     $gpuInstalled = $true
 }
 

@@ -7,7 +7,7 @@
 
 CA AutoConfig is an open-source, lightweight Windows HUD and conservative GPU power companion for local-AI and multi-GPU workstations. It keeps essential CPU, memory, storage, CUDA/SM, VRAM, temperature, and board-power information visible without stealing focus from the applications underneath it.
 
-[Latest alpha](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/releases/tag/v0.2.6-alpha.1) · [Join one focused alpha test](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/discussions/9) · [Desktop preview](docs/DESKTOP_PREVIEW.md) · [Hardware matrix](docs/HARDWARE_MATRIX.md) · [Power-curve lab](benchmark/POWER_CURVE_METHOD.md) · [Architecture](docs/ARCHITECTURE.md) · [Roadmap](ROADMAP.md) · [Contributor issues](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/milestone/1) · [Discussions](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/discussions) · [Growth scorecard](docs/launch/GROWTH_SCORECARD.md)
+[Latest alpha](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/releases/tag/v0.2.6-alpha.2) · [Join one focused alpha test](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/discussions/9) · [Desktop preview](docs/DESKTOP_PREVIEW.md) · [Hardware matrix](docs/HARDWARE_MATRIX.md) · [Power-curve lab](benchmark/POWER_CURVE_METHOD.md) · [Architecture](docs/ARCHITECTURE.md) · [Roadmap](ROADMAP.md) · [Contributor issues](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/milestone/1) · [Discussions](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/discussions) · [Growth scorecard](docs/launch/GROWTH_SCORECARD.md)
 
 ![Three-step CA AutoConfig demo showing the locked HUD, edit mode, and monitor and shortcut settings](docs/assets/hud-demo.gif)
 
@@ -41,6 +41,14 @@ Contributors can build and smoke-test the same app from source:
 The original `Install-SystemOverlay.ps1` PowerShell-hosted path remains available as a compatibility fallback.
 
 The compiled elevated GPU helper is deliberately separate and opt-in. It accepts only fixed `apply` or `reset` commands and runs through two ACL-protected SYSTEM tasks; the standard-user control panel cannot construct privileged arguments. Installation requires explicit GPU indices, clock, power, and risk acknowledgement. Indices select cards once, then the tasks pin stable NVIDIA UUIDs. Apply stores exact pre-change power values in a protected atomic rollback record; Reset restores those values and vendor-managed clocks. The `280 W / 1700 MHz` values used on the maintainer's workstation are not universal recommendations. Treat advisor values as benchmark candidates for your exact board and workload.
+
+Before any UAC prompt, inspect the read-only plan. It queries each selected card once, emits no UUID, never changes hardware, and separates profile-range checks from migration readiness:
+
+```powershell
+.\Get-GpuLimitPlan.ps1 -GpuIndexList '0,1' -PowerLimitWatts 280 -MaxGraphicsClockMHz 1700
+```
+
+The installer runs the same plan automatically. It refuses an incomplete profile, a value outside any board's reported limits/default/maximum clock, an unacknowledged increase over the current cap, or an unsafe legacy/profile migration. The planner may suggest a shared no-raise **power starting point**; it intentionally never fabricates a workload-independent clock suggestion.
 
 If you run local AI on Windows, the most useful contribution right now is a privacy-safe [hardware or monitor report](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/issues/new/choose). The Settings window can copy a sanitized diagnostic block for that report. No star is required; reproducible results and focused pull requests are what move the project forward.
 
@@ -248,6 +256,12 @@ HUD در حالت عادی نیمه‌شفاف، بدون Focus و click-through
 ### محدودیت اختیاری GPU انویدیا
 
 نمونهٔ زیر دقیقاً پروفایل مخصوص سیستم فعلی را روی GPUهای 0 و 1 بعد از هر Logon نصب می‌کند. این اعداد توصیهٔ عمومی نیستند؛ ابتدا بازهٔ توان برد خودتان را با `nvidia-smi` و مستندات سازنده بررسی کنید:
+
+ابتدا plan کاملاً read-only را ببینید؛ این فرمان نه UAC دارد و نه GPU write:
+
+```powershell
+.\Get-GpuLimitPlan.ps1 -GpuIndexList '0,1' -PowerLimitWatts 280 -MaxGraphicsClockMHz 1700
+```
 
 ```powershell
 .\Install-GpuLimits.ps1 -GpuIndexList '0,1' -MaxGraphicsClockMHz 1700 -PowerLimitWatts 280 -AcceptHardwareRisk

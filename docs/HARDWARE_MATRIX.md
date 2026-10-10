@@ -12,7 +12,7 @@ This matrix separates live maintainer checks, deterministic fixtures, and extern
 
 ## Maintainer workstation
 
-Last live hardware check: 2026-10-10 with `v0.2.5-alpha.2`. The `v0.2.6-alpha.1` compiled-helper path is deterministic-fixture evidence only until an explicitly approved migration test is recorded.
+Last live read-only hardware check: 2026-10-10 with the `v0.2.6-alpha.2` candidate. The compiled-helper mutation path remains deterministic-fixture evidence only until an explicitly approved migration test is recorded.
 
 | Surface | Environment | Evidence | Result and boundary |
 | --- | --- | --- | --- |
@@ -20,7 +20,9 @@ Last live hardware check: 2026-10-10 with `v0.2.5-alpha.2`. The `v0.2.6-alpha.1`
 | Display placement | Three displays: 3840×2160 at 200%, 1920×1080 at 100%, 1920×1080 at 125% | Maintainer live | The 125% display physically below the second is selected at lower-left. A packaged PowerShell 5.1 reinstall preserved its attached `DISPLAY7` target despite enumeration-order changes. Coverage remains limited to this topology. |
 | NVIDIA telemetry | 2× GeForce RTX 3090 24 GiB, driver 581.57 | Maintainer live | Both rows report load, VRAM, watts/cap, temperature, and graphics clock; missing/malformed sources are fixture-tested to remain unknown/red. |
 | GPU profile identity | Same dual RTX 3090 system | Maintainer live + deterministic fixture | Apply/reset was exercised live; installed 280 W / 1700 MHz ceiling settles at 1695 MHz. Stable UUID targeting is used internally, but UUIDs are never published. Index reorder/replacement cases are deterministic fixtures. |
-| Transactional compiled helper | Fake NVIDIA command runner, protected temporary state | Deterministic fixture (`v0.2.6-alpha.1`) | Strict command parsing, all-target preflight, exact pre-apply backup, Apply rollback, Reset, failed-Reset recovery, corrupt-record rejection, and profile-mismatch refusal pass. No live migration or GPU mutation claimed. |
+| Read-only GPU limit plan | Same dual RTX 3090 system | Maintainer live, query only (`v0.2.6-alpha.2` candidate) | 280 W / 1700 MHz passes the independent profile checks, while the installed legacy applied state correctly returns `legacy-reset-required` and blocks installation. The result contains no UUID and reports `HardwareWrites=false`; no reset, migration, or mutation was performed. |
+| GPU plan policy | Synthetic mixed-board inventory | Deterministic fixture (`v0.2.6-alpha.2`) | Seven cases cover inventory-only output, a shared no-raise power starting point, range/max-clock rejection, explicit acknowledgement before raising a current cap, complete-profile enforcement, and absence of mutation/elevation. Fixture output cannot authorize installation. |
+| Transactional compiled helper | Fake NVIDIA command runner, protected temporary state | Deterministic fixture (`v0.2.6-alpha.2`) | Ten cases cover strict command parsing, all-target preflight, vendor max-clock/current-cap enforcement, exact pre-apply backup, Apply rollback, Reset, failed-Reset recovery, corrupt-record rejection, and profile-mismatch refusal. No live migration or GPU mutation claimed. |
 | Board power ranges | Card 0: 100/420/500 W min/default/max; card 1: 100/370/380 W | Maintainer live | These values demonstrate why limits cannot be universal. `280 W` is only this workstation's approved test profile. |
 | Ollama adapter | Ollama 0.32.5, no installed model | Live boundary + deterministic fixture | Loopback/version and missing-model behavior verified; request/telemetry orchestration is fixture-tested. No throughput or efficiency result claimed. |
 | llama.cpp adapter | No `llama-bench` on PATH and no user-approved GGUF input | Deterministic fixture | Exact official JSON pp/tg parsing, process telemetry, failure retention, and path omission pass. No hardware result claimed. |

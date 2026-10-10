@@ -18,6 +18,7 @@ We aim to acknowledge a complete report within three business days. A fix and di
 - Elevation is required only for applying or resetting GPU limits and installing privileged scheduled tasks.
 - The two SYSTEM tasks execute only an administrator-owned, hash-pinned compiled helper from a non-reparse-point directory. Normal users can read and run the fixed Apply/Reset tasks but cannot modify their commands.
 - The helper accepts only strict `apply` or `reset` grammars, invokes the fixed System32 `nvidia-smi.exe` without a shell, preflights every UUID-pinned target, and refuses standard-user direct execution.
+- Before UAC, the read-only planner queries selected cards and rejects values outside any vendor range/default/maximum clock. Raising a current cap needs a separate acknowledgement that is preserved as a fixed helper argument and independently enforced inside the helper.
 - Apply writes an atomic protected record of exact pre-change values before mutation. Reset consumes that record; it never guesses targets or rollback power limits.
 - Power recommendations are read-only candidates until the user explicitly starts a benchmark and confirms an apply operation.
 - Recommendations must remain inside vendor-reported limits and must not exceed the vendor default.

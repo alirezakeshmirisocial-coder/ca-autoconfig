@@ -14,6 +14,8 @@ param(
 
     [switch]$AcceptHardwareRisk,
 
+    [switch]$AcknowledgePowerIncrease,
+
     [string]$TargetUserName = '',
 
     [string]$TargetUserSid = '',
@@ -36,6 +38,7 @@ $installedHelper = Join-Path $installPath 'CAGpuHelper.exe'
 $statePath = Join-Path $installPath 'gpu-limits-state.json'
 $rollbackPath = Join-Path $installPath 'gpu-limits-backup.json'
 $installResultPath = Join-Path $installPath 'install-result.json'
+$planScript = Join-Path $PSScriptRoot 'Get-GpuLimitPlan.ps1'
 $powerShellPath = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
 $nvidiaSmi = Join-Path $env:SystemRoot 'System32\nvidia-smi.exe'
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(
@@ -192,6 +195,25 @@ if (@($gpuIndexValues | Select-Object -Unique).Count -ne $gpuIndexValues.Count) 
 }
 $gpuIndexArgument = $gpuIndexValues -join ','
 
+if (-not $Elevated) {
+    if (-not (Test-Path -LiteralPath $planScript -PathType Leaf)) { throw "GPU limit planner is missing: $planScript" }
+    $planParameters = @{
+        GpuIndexList = $gpuIndexArgument
+        MaxGraphicsClockMHz = $MaxGraphicsClockMHz
+        PowerLimitWatts = $PowerLimitWatts
+    }
+    if ($AcknowledgePowerIncrease) { $planParameters.AcknowledgePowerIncrease = $true }
+    $plan = & $planScript @planParameters
+    $plan.Gpus | Select-Object Index, Name, CurrentPowerLimitWatts, DefaultPowerLimitWatts,
+        MinimumPowerLimitWatts, MaximumPowerLimitWatts, CurrentGraphicsClockMHz,
+        MaximumGraphicsClockMHz | Format-Table -AutoSize | Out-Host
+    Write-Host ("Plan: {0} | proposed {1} W / {2} MHz | migration {3}" -f
+        $plan.PlanStatus, $PowerLimitWatts, $MaxGraphicsClockMHz, $plan.Migration.Status) -ForegroundColor Cyan
+    if (-not [bool]$plan.CanProceedToInstaller) {
+        throw "GPU limit plan rejected: $(@($plan.ReasonCodes) -join ', '). $($plan.Migration.Action)"
+    }
+}
+
 if ([string]::IsNullOrWhiteSpace($HelperPath)) {
     $helperCandidates = @(
         (Join-Path $PSScriptRoot 'CAGpuHelper.exe'),
@@ -271,7 +293,9 @@ if (-not $isAdmin) {
         '-HelperPath', ('"{0}"' -f $HelperPath),
         '-ExpectedHelperSha256', $ExpectedHelperSha256,
         '-Elevated'
-    ) -join ' '
+    )
+    if ($AcknowledgePowerIncrease) { $arguments += '-AcknowledgePowerIncrease' }
+    $arguments = $arguments -join ' '
     try {
         $process = Start-Process -FilePath $powerShellPath -ArgumentList $arguments -Verb RunAs -Wait -PassThru -WindowStyle Hidden
     }
@@ -319,6 +343,7 @@ try {
 
     $targetPairs = for ($i = 0; $i -lt $gpuIndexValues.Count; $i++) { '{0}={1}' -f $gpuIndexValues[$i], $gpuUuidValues[$i] }
     $applyArguments = 'apply --targets {0} --max-clock {1} --power-limit {2}' -f ($targetPairs -join ','), $MaxGraphicsClockMHz, $PowerLimitWatts
+    if ($AcknowledgePowerIncrease) { $applyArguments += ' --allow-power-increase' }
     $taskSecurityDescriptor = "D:P(A;;FA;;;SY)(A;;FA;;;BA)(A;;GRGX;;;$TargetUserSid)"
 
     Register-ProtectedGpuTask -TaskName $resetTaskName `
@@ -358,6 +383,7 @@ try {
         gpuUuids             = @($gpuUuidValues)
         maxGraphicsClockMHz  = $MaxGraphicsClockMHz
         powerLimitWatts      = $PowerLimitWatts
+        allowPowerIncrease   = $AcknowledgePowerIncrease.IsPresent
         appliedNow           = $true
         helperSha256         = $ExpectedHelperSha256.ToLowerInvariant()
         rollbackPath         = $rollbackPath

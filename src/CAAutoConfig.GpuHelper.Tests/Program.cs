@@ -19,6 +19,8 @@ internal static class Program
             ("parser accepts one fixed apply grammar", ParserAcceptsFixedGrammar),
             ("parser rejects command-shaped target input", ParserRejectsInjection),
             ("preflight failure performs no mutation", PreflightFailurePerformsNoMutation),
+            ("vendor clock ceiling failure performs no mutation", ClockCeilingFailurePerformsNoMutation),
+            ("raising a current power cap requires helper acknowledgement", PowerIncreaseRequiresAcknowledgement),
             ("apply failure rolls back UUID-pinned changes", ApplyFailureRollsBack),
             ("reset uses protected original values", ResetUsesProtectedOriginalValues),
             ("reset failure restores the applied profile", ResetFailureRestoresAppliedProfile),
@@ -41,6 +43,8 @@ internal static class Program
         CliRequest request = CliParser.Parse(new[] { "apply", "--targets", $"0={Uuid0},1={Uuid1}", "--max-clock", "1700", "--power-limit", "280" });
         Assert(request.Targets.Count == 2 && request.MaxClockMHz == 1700 && request.PowerLimitWatts == 280, "valid request was not preserved");
         Assert(CliParser.Parse(new[] { "reset" }).Operation == HelperOperation.Reset, "reset grammar was rejected");
+        CliRequest raised = CliParser.Parse(new[] { "apply", "--targets", $"0={Uuid0}", "--max-clock", "1700", "--power-limit", "300", "--allow-power-increase" });
+        Assert(raised.AllowPowerIncrease, "explicit power-increase flag was not preserved");
     }
 
     private static void ParserRejectsInjection()
@@ -58,6 +62,25 @@ internal static class Program
         ExpectThrows(() => fixture.Service.Apply(Targets(), 1700, 280));
         Assert(!fixture.Runner.Calls.Any(IsMutation), "a GPU was changed before every target passed preflight");
         Assert(!File.Exists(fixture.Store.RollbackPath), "preflight failure wrote a rollback record");
+    }
+
+    private static void ClockCeilingFailurePerformsNoMutation()
+    {
+        using var fixture = new Fixture();
+        fixture.Runner.EnqueueQuery(Inventory(0, Uuid0, 100, 450, 450, 450, 1650));
+        fixture.Runner.EnqueueQuery(Inventory(1, Uuid1, 100, 450, 450, 450, 2100));
+        ExpectThrows(() => fixture.Service.Apply(Targets(), 1700, 280));
+        Assert(!fixture.Runner.Calls.Any(IsMutation), "a GPU changed despite a vendor clock-ceiling violation");
+        Assert(!File.Exists(fixture.Store.RollbackPath), "clock preflight failure wrote a rollback record");
+    }
+
+    private static void PowerIncreaseRequiresAcknowledgement()
+    {
+        using var fixture = new Fixture();
+        fixture.Runner.EnqueueQuery(Inventory(0, Uuid0, 100, 450, 250, 450));
+        ExpectThrows(() => fixture.Service.Apply(new[] { new GpuTarget { RequestedIndex = 0, Uuid = Uuid0 } }, 1700, 280));
+        Assert(!fixture.Runner.Calls.Any(IsMutation), "helper raised a current cap without explicit acknowledgement");
+        Assert(!File.Exists(fixture.Store.RollbackPath), "power-increase preflight failure wrote a rollback record");
     }
 
     private static void ApplyFailureRollsBack()
@@ -173,8 +196,8 @@ internal static class Program
         new GpuTarget { RequestedIndex = 1, Uuid = Uuid1 }
     };
 
-    private static string Inventory(int index, string uuid, double min, double max, double current, double @default) =>
-        $"{index}, {uuid}, Test GPU, {min}, {max}, {current}, {@default}";
+    private static string Inventory(int index, string uuid, double min, double max, double current, double @default, double maxClock = 2100) =>
+        $"{index}, {uuid}, Test GPU, {min}, {max}, {current}, {@default}, {maxClock}";
     private static bool IsMutation(string[] args) => args.Contains("-pl") || args.Contains("-lgc") || args.Contains("-rgc");
     private static void Assert(bool condition, string message) { if (!condition) throw new InvalidOperationException(message); }
     private static void ExpectThrows(Action action) { try { action(); } catch { return; } throw new InvalidOperationException("expected an exception"); }

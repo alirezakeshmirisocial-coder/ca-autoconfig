@@ -24,7 +24,7 @@ internal static class Program
             store = StateStore.ForProgramData();
             var service = new GpuLimitService(new NvidiaSmiRunner(), store);
             HelperState state = request.Operation == HelperOperation.Apply
-                ? service.Apply(request.Targets, request.MaxClockMHz, request.PowerLimitWatts)
+                ? service.Apply(request.Targets, request.MaxClockMHz, request.PowerLimitWatts, request.AllowPowerIncrease)
                 : service.Reset();
             Console.Out.WriteLine(JsonSerializer.Serialize(state, JsonDefaults.Options));
             return 0;
@@ -60,6 +60,7 @@ internal sealed class CliRequest
     public IReadOnlyList<GpuTarget> Targets { get; init; } = Array.Empty<GpuTarget>();
     public int MaxClockMHz { get; init; }
     public double PowerLimitWatts { get; init; }
+    public bool AllowPowerIncrease { get; init; }
 }
 
 internal sealed class GpuTarget
@@ -79,12 +80,13 @@ internal static class CliParser
         if (args.Length == 1 && string.Equals(args[0], "reset", StringComparison.OrdinalIgnoreCase))
             return new CliRequest { Operation = HelperOperation.Reset };
 
-        if (args.Length != 7 || !string.Equals(args[0], "apply", StringComparison.OrdinalIgnoreCase) ||
+        bool allowPowerIncrease = args.Length == 8 && string.Equals(args[7], "--allow-power-increase", StringComparison.Ordinal);
+        if ((args.Length != 7 && !allowPowerIncrease) || !string.Equals(args[0], "apply", StringComparison.OrdinalIgnoreCase) ||
             !string.Equals(args[1], "--targets", StringComparison.Ordinal) ||
             !string.Equals(args[3], "--max-clock", StringComparison.Ordinal) ||
             !string.Equals(args[5], "--power-limit", StringComparison.Ordinal))
         {
-            throw new ArgumentException("Expected: apply --targets <index=GPU-uuid,...> --max-clock <MHz> --power-limit <W>, or: reset");
+            throw new ArgumentException("Expected: apply --targets <index=GPU-uuid,...> --max-clock <MHz> --power-limit <W> [--allow-power-increase], or: reset");
         }
 
         if (!int.TryParse(args[4], NumberStyles.None, CultureInfo.InvariantCulture, out int maxClock) || maxClock < 300 || maxClock > 3000)
@@ -116,7 +118,8 @@ internal static class CliParser
             Operation = HelperOperation.Apply,
             Targets = targets,
             MaxClockMHz = maxClock,
-            PowerLimitWatts = power
+            PowerLimitWatts = power,
+            AllowPowerIncrease = allowPowerIncrease
         };
     }
 
@@ -186,7 +189,7 @@ internal sealed class GpuLimitService
         _store = store;
     }
 
-    public HelperState Apply(IReadOnlyList<GpuTarget> targets, int maxClockMHz, double powerLimitWatts)
+    public HelperState Apply(IReadOnlyList<GpuTarget> targets, int maxClockMHz, double powerLimitWatts, bool allowPowerIncrease = false)
     {
         List<InventoryRow> inventory;
         try
@@ -198,6 +201,10 @@ internal sealed class GpuLimitService
                     throw new InvalidOperationException($"Requested power is outside the vendor range for GPU {row.Index}.");
                 if (powerLimitWatts > row.DefaultPowerWatts + 0.5)
                     throw new InvalidOperationException($"Requested power exceeds the vendor default for GPU {row.Index}.");
+                if (powerLimitWatts > row.CurrentPowerLimitWatts + 0.5 && !allowPowerIncrease)
+                    throw new InvalidOperationException($"Requested power would raise the current limit for GPU {row.Index} without explicit acknowledgement.");
+                if (maxClockMHz > row.MaximumGraphicsClockMHz)
+                    throw new InvalidOperationException($"Requested graphics clock exceeds the vendor-reported maximum for GPU {row.Index}.");
             }
         }
         catch (Exception ex)
@@ -344,9 +351,9 @@ internal sealed class GpuLimitService
     private InventoryRow Preflight(GpuTarget target)
     {
         string output = RunChecked("query GPU inventory", "-i", target.Uuid,
-            "--query-gpu=index,uuid,name,power.min_limit,power.max_limit,power.limit,power.default_limit",
+            "--query-gpu=index,uuid,name,power.min_limit,power.max_limit,power.limit,power.default_limit,clocks.max.gr",
             "--format=csv,noheader,nounits");
-        string[] fields = SplitCsv(output, 7);
+        string[] fields = SplitCsv(output, 8);
         RequireUuid(target.Uuid, fields[1]);
         return new InventoryRow
         {
@@ -357,7 +364,8 @@ internal sealed class GpuLimitService
             MinimumPowerWatts = ParseFinite(fields[3], "minimum power"),
             MaximumPowerWatts = ParseFinite(fields[4], "maximum power"),
             CurrentPowerLimitWatts = ParseFinite(fields[5], "current power limit"),
-            DefaultPowerWatts = ParseFinite(fields[6], "default power")
+            DefaultPowerWatts = ParseFinite(fields[6], "default power"),
+            MaximumGraphicsClockMHz = ParseFinite(fields[7], "maximum graphics clock")
         };
     }
 
@@ -554,6 +562,7 @@ internal sealed class InventoryRow
     public double MaximumPowerWatts { get; init; }
     public double CurrentPowerLimitWatts { get; init; }
     public double DefaultPowerWatts { get; init; }
+    public double MaximumGraphicsClockMHz { get; init; }
 }
 
 internal sealed class MutationRow

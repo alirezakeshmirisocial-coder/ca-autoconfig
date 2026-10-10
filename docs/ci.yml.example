@@ -31,6 +31,9 @@ jobs:
       - name: Privileged helper safety tests
         shell: pwsh
         run: .\tests\GpuLimits.Safety.Tests.ps1
+      - name: Read-only GPU limit plan tests
+        shell: pwsh
+        run: .\tests\GpuLimitPlan.Tests.ps1
       - name: Power-curve calculation and privacy tests
         shell: pwsh
         run: .\benchmark\Run-Tests.ps1

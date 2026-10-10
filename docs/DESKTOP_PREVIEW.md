@@ -19,7 +19,15 @@ Settings also has **Copy diagnostics** for low-friction hardware reports. The co
 
 The release ZIP also includes the optional [`benchmark`](../benchmark/POWER_CURVE_METHOD.md) lab. It records query-only NVIDIA telemetry beside throughput you measured from a workload, rejects common machine identifiers, and produces a scoped Markdown comparison plus a deterministic, evidence-gated SVG share card. Schema-v3 records the power and throughput windows so only aligned evidence becomes `/J`; Ollama/llama.cpp phase rates remain clearly labeled indices, while ComfyUI's same client window can produce aligned `image/J`. A workload gate rejects failed, reset, incomplete, unstable-clock, over-temperature, weak-efficiency, or excessive-throughput-loss candidates. A separate paired idle gate prevents fixture, busy, mixed-driver, or idle-regressing clock-lock evidence from advancing. The adapters omit prompts, responses, local model paths, raw commands, workflows, and output metadata. The lab is not part of the startup task and cannot change a GPU profile.
 
-The ZIP contains a separate optional `CAGpuHelper.exe`. It is not installed by `Install-DesktopApp.ps1`. To opt in, review your board limits and run `Install-GpuLimits.ps1` with explicit GPU indices, MHz, watts, and `-AcceptHardwareRisk`. The installer hash-pins the helper across UAC and registers fixed Apply and Reset SYSTEM tasks. Manual changes require confirmation in the control panel; the protected reset record restores the exact pre-apply power values rather than guessing a universal default.
+The ZIP contains a separate optional `CAGpuHelper.exe`. It is not installed by `Install-DesktopApp.ps1`. Before opting in, inspect a proposed profile without elevation or hardware writes:
+
+```powershell
+.\Get-GpuLimitPlan.ps1 -GpuIndexList '0,1' -PowerLimitWatts 280 -MaxGraphicsClockMHz 1700
+```
+
+The plan shows the selected cards, current/default/supported power limits, current/vendor-maximum graphics clocks, and migration readiness without emitting GPU UUIDs. It can calculate a shared no-raise power starting point, but deliberately leaves the clock suggestion empty because a safe ceiling needs workload evidence. Fixture plans and blocked migrations can never authorize installation.
+
+To opt in, review your exact board limits and run `Install-GpuLimits.ps1` with explicit GPU indices, MHz, watts, and `-AcceptHardwareRisk`. The installer reruns the plan before UAC, hash-pins the helper across elevation, and registers fixed Apply and Reset SYSTEM tasks. Raising an existing current power cap additionally requires `-AcknowledgePowerIncrease`, which is retained in the reviewed fixed task and independently enforced by the helper. Manual changes require confirmation in the control panel; the protected reset record restores the exact pre-apply power values rather than guessing a universal default.
 
 ## Remove
 
@@ -38,6 +46,7 @@ From a source checkout, use the .NET 8 SDK:
 .\Build-GpuHelper.ps1 -SelfContained
 .\tests\DesktopApp.Smoke.Tests.ps1 -SelfContained
 .\tests\GpuLimits.Safety.Tests.ps1
+.\tests\GpuLimitPlan.Tests.ps1
 ```
 
 The smoke mode tests application startup and settings persistence without opening the HUD, changing GPU settings, or writing outside its temporary result directory.

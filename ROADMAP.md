@@ -10,6 +10,7 @@ The product direction is a tiny, trustworthy Windows HUD and safe power optimize
 - [x] User-defined global lock shortcut with conflict detection.
 - [x] GPU power draw, cap, vendor range, temperature, clock, load, and VRAM telemetry.
 - [x] Conservative read-only starting point that never raises an existing lower cap.
+- [x] Read-only pre-UAC install plan with per-board power/clock validation and migration blockers.
 - [x] Scheduled-task installation and control-panel entry.
 - [x] Compile and policy smoke tests.
 

@@ -4,6 +4,13 @@ This project follows semantic versioning after `v1.0.0`. Pre-1.0 releases may ch
 
 ## Unreleased
 
+## v0.2.6-alpha.2 — Read-only preflight plan
+
+- Added a privacy-safe, query-only GPU limit plan that shows selected cards, current/default/vendor power ranges, live/vendor-maximum clocks, a shared no-raise power starting point, and migration readiness before UAC.
+- A proposed profile now fails before elevation if it exceeds any selected board's range/default/maximum clock, is incomplete, would silently raise a current cap, or would overwrite an installed/legacy profile without a safe reset.
+- Extended the compiled helper's independent preflight to enforce the vendor-reported maximum graphics clock and require a fixed-task `--allow-power-increase` flag before raising any current cap.
+- Added seven deterministic planner tests and expanded compiled-helper coverage to ten hardware-isolated cases in PowerShell 7 and Windows PowerShell 5.1.
+
 ## v0.2.6-alpha.1 — Transactional compiled GPU helper
 
 - Replaced the PowerShell-based SYSTEM action with a small compiled helper that accepts only strict `apply` or `reset` commands, launches the fixed System32 `nvidia-smi.exe` without a shell, and refuses standard-user direct execution.
