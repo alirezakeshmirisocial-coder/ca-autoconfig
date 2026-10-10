@@ -39,7 +39,8 @@ internal static class Program
                 _passed++;
                 Console.WriteLine("PASS " + test.Name);
             }
-            Console.WriteLine(_passed + " Windows GPU counter-mapping tests passed. Fixtures performed no hardware access.");
+            _passed += WindowsGpuPollingTests.RunAll();
+            Console.WriteLine(_passed + " Windows GPU telemetry tests passed. Fixtures performed no hardware access.");
             return 0;
         }
         catch (Exception exception)
@@ -62,11 +63,13 @@ internal static class Program
 
     private static void CounterReorderIsStable()
     {
+        WindowsGpuCounterMapResult baseline = WindowsGpuCounterMapper.Map(Inventory(), Observations());
         List<WindowsGpuCounterObservation> observations = Observations();
         observations.Reverse();
         WindowsGpuCounterMapResult result = WindowsGpuCounterMapper.Map(Inventory(), observations);
         Assert(result.MappingChecksPass, "Reordered counters failed mapping.");
         Assert(result.Adapters[0].EngineLoadPercent == 72 && result.Adapters[1].EngineLoadPercent == 41, "Counter reorder changed the adapter assignment.");
+        Assert(result.InternalTopologyFingerprint == baseline.InternalTopologyFingerprint, "Counter reorder changed the topology fingerprint.");
     }
 
     private static void AdapterReorderIsStable()
@@ -77,6 +80,7 @@ internal static class Program
         Assert(result.MappingChecksPass, "Reordered inventory failed mapping.");
         Assert(result.Adapters[0].DisplayIndex == 0 && result.Adapters[0].EngineLoadPercent == 72, "Display row 0 changed after inventory reorder.");
         Assert(result.Adapters[1].DisplayIndex == 1 && result.Adapters[1].EngineLoadPercent == 41, "Display row 1 changed after inventory reorder.");
+        Assert(result.InternalTopologyFingerprint == WindowsGpuCounterMapper.Map(Inventory(), Observations()).InternalTopologyFingerprint, "Inventory reorder changed the topology fingerprint.");
     }
 
     private static void UnknownCounterAdapterFailsClosed()
@@ -189,6 +193,7 @@ internal static class Program
         Assert(json.Contains("live-windows-read-only", StringComparison.Ordinal), "Public report omitted its source boundary.");
         Assert(json.Contains("\"vramPercent\":33", StringComparison.Ordinal), "Public report did not derive bounded VRAM percentage.");
         Assert(!json.Contains("luid_", StringComparison.OrdinalIgnoreCase) && !json.Contains("pid_", StringComparison.OrdinalIgnoreCase), "Public report exposed a raw adapter or process identifier.");
+        Assert(!json.Contains(result.InternalTopologyFingerprint, StringComparison.OrdinalIgnoreCase), "Public report exposed the internal topology fingerprint.");
         Assert(!document.CanUseInHud && !document.HardwareWrites && !document.NetworkAccess && !document.ElevationRequested && !document.RawAdapterIdentifiersIncluded, "Public report weakened a safety boundary.");
     }
 

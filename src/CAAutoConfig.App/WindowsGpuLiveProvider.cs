@@ -29,6 +29,7 @@ namespace CA.SystemOverlay
         public bool NetworkAccess;
         public bool ElevationRequested;
         public bool RawAdapterIdentifiersIncluded;
+        internal string InternalTopologyFingerprint = String.Empty;
         public List<string> ReasonCodes = new List<string>();
         public List<WindowsGpuMappedMetric> Adapters = new List<WindowsGpuMappedMetric>();
     }
@@ -69,6 +70,7 @@ namespace CA.SystemOverlay
             result.Adapters = mapping.Adapters;
             result.ReasonCodes = mapping.ReasonCodes;
             result.ProbeStatus = mapping.MappingChecksPass ? "MAPPING_AVAILABLE" : "BLOCKED";
+            result.InternalTopologyFingerprint = mapping.InternalTopologyFingerprint;
             result.CanUseInHud = false;
             result.HardwareWrites = false;
             result.NetworkAccess = false;

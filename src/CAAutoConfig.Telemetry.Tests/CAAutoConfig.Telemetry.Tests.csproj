@@ -10,6 +10,7 @@
   <ItemGroup>
     <Compile Include="..\CAAutoConfig.App\WindowsGpuCounterMapping.cs" Link="WindowsGpuCounterMapping.cs" />
     <Compile Include="..\CAAutoConfig.App\WindowsGpuLiveProvider.cs" Link="WindowsGpuLiveProvider.cs" />
+    <Compile Include="..\CAAutoConfig.App\WindowsGpuPollingProvider.cs" Link="WindowsGpuPollingProvider.cs" />
   </ItemGroup>
 
   <ItemGroup>

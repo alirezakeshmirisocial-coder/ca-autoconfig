@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.RegularExpressions;
 
 namespace CA.SystemOverlay
@@ -46,6 +48,7 @@ namespace CA.SystemOverlay
         public bool CanProceedToLiveProvider;
         public bool CanUseInHud;
         public bool RawAdapterIdentifiersIncluded;
+        internal string InternalTopologyFingerprint = String.Empty;
         public List<string> ReasonCodes = new List<string>();
         public List<WindowsGpuMappedMetric> Adapters = new List<WindowsGpuMappedMetric>();
     }
@@ -238,7 +241,22 @@ namespace CA.SystemOverlay
             result.CanProceedToLiveProvider = result.MappingChecksPass;
             result.CanUseInHud = false;
             result.RawAdapterIdentifiersIncluded = false;
+            result.InternalTopologyFingerprint = BuildTopologyFingerprint(byKey.Keys);
             return result;
+        }
+
+        private static string BuildTopologyFingerprint(IEnumerable<string> keys)
+        {
+            List<string> sorted = new List<string>(keys);
+            sorted.Sort(StringComparer.OrdinalIgnoreCase);
+            if (sorted.Count == 0)
+                return String.Empty;
+            string joined = String.Join("\n", sorted).ToLowerInvariant();
+            using (SHA256 sha = SHA256.Create())
+            {
+                byte[] digest = sha.ComputeHash(Encoding.UTF8.GetBytes(joined));
+                return BitConverter.ToString(digest).Replace("-", String.Empty).ToLowerInvariant();
+            }
         }
 
         private static bool TryNormalizeAdapterIdentity(string value, out string key)
