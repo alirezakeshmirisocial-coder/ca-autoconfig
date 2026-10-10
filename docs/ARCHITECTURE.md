@@ -87,7 +87,7 @@ The installed source and state are under:
 %ProgramData%\CAGpuLimits\
 ```
 
-That directory is administrator-owned and rejects reparse-point installation. SYSTEM and Administrators receive full control; standard Users receive read and execute access. The scheduled task runs as SYSTEM, but its task descriptor grants only the configured user read/run access, not permission to rewrite the action. This lets the control panel inspect, stop, and start the approved profile without turning it into a general elevation path.
+That directory is administrator-owned and rejects reparse-point installation. SYSTEM and Administrators receive full control; standard Users receive read and execute access. The scheduled task runs as SYSTEM, but its task descriptor grants only the configured user read/run access, not permission to rewrite the action. The control panel's Apply action starts that exact reviewed task and waits for a fresh state result; it never reconstructs the helper command. This lets the configured user inspect, stop, and start the approved profile without turning the UI into a general elevation path.
 
 The HUD's green GPU indicator is not based on the state file alone. It requires a successful state from the current boot, the same configured profile across the expected cards, matching live power caps, and graphics clocks that do not exceed the ceiling beyond a small telemetry tolerance. Missing, stale, failed, or mismatched evidence stays red.
 

@@ -4,6 +4,9 @@ This project follows semantic versioning after `v1.0.0`. Pre-1.0 releases may ch
 
 ## Unreleased
 
+- Fixed the control panel's GPU Apply action to run the already-reviewed protected task and wait for a fresh state result, without rebuilding or omitting privileged-helper arguments.
+- Made Start all and auto-start controls tolerate the intentionally absent camera task in the default HUD-only installation.
+
 ## v0.2.1-alpha.2 — Telemetry resilience and version metadata
 
 - Added an injectable NVIDIA telemetry boundary and eight deterministic fail-closed cases covering missing, timed-out, failed, empty, partial, malformed, and explicit-`N/A` data.

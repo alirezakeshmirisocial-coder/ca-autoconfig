@@ -8,6 +8,7 @@ $root = Split-Path -Parent $PSScriptRoot
 $applyPath = Join-Path $root 'Apply-GpuLimits.ps1'
 $installPath = Join-Path $root 'Install-GpuLimits.ps1'
 $combinedPath = Join-Path $root 'Install-CombinedAutoconfig.ps1'
+$controlPanelPath = Join-Path $root 'CA-ControlPanel.ps1'
 
 function Assert-True {
     param(
@@ -17,7 +18,7 @@ function Assert-True {
     if (-not $Condition) { throw $Message }
 }
 
-foreach ($path in @($applyPath, $installPath, $combinedPath)) {
+foreach ($path in @($applyPath, $installPath, $combinedPath, $controlPanelPath)) {
     $tokens = $null
     $errors = $null
     [void][Management.Automation.Language.Parser]::ParseFile($path, [ref]$tokens, [ref]$errors)
@@ -28,6 +29,7 @@ foreach ($path in @($applyPath, $installPath, $combinedPath)) {
 $apply = Get-Content -Raw -LiteralPath $applyPath
 $install = Get-Content -Raw -LiteralPath $installPath
 $combined = Get-Content -Raw -LiteralPath $combinedPath
+$controlPanel = Get-Content -Raw -LiteralPath $controlPanelPath
 
 Assert-True ($apply -match '\[Parameter\(Mandatory = \$true\)\]\s*\[ValidateNotNullOrEmpty\(\)\]\s*\[string\]\$GpuIndexList') 'Apply script must require an explicit GPU index list.'
 Assert-True ($apply -match '\[Parameter\(Mandatory = \$true\)\]\s*\[ValidateRange\(300, 3000\)\]\s*\[int\]\$MaxGraphicsClockMHz') 'Apply script must require an explicit clock limit.'
@@ -48,6 +50,10 @@ Assert-True ($install.Contains("'-TargetUserName', ('`"{0}`"' -f `$TargetUserNam
 Assert-True ($install.Contains("'-TargetUserSid', `$TargetUserSid")) 'Elevation must preserve the requesting Windows user SID.'
 Assert-True ($combined -match 'if \(\$InstallPresenceMonitor\)') 'Presence monitoring must be opt-in in the combined installer.'
 Assert-True ($combined -match 'if \(\$InstallGpuLimits -or \$ReinstallGpuTask\)') 'GPU mutation must be opt-in in the combined installer.'
+Assert-True ($controlPanel -match 'function Apply-GpuLimits[\s\S]+?Start-ScheduledTask -TaskName \$gpuTaskName') 'The control panel must trigger the reviewed GPU task instead of rebuilding its command.'
+Assert-True ($controlPanel -notmatch '& \$powerShellPath -NoProfile -ExecutionPolicy Bypass -File \$gpuApplyScript') 'The control panel must not invoke the parameterized privileged helper without its approved task arguments.'
+Assert-True ($controlPanel -match "'ApplyGpu' \{ Apply-GpuLimits; return \}") 'The user-facing Apply action must use the readable/runnable task without a second UAC path.'
+Assert-True ($controlPanel -match 'Get-ScheduledTask -TaskName \$presenceTaskName -ErrorAction SilentlyContinue') 'HUD-only installs must tolerate an absent optional camera task.'
 
 $blockedWithoutRisk = $false
 try {
@@ -64,5 +70,6 @@ Assert-True $blockedWithoutRisk 'The installer must fail before elevation or har
     PreflightBeforeWrite = $true
     BestEffortRollback  = $true
     ProtectedTaskSource = $true
+    ControlPanelUsesTask = $true
     CombinedDefaultsSafe = $true
 }
