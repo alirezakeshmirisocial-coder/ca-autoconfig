@@ -39,6 +39,7 @@ internal static class Program
                 _passed++;
                 Console.WriteLine("PASS " + test.Name);
             }
+            _passed += WindowsGpuPdhTests.RunAll();
             _passed += WindowsGpuPollingTests.RunAll();
             Console.WriteLine(_passed + " Windows GPU telemetry tests passed. Fixtures performed no hardware access.");
             return 0;
@@ -190,6 +191,7 @@ internal static class Program
             new FakeCounterSource(true, String.Empty));
         WindowsGpuLiveReportDocument document = WindowsGpuLiveReport.Create(result, DateTime.Parse("2026-10-10T12:00:00Z").ToUniversalTime());
         string json = WindowsGpuLiveReport.Serialize(document);
+        Assert(document.SchemaVersion == 2 && document.CounterProvider == "injected-fixture", "Public report omitted its explicit counter provider.");
         Assert(json.Contains("live-windows-read-only", StringComparison.Ordinal), "Public report omitted its source boundary.");
         Assert(json.Contains("\"vramPercent\":33", StringComparison.Ordinal), "Public report did not derive bounded VRAM percentage.");
         Assert(!json.Contains("luid_", StringComparison.OrdinalIgnoreCase) && !json.Contains("pid_", StringComparison.OrdinalIgnoreCase), "Public report exposed a raw adapter or process identifier.");

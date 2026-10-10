@@ -22,6 +22,7 @@ namespace CA.SystemOverlay
 
     internal sealed class WindowsGpuLiveProbeResult
     {
+        public string CounterProvider = "unknown";
         public string ProbeStatus = "BLOCKED";
         public bool MappingChecksPass;
         public bool CanUseInHud;
@@ -38,12 +39,28 @@ namespace CA.SystemOverlay
     {
         internal static WindowsGpuLiveProbeResult Run()
         {
-            return Run(new DxgiWindowsGpuAdapterSource(), new WmiWindowsGpuCounterSource());
+            return Run(new DxgiWindowsGpuAdapterSource(), new WmiWindowsGpuCounterSource(), "windows-wmi-formatted");
+        }
+
+        internal static WindowsGpuLiveProbeResult RunPdh()
+        {
+            return Run(new DxgiWindowsGpuAdapterSource(), new PdhWindowsGpuCounterSource(), "windows-pdh");
         }
 
         internal static WindowsGpuLiveProbeResult Run(IWindowsGpuAdapterSource adapterSource, IWindowsGpuCounterSource counterSource)
         {
-            WindowsGpuLiveProbeResult result = new WindowsGpuLiveProbeResult();
+            return Run(adapterSource, counterSource, "injected-fixture");
+        }
+
+        private static WindowsGpuLiveProbeResult Run(
+            IWindowsGpuAdapterSource adapterSource,
+            IWindowsGpuCounterSource counterSource,
+            string counterProvider)
+        {
+            WindowsGpuLiveProbeResult result = new WindowsGpuLiveProbeResult
+            {
+                CounterProvider = counterProvider
+            };
             if (adapterSource == null || counterSource == null)
             {
                 result.ReasonCodes.Add("live-source-missing");
@@ -97,24 +114,34 @@ namespace CA.SystemOverlay
         [DataMember(Name = "schemaVersion", Order = 1)] public int SchemaVersion;
         [DataMember(Name = "capturedUtc", Order = 2)] public string CapturedUtc;
         [DataMember(Name = "source", Order = 3)] public string Source;
-        [DataMember(Name = "probeStatus", Order = 4)] public string ProbeStatus;
-        [DataMember(Name = "mappingChecksPass", Order = 5)] public bool MappingChecksPass;
-        [DataMember(Name = "canUseInHud", Order = 6)] public bool CanUseInHud;
-        [DataMember(Name = "reasonCodes", Order = 7)] public string[] ReasonCodes;
-        [DataMember(Name = "adapters", Order = 8)] public WindowsGpuPublicAdapter[] Adapters;
-        [DataMember(Name = "hardwareWrites", Order = 9)] public bool HardwareWrites;
-        [DataMember(Name = "networkAccess", Order = 10)] public bool NetworkAccess;
-        [DataMember(Name = "elevationRequested", Order = 11)] public bool ElevationRequested;
-        [DataMember(Name = "rawAdapterIdentifiersIncluded", Order = 12)] public bool RawAdapterIdentifiersIncluded;
+        [DataMember(Name = "counterProvider", Order = 4)] public string CounterProvider;
+        [DataMember(Name = "probeStatus", Order = 5)] public string ProbeStatus;
+        [DataMember(Name = "mappingChecksPass", Order = 6)] public bool MappingChecksPass;
+        [DataMember(Name = "canUseInHud", Order = 7)] public bool CanUseInHud;
+        [DataMember(Name = "reasonCodes", Order = 8)] public string[] ReasonCodes;
+        [DataMember(Name = "adapters", Order = 9)] public WindowsGpuPublicAdapter[] Adapters;
+        [DataMember(Name = "hardwareWrites", Order = 10)] public bool HardwareWrites;
+        [DataMember(Name = "networkAccess", Order = 11)] public bool NetworkAccess;
+        [DataMember(Name = "elevationRequested", Order = 12)] public bool ElevationRequested;
+        [DataMember(Name = "rawAdapterIdentifiersIncluded", Order = 13)] public bool RawAdapterIdentifiersIncluded;
     }
 
     internal static class WindowsGpuLiveReport
     {
         internal static int Write(string resultPath)
         {
+            return Write(resultPath, "wmi");
+        }
+
+        internal static int Write(string resultPath, string provider)
+        {
             try
             {
-                WindowsGpuLiveReportDocument document = Create(WindowsGpuLiveProbe.Run(), DateTime.UtcNow);
+                bool usePdh = String.Equals(provider, "pdh", StringComparison.OrdinalIgnoreCase);
+                if (!usePdh && !String.Equals(provider, "wmi", StringComparison.OrdinalIgnoreCase))
+                    throw new ArgumentException("Windows GPU provider must be 'wmi' or 'pdh'.", "provider");
+                WindowsGpuLiveProbeResult probe = usePdh ? WindowsGpuLiveProbe.RunPdh() : WindowsGpuLiveProbe.Run();
+                WindowsGpuLiveReportDocument document = Create(probe, DateTime.UtcNow);
                 string fullPath = Path.GetFullPath(resultPath);
                 string directory = Path.GetDirectoryName(fullPath);
                 if (!String.IsNullOrWhiteSpace(directory))
@@ -155,9 +182,10 @@ namespace CA.SystemOverlay
 
             return new WindowsGpuLiveReportDocument
             {
-                SchemaVersion = 1,
+                SchemaVersion = 2,
                 CapturedUtc = capturedUtc.ToUniversalTime().ToString("o", CultureInfo.InvariantCulture),
                 Source = "live-windows-read-only",
+                CounterProvider = result.CounterProvider,
                 ProbeStatus = result.ProbeStatus,
                 MappingChecksPass = result.MappingChecksPass,
                 CanUseInHud = false,

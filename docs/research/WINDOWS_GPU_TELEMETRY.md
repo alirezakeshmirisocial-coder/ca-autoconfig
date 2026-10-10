@@ -46,7 +46,7 @@ The HUD must continue showing unknown/red when the provider cannot meet the cont
 
 1. **Capability probe — implemented:** `Get-WindowsGpuCapability.ps1` enumerates available counter sets and video-controller names as a normal user. It returns only capability/status metadata and sanitized names, rejects raw identifier fields from fixtures, and can never authorize HUD use.
 2. **Recorded mapping core — implemented:** the pure `WindowsGpuCounterMapper` joins DXGI inventory and counter rows by an internal normalized LUID/physical-adapter key. Fourteen deterministic cases cover duplicate model names, counter and adapter enumeration reorder, unknown/malformed identities, missing memory, duplicate identities, DXGI-flagged software adapters, provider failures, privacy-safe reporting, and process-aware busiest-engine aggregation. Fixture tests perform no hardware access and always keep `CanUseInHud=false`.
-3. **Read-only live research provider and polling core — implemented, not connected to the HUD:** DXGI supplies the adapter description, LUID, software flag, and dedicated-memory capacity; Windows formatted GPU classes supply per-process engine samples and whole-adapter dedicated usage. The join key remains internal. The one-shot provider uses no shell command, network access, elevation, or hardware write and emits a sanitized schema-v1 JSON report. The coordinator requires two matching topology samples, tolerates row reorder, clears output after a mapping failure or stale deadline, requires revalidation after a topology/reset fingerprint change, and suppresses overlapping collections. Sustained live cadence/CPU evidence remains open.
+3. **Read-only live research providers and polling core — implemented, not connected to the HUD:** DXGI supplies the adapter description, LUID, software flag, and dedicated-memory capacity. The original source reads Windows formatted WMI GPU classes; the independent native source uses PDH and the documented two-sample method. An explicit selector keeps their evidence separate and forbids silent fallback. PDH values are requested with `PDH_FMT_NOCAP100`, and every item's `CStatus` must be `VALID_DATA` or `NEW_DATA`; invalid values fail the whole sample instead of being clamped or discarded. The join key remains internal. The one-shot provider uses no shell command, network access, elevation, or hardware write and emits a sanitized schema-v2 JSON report. The coordinator requires two matching topology samples, tolerates row reorder, clears output after a mapping failure or stale deadline, requires revalidation after a topology/reset fingerprint change, and suppresses overlapping collections.
 4. **Cross-hardware validation:** require Windows 10 and 11 results covering AMD, Intel, NVIDIA, integrated/discrete, and at least one inaccessible-counter environment.
 5. **HUD integration:** display the provider label and only supported fields. NVIDIA profile health remains an NVIDIA-specific state until equivalent identity and limit evidence exists.
 
@@ -56,10 +56,12 @@ The HUD must continue showing unknown/red when the provider cannot meet the cont
 - unavailable, access-denied, stale, malformed, duplicate, and partial evidence fail closed;
 - a standard-user live capture identifies the provider and field capabilities without exposing raw identifiers;
 - CPU use and collection latency are measured over at least ten minutes with the normal two-second cadence;
-- external reports cover at least three GPU families and retain failures;
+- external reports cover at least three GPU families, Windows 10/11, and at least one non-English Windows display language, and retain failures;
 - architecture, privacy, diagnostics, and hardware-matrix documents state the observed field scope.
 
 Until those items exist, CA AutoConfig remains honest by reporting NVIDIA telemetry where supported and `unknown` elsewhere.
+
+External testers can submit the complete sanitized output through the [Windows GPU telemetry result form](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/issues/new?template=windows-gpu-result.yml). The form requires release/commit, Windows build and display language, every adapter and driver, the explicit provider, standard-user context, all retained failures, and a privacy check; a star is neither requested nor required.
 
 Run the first-stage probe without changing the HUD or hardware:
 
@@ -72,7 +74,7 @@ Run the first-stage probe without changing the HUD or hardware:
 From a current self-contained source build, write one sanitized live research report with:
 
 ```powershell
-.\dist\desktop-win-x64-self-contained\CAAutoConfig.exe --windows-gpu-probe-result .\windows-gpu-probe.json
+.\dist\desktop-win-x64-self-contained\CAAutoConfig.exe --windows-gpu-probe-result .\windows-gpu-probe.json --windows-gpu-provider pdh
 ```
 
 On the maintainer's dual-RTX-3090 system this returned two distinct hardware rows, matched engine and dedicated-memory counters, and excluded the DXGI-flagged software adapter. The report declared `MAPPING_AVAILABLE`, `CanUseInHud=false`, no raw adapter identifiers, and no hardware/network/elevation action. Ten additional hardware-independent polling/report cases cover stable-pair warm-up, reorder, topology change, failure, staleness, overlap, measurement counts, and output privacy. This is still one-machine evidence, not AMD/Intel or cross-Windows validation.
@@ -83,7 +85,8 @@ Current source builds can run a bounded cadence benchmark without touching the H
 .\CAAutoConfig.exe `
   --windows-gpu-poll-result .\windows-gpu-poll.json `
   --windows-gpu-poll-seconds 600 `
-  --windows-gpu-poll-ms 2000
+  --windows-gpu-poll-ms 2000 `
+  --windows-gpu-provider pdh
 ```
 
 The schema-v2 report contains normalized process CPU, elapsed time, completed/successful/unavailable collection counts, suppressed overlaps, last/maximum collection latency, final freshness/topology state, and the same sanitized adapter fields. Duration is constrained to 10–3600 seconds and cadence to 1000–60000 milliseconds. The command never adds the provider to the HUD and always writes `canUseInHud=false`.
@@ -97,3 +100,11 @@ A 600-second, 2000-ms-cadence run on the dual-RTX-3090 Windows 10 host completed
 That first schema-v1 run retained the failure count but not each intermediate reason. After adding the schema-v2 histogram, a 60-second reproduction completed 31 collections with 29 successes and 2 `engine-counter-out-of-range` failures. A separate privacy-safe inspection of the formatted WMI class found 6 of 1374 engine instances above 100%, with a maximum above one million percent, while a direct Windows counter query returned no value above 100% in the compared sample. This is a maintainer observation, not a universal Windows claim. CA AutoConfig will not clamp, discard, or silently promote those invalid readings; the formatted WMI engine source remains research-only and blocked from the HUD.
 
 The mapping core first sums process-scoped samples for the same physical engine, then uses the busiest engine percentage for the adapter. It does not sum 3D, copy, video, and compute engines together because parallel or shared-core engines can exceed 100% and misrepresent utilization. This follows the aggregation rationale documented by Microsoft's [DirectX team](https://devblogs.microsoft.com/directx/gpus-in-the-task-manager/). The live provider must prove that the same normalized key is obtained from DXGI and Windows performance counters within one sample before this result can enter the HUD.
+
+### Native PDH comparison
+
+Microsoft's [collection procedure](https://learn.microsoft.com/en-us/windows/win32/perfctrs/collecting-performance-data) states that rate counters commonly need two samples separated by at least one second. [`PdhGetFormattedCounterArrayW`](https://learn.microsoft.com/en-us/windows/win32/api/pdh/nf-pdh-pdhgetformattedcounterarrayw) is the array API for wildcard instances, and Microsoft requires consumers to inspect each returned [`PDH_FMT_COUNTERVALUE.CStatus`](https://learn.microsoft.com/en-us/windows/win32/api/pdh/ns-pdh-pdh_fmt_countervalue). The implementation follows those rules and deliberately requests uncapped percentages so an invalid value above 100 cannot be converted into plausible success.
+
+On the maintainer's dual-RTX-3090 Windows 10 host, the first native-PDH one-shot mapped both cards with zero engine load and dedicated-memory values that matched the two contemporaneous `nvidia-smi` values after accounting for different DXGI/NVML enumeration order. Short 60-second runs produced 28/30, 27/30, and 30/30 successful mappings, showing that a clean final snapshot or short run can hide intermittent failure.
+
+The required 600-second, 2000-ms-cadence run completed 300 collections: 259 mapped successfully and 41 failed, all with `pdh-engine-data-invalid`; no memory-status failure or overlap occurred. Maximum collection latency was 1551 ms and normalized process CPU was 0.027%. The final snapshot had recovered to `READY_FOR_VALIDATION`, but the retained 13.67% failure rate means the production gate failed. Final zero-load and sorted dedicated-memory values still agreed with a contemporaneous read-only `nvidia-smi` query within the expected sampling delay. PDH reduces overhead and avoids the WMI outlier shape, but its engine values are not yet reliable enough for the HUD. Invalid status remains visible rather than ignored, `CanUseInHud=false`, and promotion now requires a robust engine strategy plus sleep/reset and external AMD/Intel/NVIDIA evidence.

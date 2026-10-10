@@ -200,6 +200,7 @@ internal static class WindowsGpuPollingTests
             WindowsGpuPollingReportDocument report = WindowsGpuPollingBenchmark.Create(snapshot, now, 600, 2000, 600000, 0.25);
             string json = WindowsGpuPollingBenchmark.Serialize(report);
             Assert(report.SchemaVersion == 2, "Polling report schema was not advanced for retained failure reasons.");
+            Assert(report.CounterProvider == "injected-fixture", "Polling report omitted its explicit counter provider.");
             Assert(json.Contains("live-windows-polling-read-only", StringComparison.Ordinal), "Polling report omitted its source boundary.");
             Assert(json.Contains("\"normalizedProcessCpuPercent\":0.25", StringComparison.Ordinal), "Polling report omitted normalized process CPU.");
             Assert(!json.Contains("private-fingerprint", StringComparison.Ordinal) && !json.Contains("luid_", StringComparison.OrdinalIgnoreCase) && !json.Contains("pid_", StringComparison.OrdinalIgnoreCase), "Polling report exposed internal identity.");

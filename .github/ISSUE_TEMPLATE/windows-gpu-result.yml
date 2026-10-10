@@ -1,0 +1,71 @@
+name: Windows GPU telemetry result
+description: Share a sanitized WMI or PDH research report without enabling the HUD provider.
+title: "[Windows GPU]: "
+labels: ["hardware validation", "area:telemetry"]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Release or commit
+      description: Use an exact release tag or commit SHA. The native PDH selector is unreleased until noted otherwise.
+      placeholder: v0.2.6-alpha.4 or 0123456789abcdef
+    validations:
+      required: true
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version, build, and display language
+      placeholder: Windows 11 24H2 build 26100, German
+    validations:
+      required: true
+  - type: textarea
+    id: gpu
+    attributes:
+      label: GPU models and driver
+      description: List every hardware adapter. Omit UUIDs, serials, PNP IDs, and PCI bus IDs.
+      placeholder: AMD Radeon ..., Intel Arc ..., NVIDIA GeForce ...; driver ...
+    validations:
+      required: true
+  - type: dropdown
+    id: provider
+    attributes:
+      label: Counter provider
+      options:
+        - windows-pdh
+        - windows-wmi-formatted
+    validations:
+      required: true
+  - type: textarea
+    id: command
+    attributes:
+      label: Research command and duration
+      description: Include the public command and whether the shell was a standard-user session. Remove personal paths.
+      placeholder: .\CAAutoConfig.exe --windows-gpu-poll-result .\report.json --windows-gpu-poll-seconds 600 --windows-gpu-poll-ms 2000 --windows-gpu-provider pdh
+    validations:
+      required: true
+  - type: textarea
+    id: report
+    attributes:
+      label: Sanitized JSON report
+      description: Attach or paste the complete report, including every failure-reason count. Inspect it before submission.
+      render: json
+    validations:
+      required: true
+  - type: textarea
+    id: observations
+    attributes:
+      label: Comparison and observed failures
+      description: Note Task Manager/vendor-tool agreement, sleep/resume or driver-reset behavior, and every mismatch or unavailable sample. Do not report only the best run.
+  - type: checkboxes
+    id: boundaries
+    attributes:
+      label: Evidence boundaries
+      options:
+        - label: I ran the research command as a standard user unless explicitly stated otherwise.
+          required: true
+        - label: I retained failed and unavailable samples and did not edit values to look successful.
+          required: true
+        - label: The report says canUseInHud=false, hardwareWrites=false, networkAccess=false, and elevationRequested=false.
+          required: true
+        - label: I removed LUIDs, PIDs, PNP/PCI identifiers, UUIDs, user or machine names, and personal paths.
+          required: true

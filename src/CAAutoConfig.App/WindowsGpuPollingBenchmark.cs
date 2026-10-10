@@ -23,32 +23,38 @@ namespace CA.SystemOverlay
         [DataMember(Name = "schemaVersion", Order = 1)] public int SchemaVersion;
         [DataMember(Name = "capturedUtc", Order = 2)] public string CapturedUtc;
         [DataMember(Name = "source", Order = 3)] public string Source;
-        [DataMember(Name = "durationSeconds", Order = 4)] public int DurationSeconds;
-        [DataMember(Name = "intervalMilliseconds", Order = 5)] public int IntervalMilliseconds;
-        [DataMember(Name = "elapsedMilliseconds", Order = 6)] public long ElapsedMilliseconds;
-        [DataMember(Name = "normalizedProcessCpuPercent", Order = 7)] public double NormalizedProcessCpuPercent;
-        [DataMember(Name = "finalStatus", Order = 8)] public string FinalStatus;
-        [DataMember(Name = "mappingReadyForValidation", Order = 9)] public bool MappingReadyForValidation;
-        [DataMember(Name = "canUseInHud", Order = 10)] public bool CanUseInHud;
-        [DataMember(Name = "consecutiveStableSamples", Order = 11)] public int ConsecutiveStableSamples;
-        [DataMember(Name = "completedCollections", Order = 12)] public int CompletedCollections;
-        [DataMember(Name = "successfulMappingCollections", Order = 13)] public int SuccessfulMappingCollections;
-        [DataMember(Name = "unavailableCollections", Order = 14)] public int UnavailableCollections;
-        [DataMember(Name = "suppressedOverlaps", Order = 15)] public int SuppressedOverlaps;
-        [DataMember(Name = "lastCollectionDurationMilliseconds", Order = 16)] public long LastCollectionDurationMilliseconds;
-        [DataMember(Name = "maximumCollectionDurationMilliseconds", Order = 17)] public long MaximumCollectionDurationMilliseconds;
-        [DataMember(Name = "reasonCodes", Order = 18)] public string[] ReasonCodes;
-        [DataMember(Name = "failureReasonCounts", Order = 19)] public WindowsGpuPollingReasonCount[] FailureReasonCounts;
-        [DataMember(Name = "adapters", Order = 20)] public WindowsGpuPublicAdapter[] Adapters;
-        [DataMember(Name = "hardwareWrites", Order = 21)] public bool HardwareWrites;
-        [DataMember(Name = "networkAccess", Order = 22)] public bool NetworkAccess;
-        [DataMember(Name = "elevationRequested", Order = 23)] public bool ElevationRequested;
-        [DataMember(Name = "rawAdapterIdentifiersIncluded", Order = 24)] public bool RawAdapterIdentifiersIncluded;
+        [DataMember(Name = "counterProvider", Order = 4)] public string CounterProvider;
+        [DataMember(Name = "durationSeconds", Order = 5)] public int DurationSeconds;
+        [DataMember(Name = "intervalMilliseconds", Order = 6)] public int IntervalMilliseconds;
+        [DataMember(Name = "elapsedMilliseconds", Order = 7)] public long ElapsedMilliseconds;
+        [DataMember(Name = "normalizedProcessCpuPercent", Order = 8)] public double NormalizedProcessCpuPercent;
+        [DataMember(Name = "finalStatus", Order = 9)] public string FinalStatus;
+        [DataMember(Name = "mappingReadyForValidation", Order = 10)] public bool MappingReadyForValidation;
+        [DataMember(Name = "canUseInHud", Order = 11)] public bool CanUseInHud;
+        [DataMember(Name = "consecutiveStableSamples", Order = 12)] public int ConsecutiveStableSamples;
+        [DataMember(Name = "completedCollections", Order = 13)] public int CompletedCollections;
+        [DataMember(Name = "successfulMappingCollections", Order = 14)] public int SuccessfulMappingCollections;
+        [DataMember(Name = "unavailableCollections", Order = 15)] public int UnavailableCollections;
+        [DataMember(Name = "suppressedOverlaps", Order = 16)] public int SuppressedOverlaps;
+        [DataMember(Name = "lastCollectionDurationMilliseconds", Order = 17)] public long LastCollectionDurationMilliseconds;
+        [DataMember(Name = "maximumCollectionDurationMilliseconds", Order = 18)] public long MaximumCollectionDurationMilliseconds;
+        [DataMember(Name = "reasonCodes", Order = 19)] public string[] ReasonCodes;
+        [DataMember(Name = "failureReasonCounts", Order = 20)] public WindowsGpuPollingReasonCount[] FailureReasonCounts;
+        [DataMember(Name = "adapters", Order = 21)] public WindowsGpuPublicAdapter[] Adapters;
+        [DataMember(Name = "hardwareWrites", Order = 22)] public bool HardwareWrites;
+        [DataMember(Name = "networkAccess", Order = 23)] public bool NetworkAccess;
+        [DataMember(Name = "elevationRequested", Order = 24)] public bool ElevationRequested;
+        [DataMember(Name = "rawAdapterIdentifiersIncluded", Order = 25)] public bool RawAdapterIdentifiersIncluded;
     }
 
     internal static class WindowsGpuPollingBenchmark
     {
         internal static int Write(string resultPath, int durationSeconds, int intervalMilliseconds)
+        {
+            return Write(resultPath, durationSeconds, intervalMilliseconds, "wmi");
+        }
+
+        internal static int Write(string resultPath, int durationSeconds, int intervalMilliseconds, string providerName)
         {
             if (durationSeconds < 10 || durationSeconds > 3600)
                 throw new ArgumentOutOfRangeException("durationSeconds");
@@ -57,6 +63,12 @@ namespace CA.SystemOverlay
 
             try
             {
+                bool usePdh = String.Equals(providerName, "pdh", StringComparison.OrdinalIgnoreCase);
+                if (!usePdh && !String.Equals(providerName, "wmi", StringComparison.OrdinalIgnoreCase))
+                    throw new ArgumentException("Windows GPU provider must be 'wmi' or 'pdh'.", "providerName");
+                Func<WindowsGpuLiveProbeResult> collector = usePdh
+                    ? new Func<WindowsGpuLiveProbeResult>(WindowsGpuLiveProbe.RunPdh)
+                    : new Func<WindowsGpuLiveProbeResult>(WindowsGpuLiveProbe.Run);
                 TimeSpan cpuStart;
                 TimeSpan cpuEnd;
                 Stopwatch elapsed = Stopwatch.StartNew();
@@ -65,11 +77,14 @@ namespace CA.SystemOverlay
                 {
                     process.Refresh();
                     cpuStart = process.TotalProcessorTime;
-                    using (WindowsGpuPollingProvider provider = new WindowsGpuPollingProvider())
+                    using (WindowsGpuPollingProvider provider = new WindowsGpuPollingProvider(
+                        collector,
+                        delegate { return DateTime.UtcNow; },
+                        TimeSpan.FromMilliseconds(Math.Max(8000, intervalMilliseconds * 4)),
+                        2))
                     {
                         provider.Start(intervalMilliseconds);
                         Thread.Sleep(TimeSpan.FromSeconds(durationSeconds));
-                        provider.Dispose();
                         snapshot = provider.GetSnapshot();
                     }
                     elapsed.Stop();
@@ -89,7 +104,8 @@ namespace CA.SystemOverlay
                     durationSeconds,
                     intervalMilliseconds,
                     elapsed.ElapsedMilliseconds,
-                    cpuPercent);
+                    cpuPercent,
+                    usePdh ? "windows-pdh" : "windows-wmi-formatted");
                 string fullPath = Path.GetFullPath(resultPath);
                 string directory = Path.GetDirectoryName(fullPath);
                 if (!String.IsNullOrWhiteSpace(directory))
@@ -110,6 +126,25 @@ namespace CA.SystemOverlay
             int intervalMilliseconds,
             long elapsedMilliseconds,
             double normalizedProcessCpuPercent)
+        {
+            return Create(
+                snapshot,
+                capturedUtc,
+                durationSeconds,
+                intervalMilliseconds,
+                elapsedMilliseconds,
+                normalizedProcessCpuPercent,
+                "injected-fixture");
+        }
+
+        internal static WindowsGpuPollingReportDocument Create(
+            WindowsGpuPollingSnapshot snapshot,
+            DateTime capturedUtc,
+            int durationSeconds,
+            int intervalMilliseconds,
+            long elapsedMilliseconds,
+            double normalizedProcessCpuPercent,
+            string counterProvider)
         {
             if (snapshot == null)
                 throw new ArgumentNullException("snapshot");
@@ -150,6 +185,7 @@ namespace CA.SystemOverlay
                 SchemaVersion = 2,
                 CapturedUtc = capturedUtc.ToUniversalTime().ToString("o", CultureInfo.InvariantCulture),
                 Source = "live-windows-polling-read-only",
+                CounterProvider = counterProvider,
                 DurationSeconds = durationSeconds,
                 IntervalMilliseconds = intervalMilliseconds,
                 ElapsedMilliseconds = elapsedMilliseconds,

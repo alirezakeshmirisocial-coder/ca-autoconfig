@@ -20,7 +20,8 @@ The product direction is a tiny, trustworthy Windows HUD and safe power optimize
 - [x] Resolve selected GPU indices once at installation, pin the task/state to NVIDIA UUIDs, and verify live identity with legacy-state fallback.
 - [x] Isolate the minimal elevated apply/reset helper behind fixed ACL-protected Task Scheduler commands and a compiled strict-command executable.
 - [x] Add a deterministic simulated NVIDIA source and fail-closed tests for missing, timed-out, empty, partial, malformed, and explicit-`N/A` telemetry.
-- [ ] Add a WDDM provider/fallback with the same capability and failure contract; follow the [Windows telemetry provider boundary](docs/research/WINDOWS_GPU_TELEMETRY.md).
+- [x] Build a research-only WDDM path with a capability probe, deterministic LUID mapping, explicit WMI/native-PDH sources, sanitized reports, bounded polling, and fail-closed status retention; follow the [Windows telemetry provider boundary](docs/research/WINDOWS_GPU_TELEMETRY.md).
+- [ ] Promote any WDDM field into the HUD only after a clean sustained run, sleep/reset recovery, and external Windows 10/11 AMD/Intel/NVIDIA evidence satisfy that boundary.
 - [x] Package a reproducible self-contained `win-x64` ZIP with a least-privilege installer and checksum.
 - [x] Add an offline, no-extraction package verifier for checksum, ZIP-path, size, required-file, and version integrity.
 - [x] Prepare an offline Windows Sandbox install/task/uninstall harness with read-only package input and privacy-safe evidence output.

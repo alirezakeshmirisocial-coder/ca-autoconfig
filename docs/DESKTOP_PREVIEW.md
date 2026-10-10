@@ -46,15 +46,15 @@ It reports sanitized video-controller names and whether Windows exposes GPU engi
 Current source builds also expose the next research stage through the compiled executable:
 
 ```powershell
-.\CAAutoConfig.exe --windows-gpu-probe-result .\windows-gpu-probe.json
+.\CAAutoConfig.exe --windows-gpu-probe-result .\windows-gpu-probe.json --windows-gpu-provider pdh
 ```
 
-This explicit one-shot probe joins DXGI adapters to Windows engine and dedicated-memory counters, filters only adapters carrying the official DXGI software flag, and writes a sanitized local JSON report. It does not alter the running HUD, poll in the background, request elevation, access the network, change hardware, or emit raw LUID/PID values. `canUseInHud` remains `false` even when mapping succeeds.
+This explicit one-shot probe joins DXGI adapters to Windows engine and dedicated-memory counters, filters only adapters carrying the official DXGI software flag, and writes a sanitized local JSON report. Select `pdh` for the native Performance Data Helper experiment or `wmi` for the original formatted-WMI experiment; reports name the chosen provider and never fall back between them. It does not alter the running HUD, poll in the background, request elevation, access the network, change hardware, or emit raw LUID/PID values. `canUseInHud` remains `false` even when mapping succeeds.
 
 Unreleased source builds also provide an explicit bounded polling benchmark for measuring collection latency and normalized process CPU before any HUD integration:
 
 ```powershell
-.\CAAutoConfig.exe --windows-gpu-poll-result .\windows-gpu-poll.json --windows-gpu-poll-seconds 600 --windows-gpu-poll-ms 2000
+.\CAAutoConfig.exe --windows-gpu-poll-result .\windows-gpu-poll.json --windows-gpu-poll-seconds 600 --windows-gpu-poll-ms 2000 --windows-gpu-provider pdh
 ```
 
 The benchmark report is local and sanitized, and `canUseInHud` remains `false`. It is research evidence, not a background service or supported AMD/Intel HUD claim.

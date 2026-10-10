@@ -5,6 +5,7 @@ This project follows semantic versioning after `v1.0.0`. Pre-1.0 releases may ch
 ## Unreleased
 
 - Added a research-only Windows GPU polling coordinator with two-sample topology stabilization, reorder tolerance, reset/topology revalidation, stale/failure clearing, overlap suppression, immutable safe snapshots, collection timing/counts, and ten deterministic cases. Schema-v2 benchmark reports retain a sorted failure-reason histogram as well as normalized process CPU and cadence evidence; the provider remains disconnected from the HUD and cannot authorize telemetry.
+- Added a separate native PDH research source for Windows GPU engine and dedicated-memory counters. It takes the documented two samples, rejects and safely classifies invalid per-counter status instead of clamping it, exposes an explicit `wmi`/`pdh` CLI selector, and remains read-only and disconnected from the HUD. Seven deterministic PDH-boundary cases bring the compiled telemetry suite to 31 tests. The first required 600-second run retained 41 invalid-engine samples out of 300, so the HUD gate remains failed despite lower CPU/latency and stable memory mapping.
 
 ## v0.2.6-alpha.4 — Windows GPU research probe
 

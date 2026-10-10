@@ -18,6 +18,8 @@ namespace CA.SystemOverlay
             string smokeResult = String.Empty;
             string windowsGpuProbeResult = String.Empty;
             string windowsGpuPollResult = String.Empty;
+            string windowsGpuProvider = "wmi";
+            bool windowsGpuProviderSpecified = false;
             int windowsGpuPollSeconds = 60;
             int windowsGpuPollMilliseconds = 2000;
             bool windowsGpuPollOptionSpecified = false;
@@ -81,6 +83,11 @@ namespace CA.SystemOverlay
                         windowsGpuPollMilliseconds = Int32.Parse(ReadValue(args, ref index, argument), CultureInfo.InvariantCulture);
                         windowsGpuPollOptionSpecified = true;
                     }
+                    else if (String.Equals(argument, "--windows-gpu-provider", StringComparison.OrdinalIgnoreCase))
+                    {
+                        windowsGpuProvider = ReadValue(args, ref index, argument).ToLowerInvariant();
+                        windowsGpuProviderSpecified = true;
+                    }
                     else
                     {
                         throw new ArgumentException("Unknown argument: " + argument);
@@ -93,6 +100,11 @@ namespace CA.SystemOverlay
                     throw new ArgumentOutOfRangeException("opacity", "--opacity must be between 0.58 and 0.95.");
                 if (windowsGpuPollOptionSpecified && String.IsNullOrWhiteSpace(windowsGpuPollResult))
                     throw new ArgumentException("--windows-gpu-poll-result is required with Windows GPU polling options.");
+                if (windowsGpuProviderSpecified && String.IsNullOrWhiteSpace(windowsGpuProbeResult) && String.IsNullOrWhiteSpace(windowsGpuPollResult))
+                    throw new ArgumentException("--windows-gpu-provider is only valid with a Windows GPU probe or polling benchmark.");
+                if (!String.Equals(windowsGpuProvider, "wmi", StringComparison.OrdinalIgnoreCase) &&
+                    !String.Equals(windowsGpuProvider, "pdh", StringComparison.OrdinalIgnoreCase))
+                    throw new ArgumentException("--windows-gpu-provider must be 'wmi' or 'pdh'.");
                 if (!String.IsNullOrWhiteSpace(windowsGpuProbeResult) && !String.IsNullOrWhiteSpace(windowsGpuPollResult))
                     throw new ArgumentException("Choose either the one-shot Windows GPU probe or the polling benchmark, not both.");
                 if (windowsGpuPollSeconds < 10 || windowsGpuPollSeconds > 3600)
@@ -103,9 +115,9 @@ namespace CA.SystemOverlay
                 if (!String.IsNullOrWhiteSpace(smokeResult))
                     return DesktopSmokeTest.Run(smokeResult);
                 if (!String.IsNullOrWhiteSpace(windowsGpuProbeResult))
-                    return WindowsGpuLiveReport.Write(windowsGpuProbeResult);
+                    return WindowsGpuLiveReport.Write(windowsGpuProbeResult, windowsGpuProvider);
                 if (!String.IsNullOrWhiteSpace(windowsGpuPollResult))
-                    return WindowsGpuPollingBenchmark.Write(windowsGpuPollResult, windowsGpuPollSeconds, windowsGpuPollMilliseconds);
+                    return WindowsGpuPollingBenchmark.Write(windowsGpuPollResult, windowsGpuPollSeconds, windowsGpuPollMilliseconds, windowsGpuProvider);
                 if (openSettings && Program.RequestSettings())
                     return 0;
 
