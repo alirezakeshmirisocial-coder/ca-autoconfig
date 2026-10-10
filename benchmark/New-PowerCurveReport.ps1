@@ -13,7 +13,7 @@ if ($DryRun -and $InputPath.Count -gt 0) { throw '-DryRun cannot be combined wit
 if ($DryRun) {
     $InputPath = @(Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot 'fixtures') -Filter '*.json' -File | Sort-Object Name | ForEach-Object FullName)
 }
-if ($InputPath.Count -eq 0) { throw 'Provide one or more schema-v1 run files, or use -DryRun.' }
+if ($InputPath.Count -eq 0) { throw 'Provide one or more schema-v1/v2 run files, or use -DryRun.' }
 
 $runs = foreach ($path in $InputPath) {
     if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "Benchmark run not found: $path" }

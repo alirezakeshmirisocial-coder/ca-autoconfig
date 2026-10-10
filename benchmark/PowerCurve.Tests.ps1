@@ -37,6 +37,17 @@ $fixturePaths = @(
 $fixtureTextBefore = @($fixturePaths | ForEach-Object { Get-Content -Raw -LiteralPath $_ })
 $runs = @($fixtureTextBefore | ForEach-Object { $_ | ConvertFrom-Json })
 
+function ConvertTo-SchemaV2WorkRun {
+    param($Run, [double]$Rate, [string]$Unit = 'image')
+    $copy = ($Run | ConvertTo-Json -Depth 12 | ConvertFrom-Json)
+    $copy.schemaVersion = 2
+    $copy.result.throughput.promptTokensPerSecond = $null
+    $copy.result.throughput.generationTokensPerSecond = $null
+    $copy.result.throughput | Add-Member -NotePropertyName workUnitsPerSecond -NotePropertyValue $Rate
+    $copy.result.throughput | Add-Member -NotePropertyName workUnit -NotePropertyValue $Unit
+    return $copy
+}
+
 Test-Case 'schema-v1 fixtures validate and retain explicit missing values' {
     foreach ($run in $runs) { Assert-CAPowerCurveRun -Run $run | Out-Null }
     Assert-True ($null -eq $runs[0].result.throughput.promptTokensPerSecond) 'Missing prompt throughput was not retained as null.'
@@ -52,6 +63,32 @@ Test-Case 'dual-GPU mean power is the sum of per-GPU means' {
 Test-Case 'generation efficiency is tokens per second divided by mean watts' {
     $row = @(ConvertTo-CAPowerCurveRows -Runs @($runs[0]))[0]
     Assert-True ([Math]::Abs([double]$row.GenerationTokensPerJoule - (21.2 / 490.0)) -lt 0.000001) 'Generation tokens/J calculation is wrong.'
+}
+
+Test-Case 'schema-v2 work-unit throughput produces unit-aware efficiency' {
+    $workRun = ConvertTo-SchemaV2WorkRun -Run $runs[0] -Rate 0.25
+    Assert-CAPowerCurveRun -Run $workRun | Out-Null
+    $row = @(ConvertTo-CAPowerCurveRows -Runs @($workRun))[0]
+    Assert-True ([double]$row.WorkUnitsPerSecond -eq 0.25 -and [string]$row.WorkUnit -eq 'image') 'Schema-v2 work rate or unit was lost.'
+    Assert-True ([Math]::Abs([double]$row.WorkUnitsPerJoule - (0.25 / 490.0)) -lt 0.000000001) 'Work-unit efficiency is wrong.'
+}
+
+Test-Case 'schema-v2 report ranks only matching work units' {
+    $first = ConvertTo-SchemaV2WorkRun -Run $runs[0] -Rate 0.25
+    $second = ConvertTo-SchemaV2WorkRun -Run $runs[1] -Rate 0.30
+    $report = New-CAPowerCurveMarkdown -Runs @($first, $second)
+    Assert-True ($report -match 'highest measured image efficiency') 'Work-unit leader is missing.'
+    Assert-True ($report -match 'image/J') 'Unit-aware efficiency label is missing.'
+    Assert-True ($report -match 'GPU0 280 W \+ GPU1 280 W') 'Expected work-unit efficiency leader is missing.'
+    Assert-True ($report -notmatch '\$\(Format-CAMarkdownValue') 'Work-unit observation leaked an unexpanded formatter expression.'
+}
+
+Test-Case 'schema-v2 rejects a rate without a safe matching unit' {
+    $workRun = ConvertTo-SchemaV2WorkRun -Run $runs[0] -Rate 0.25
+    $workRun.result.throughput.workUnit = $null
+    Assert-Throws { Assert-CAPowerCurveRun -Run $workRun | Out-Null } 'safe non-empty unit' 'Work throughput without a unit was accepted.'
+    $workRun.result.throughput.workUnit = 'image/path'
+    Assert-Throws { Assert-CAPowerCurveRun -Run $workRun | Out-Null } 'safe non-empty unit' 'Unsafe work unit was accepted.'
 }
 
 Test-Case 'peak temperature and sample counts are deterministic' {
@@ -71,6 +108,8 @@ Test-Case 'report labels the fixture leader without universal claims' {
     Assert-True ($report -match 'highest measured generation efficiency in this dataset') 'Dataset leader is missing.'
     Assert-True ($report -match 'not a universal recommendation') 'Universal-limit disclaimer is missing.'
     Assert-True ($report -match 'GPU0 280 W \+ GPU1 280 W') 'Expected fixture leader is missing.'
+    Assert-True ($report -match 'was `GPU0 280 W \+ GPU1 280 W` at `0\.043265` tokens/J') 'Observation sentence does not render the actual leader and efficiency.'
+    Assert-True ($report -notmatch '\$\(Format-CAMarkdownValue') 'Report leaked an unexpanded formatter expression.'
 }
 
 Test-Case 'different workload names cannot be ranked as comparable' {
@@ -96,7 +135,7 @@ Test-Case 'a user profile path is rejected' {
 
 Test-Case 'a future schema is rejected' {
     $copy = ($fixtureTextBefore[0] | ConvertFrom-Json)
-    $copy.schemaVersion = 2
+    $copy.schemaVersion = 3
     Assert-Throws { Assert-CAPowerCurveRun -Run $copy | Out-Null } 'Unsupported benchmark schema' 'Future schema was accepted.'
 }
 
@@ -104,7 +143,15 @@ Test-Case 'a passed run without throughput is rejected' {
     $copy = ($fixtureTextBefore[0] | ConvertFrom-Json)
     $copy.result.throughput.promptTokensPerSecond = $null
     $copy.result.throughput.generationTokensPerSecond = $null
-    Assert-Throws { Assert-CAPowerCurveRun -Run $copy | Out-Null } 'must include prompt or generation' 'Evidence-free passed run was accepted.'
+    Assert-Throws { Assert-CAPowerCurveRun -Run $copy | Out-Null } 'token or work-unit' 'Evidence-free passed run was accepted.'
+}
+
+Test-Case 'published schema documents are valid JSON with distinct versions' {
+    $schema1 = Get-Content -Raw -LiteralPath (Join-Path $PSScriptRoot 'schema-v1.json') | ConvertFrom-Json
+    $schema2 = Get-Content -Raw -LiteralPath (Join-Path $PSScriptRoot 'schema-v2.json') | ConvertFrom-Json
+    Assert-True ([int]$schema1.properties.schemaVersion.const -eq 1) 'schema-v1 identity changed.'
+    Assert-True ([int]$schema2.properties.schemaVersion.const -eq 2) 'schema-v2 identity is wrong.'
+    Assert-True (@($schema2.properties.result.properties.throughput.required) -contains 'workUnitsPerSecond') 'schema-v2 omits generalized throughput.'
 }
 
 Test-Case 'non-finite sample telemetry is rejected' {

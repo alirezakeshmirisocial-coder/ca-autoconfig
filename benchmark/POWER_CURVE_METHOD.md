@@ -80,6 +80,33 @@ The power window is deliberately labeled `process-window`: it includes measured-
 
 Use the same safe labels and all numeric options for every point in a curve. Apply each candidate power profile through the separate reviewed workflow, record at least three interleaved outer `-Repetition` runs, and keep failed/incomplete JSON files.
 
+### ComfyUI: fixed workflow with explicit image throughput
+
+In ComfyUI, export a working graph in API format (`File` → `Export (API)`). Choose one integer seed input that invalidates the sampler path on every run, and state the exact number of comparable work units produced by one workflow:
+
+```powershell
+.\benchmark\Invoke-ComfyUIPowerRun.ps1 `
+  -WorkflowPath 'D:\benchmarks\sdxl-fixed-api.json' `
+  -WorkflowId 'sdxl-1024-euler-30-v1' `
+  -ModelLabel 'SDXL example' `
+  -Quantization 'FP16' `
+  -BackendLabel 'ComfyUI local API' `
+  -SeedNodeId '3' `
+  -SeedInputName 'seed' `
+  -BaseSeed 1000 `
+  -WorkUnits 1 `
+  -WorkUnit 'image' `
+  -GpuIndexList '0,1' `
+  -Repetition 1 `
+  -OutputPath .\artifacts\runs\comfy-profile-a-r1.json
+```
+
+The adapter requires an empty `/queue`, submits one warm-up at `BaseSeed`, verifies completion and the declared image count through `/history/{prompt_id}`, checks the queue again, then measures the same workflow at `BaseSeed + 1`. If the nominated seed node appears in ComfyUI's `execution_cached` event, or the terminal history does not contain exactly `WorkUnits` images, the run fails rather than reporting cached or missing output as performance. The reported rate is `WorkUnits ÷ client-observed submission-to-terminal seconds`; power samples cover that same client window. This is not an internal node-timing claim.
+
+Schema-v2 adds `workUnitsPerSecond` and `workUnit`, so image workloads are reported as `image/s` and `image/J` instead of being mislabeled as token throughput. Keep `WorkflowId`, work units, graph, model, sampler, scheduler, steps, dimensions, batch, extensions, and output behavior identical within a curve. See ComfyUI's official [basic API example](https://github.com/Comfy-Org/ComfyUI/blob/master/script_examples/basic_api_example.py) and [WebSocket/history example](https://github.com/Comfy-Org/ComfyUI/blob/master/script_examples/websockets_api_example.py).
+
+The workflow must expose its images in terminal history and decides where they are saved. CA AutoConfig neither fetches nor deletes them, and it never writes the workflow, prompt text, history payload, output metadata, prompt ID, endpoint, or seed values into the run export. Loopback is the default; redirects are disabled, and `-AllowRemoteEndpoint` is required for a non-loopback server because the full workflow may contain prompts, filenames, and custom-node settings. On timeout the adapter deliberately does not call ComfyUI's global interrupt route, which could stop unrelated work.
+
 ### Manual or other workloads
 
 Start the workload yourself and wait until it is ready to benchmark. Obtain prompt/generation throughput from the workload's own benchmark output, then keep the same workload running while the recorder observes the selected GPUs:
@@ -131,6 +158,6 @@ The report compares only identical workload fingerprints (`class`, `name`, `mode
 
 ## Export schema and privacy
 
-[`schema-v1.json`](schema-v1.json) requires explicit `null` values for missing throughput or telemetry. Missing evidence never becomes zero. Before any report is produced, the module rejects fields named like UUID, hostname, user, path, command line, serial, or PCI bus ID and scans strings for common home/profile paths.
+[`schema-v1.json`](schema-v1.json) remains supported for token workloads. [`schema-v2.json`](schema-v2.json) adds an explicit rate/unit pair for image and other non-token workloads. Both require explicit `null` values for missing throughput or telemetry; missing evidence never becomes zero. Before any report is produced, the module rejects fields named like UUID, hostname, user, path, command line, serial, or PCI bus ID and scans strings for common home/profile paths.
 
 Review exports before posting. A model name or workload label that you type can still contain information you did not intend to share.

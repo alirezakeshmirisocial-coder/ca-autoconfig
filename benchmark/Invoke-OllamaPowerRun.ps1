@@ -132,7 +132,9 @@ function Invoke-OllamaPost {
 }
 
 $base = $OllamaBaseUri.AbsoluteUri.TrimEnd('/')
-$client = [Net.Http.HttpClient]::new()
+$httpHandler = [Net.Http.HttpClientHandler]::new()
+$httpHandler.AllowAutoRedirect = $false
+$client = [Net.Http.HttpClient]::new($httpHandler)
 $client.Timeout = [TimeSpan]::FromSeconds($TimeoutSeconds)
 try {
     $versionResponse = $client.GetAsync("$base/api/version").GetAwaiter().GetResult()

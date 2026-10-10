@@ -75,6 +75,7 @@ Test-Case 'positive token count requires a positive duration' {
 Test-Case 'live adapter remains local-first, privacy-safe, and free of GPU mutation flags' {
     $source = Get-Content -Raw -LiteralPath (Join-Path $PSScriptRoot 'Invoke-OllamaPowerRun.ps1')
     Assert-True ($source -match 'IPAddress\]::IsLoopback' -and $source -match 'AllowRemoteEndpoint') 'Remote endpoint safety gate is missing.'
+    Assert-True ($source -match 'AllowAutoRedirect\s*=\s*\$false') 'Loopback prompt requests may follow a redirect to another host.'
     Assert-True ($source -match '/api/generate' -and $source -match 'PostAsync') 'Measured Ollama request path is missing.'
     Assert-True ($source -match 'this adapter never pulls models') 'Missing-model guidance does not preserve the no-pull boundary.'
     Assert-True ($source -match '--query-gpu=' -and $source -notmatch '(?i)[''"]-(pl|lgc|rgc|ac)[''"]') 'Adapter contains a GPU mutation path.'

@@ -21,4 +21,5 @@ We aim to acknowledge a complete report within three business days. A fix and di
 - Recommendations must remain inside vendor-reported limits and must not exceed the vendor default.
 - The Ollama adapter is loopback-only by default, never pulls a model, and has no GPU-write or elevation path; remote prompt transmission requires an explicit flag.
 - The llama.cpp adapter accepts only explicit local executable/model paths, has no network/download/elevation path, uses query-only NVIDIA telemetry, and never exports the child command, model path, stdout, or stderr.
+- The ComfyUI adapter is loopback-only by default with redirects disabled, requires an empty queue and exact terminal image count, never calls global interrupt/free/history-delete routes, and exports neither the submitted workflow nor server history/output metadata; remote workflow transmission requires an explicit flag.
 - The RGB-camera presence feature is not liveness detection and is not a replacement for Windows Hello, BitLocker, or a strong Windows credential.

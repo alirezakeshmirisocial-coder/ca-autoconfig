@@ -33,7 +33,7 @@ The product direction is a tiny, trustworthy Windows HUD and safe power optimize
 - [ ] Record baseline power, temperature, errors, and throughput for a real workload.
 - [x] Add a local-first Ollama adapter that measures the request and NVIDIA telemetry concurrently without storing prompt/response text or changing GPU settings.
 - [x] Add a local llama.cpp/`llama-bench` adapter with exact JSON-row validation, concurrent NVIDIA sampling, and path/command omission.
-- [ ] Add a ComfyUI adapter before attempting generic detection.
+- [x] Add a loopback-first ComfyUI adapter with explicit work units, cache-separated seeds, empty-queue preflight, and workflow/output omission.
 - [ ] Offer Balanced, Eco, Quiet, and Default profiles only when evidence is sufficient.
 - [ ] Reject a candidate after driver reset, workload error, unstable clock behavior, or incomplete data.
 - [ ] Require explicit confirmation, administrator elevation, and a tested one-click rollback.

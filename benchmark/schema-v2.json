@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/blob/main/benchmark/schema-v2.json",
+  "title": "CA AutoConfig anonymized power-curve run",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "runId", "createdUtc", "source", "privacy", "workload", "protocol", "result", "gpus"],
+  "properties": {
+    "schemaVersion": { "const": 2 },
+    "runId": { "type": "string", "minLength": 1 },
+    "createdUtc": { "type": "string", "format": "date-time" },
+    "source": { "enum": ["live", "fixture"] },
+    "privacy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["containsGpuUuid", "containsMachineName", "containsUserName", "containsPaths", "containsRawCommand"],
+      "properties": {
+        "containsGpuUuid": { "const": false },
+        "containsMachineName": { "const": false },
+        "containsUserName": { "const": false },
+        "containsPaths": { "const": false },
+        "containsRawCommand": { "const": false }
+      }
+    },
+    "workload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["class", "name", "model", "quantization", "backend"],
+      "properties": {
+        "class": { "enum": ["llama.cpp", "ollama", "comfyui", "other"] },
+        "name": { "type": "string" },
+        "model": { "type": "string" },
+        "quantization": { "type": "string" },
+        "backend": { "type": "string" }
+      }
+    },
+    "protocol": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["warmupSeconds", "sampleSeconds", "intervalMilliseconds", "repetition"],
+      "properties": {
+        "warmupSeconds": { "type": "integer", "minimum": 0 },
+        "sampleSeconds": { "type": "integer", "minimum": 1 },
+        "intervalMilliseconds": { "type": "integer", "minimum": 250 },
+        "repetition": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "throughput", "error"],
+      "properties": {
+        "status": { "enum": ["passed", "failed", "incomplete"] },
+        "throughput": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["promptTokensPerSecond", "generationTokensPerSecond", "workUnitsPerSecond", "workUnit"],
+          "properties": {
+            "promptTokensPerSecond": { "type": ["number", "null"], "exclusiveMinimum": 0 },
+            "generationTokensPerSecond": { "type": ["number", "null"], "exclusiveMinimum": 0 },
+            "workUnitsPerSecond": { "type": ["number", "null"], "exclusiveMinimum": 0 },
+            "workUnit": { "type": ["string", "null"], "pattern": "^[A-Za-z][A-Za-z0-9._-]{0,31}$" }
+          },
+          "allOf": [
+            {
+              "if": { "properties": { "workUnitsPerSecond": { "type": "null" } } },
+              "then": { "properties": { "workUnit": { "type": "null" } } },
+              "else": { "properties": { "workUnit": { "type": "string" } } }
+            }
+          ]
+        },
+        "error": { "type": ["string", "null"] }
+      }
+    },
+    "gpus": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["index", "model", "driver", "powerLimitWatts", "samples"],
+        "properties": {
+          "index": { "type": "integer", "minimum": 0 },
+          "model": { "type": "string" },
+          "driver": { "type": "string" },
+          "powerLimitWatts": { "type": ["number", "null"], "exclusiveMinimum": 0 },
+          "samples": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["elapsedMilliseconds", "powerDrawWatts", "temperatureC", "utilizationPercent", "memoryUsedMiB", "memoryTotalMiB", "graphicsClockMHz"],
+              "properties": {
+                "elapsedMilliseconds": { "type": "integer", "minimum": 0 },
+                "powerDrawWatts": { "type": ["number", "null"] },
+                "temperatureC": { "type": ["number", "null"] },
+                "utilizationPercent": { "type": ["number", "null"] },
+                "memoryUsedMiB": { "type": ["number", "null"] },
+                "memoryTotalMiB": { "type": ["number", "null"] },
+                "graphicsClockMHz": { "type": ["number", "null"] }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

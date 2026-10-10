@@ -1,13 +1,13 @@
 # CA AutoConfig
 
-[![Latest release](https://img.shields.io/github/v/release/alirezakeshmirisocial-coder/ca-autoconfig?include_prereleases&label=alpha)](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/releases/tag/v0.2.2-alpha.2)
+[![Latest release](https://img.shields.io/github/v/release/alirezakeshmirisocial-coder/ca-autoconfig?include_prereleases&label=alpha)](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/releases/tag/v0.2.3-alpha.1)
 [![License](https://img.shields.io/github/license/alirezakeshmirisocial-coder/ca-autoconfig)](LICENSE)
 [![GitHub stars](https://img.shields.io/github/stars/alirezakeshmirisocial-coder/ca-autoconfig?style=flat)](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/stargazers)
 [![Discussions](https://img.shields.io/github/discussions/alirezakeshmirisocial-coder/ca-autoconfig)](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/discussions)
 
 CA AutoConfig is a lightweight Windows HUD and conservative GPU power companion for local-AI and multi-GPU workstations. It keeps essential CPU, memory, storage, CUDA/SM, VRAM, temperature, and board-power information visible without stealing focus from the applications underneath it.
 
-[Latest alpha](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/releases/tag/v0.2.2-alpha.2) · [Desktop preview](docs/DESKTOP_PREVIEW.md) · [Power-curve lab](benchmark/POWER_CURVE_METHOD.md) · [Architecture](docs/ARCHITECTURE.md) · [Roadmap](ROADMAP.md) · [Contributor issues](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/milestone/1) · [Discussions](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/discussions) · [Growth scorecard](docs/launch/GROWTH_SCORECARD.md)
+[Latest alpha](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/releases/tag/v0.2.3-alpha.1) · [Desktop preview](docs/DESKTOP_PREVIEW.md) · [Power-curve lab](benchmark/POWER_CURVE_METHOD.md) · [Architecture](docs/ARCHITECTURE.md) · [Roadmap](ROADMAP.md) · [Contributor issues](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/milestone/1) · [Discussions](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/discussions) · [Growth scorecard](docs/launch/GROWTH_SCORECARD.md)
 
 ![Three-step CA AutoConfig demo showing the locked HUD, edit mode, and monitor and shortcut settings](docs/assets/hud-demo.gif)
 
@@ -46,11 +46,13 @@ If you run local AI on Windows, the most useful contribution right now is a priv
 
 ## Read-only power-curve lab
 
-The [`benchmark`](benchmark/POWER_CURVE_METHOD.md) lab records steady-window NVIDIA board telemetry beside prompt-processing or generation throughput measured by your workload. It never changes the active power, clock, voltage, or fan profile. Schema-v1 exports omit GPU UUIDs, machine/user names, paths, raw commands, prompts, and generated text; missing readings remain explicit `null` values.
+The [`benchmark`](benchmark/POWER_CURVE_METHOD.md) lab records steady-window NVIDIA board telemetry beside token or image throughput measured by your workload. It never changes the active power, clock, voltage, or fan profile. Versioned exports omit GPU UUIDs, machine/user names, paths, raw commands, prompts, workflows, and generated content; missing readings remain explicit `null` values.
 
 The local Ollama adapter drives one deterministic `/api/generate` request while sampling GPU telemetry, derives uncached prompt and generation throughput from Ollama's own counters, records failed/too-short runs instead of promoting them, and never pulls a model. Its endpoint is loopback-only unless the user explicitly enables a remote URL.
 
 The llama.cpp adapter launches a user-supplied local `llama-bench` executable and GGUF file, validates its official JSON `pp`/`tg` rows, and samples the selected GPUs during the measured child process. It exports only user-supplied safe model/quantization labels and a build/backend fingerprint—not the GGUF path, raw command, CPU/GPU identity fields, stdout, or stderr. It has no network or download path.
+
+The ComfyUI adapter submits an explicit API-format workflow to an empty local queue, changes only a nominated integer seed between warm-up and measurement, and reports generalized work throughput such as `image/s` through schema-v2. It never downloads generated files or exports the workflow, prompts, output metadata, prompt ID, or endpoint. A remote server requires an explicit override because it receives the complete workflow.
 
 Try the complete calculation and privacy pipeline on synthetic fixtures:
 

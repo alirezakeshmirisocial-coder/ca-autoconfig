@@ -39,7 +39,7 @@ The practical conclusion is simple: the first growth asset is a reproducible Win
 2. Participate usefully in existing `r/LocalLLaMA` power and multi-GPU discussions until the maintainer's own-project activity is safely below the community's self-promotion limit.
 3. Build the benchmark runner, then publish the first reproducible RTX 3090 power/throughput study. Include raw sanitized data, exact commands, warmup/repetition policy, prompt-processing and generation separately, token/Joule, and uncertainty.
 4. Have the maintainer write a result-first `r/LocalLLaMA` post in their own voice; answer every technical question and document corrections in the repository.
-5. Add a ComfyUI adapter and diffusion result before using the one-per-update open-source allowance in `r/StableDiffusion`.
+5. Run and publish a real repeated ComfyUI diffusion curve before using the one-per-update open-source allowance in `r/StableDiffusion`; the adapter alone is not evidence.
 6. Post the overlay and supported-limit safety story to `r/nvidia` only after subreddit rules and promotion frequency have been checked that day.
 7. After clean-machine verification, active CI, and at least five external reports, have the maintainer write and submit Show HN personally. Do not automate the submission or replies and do not ask anyone to vote.
 8. Give local-AI creators a personalized reproduction package: one workload, one expected chart, exact commands, and a clear disclosure that there is no sponsorship unless that changes.

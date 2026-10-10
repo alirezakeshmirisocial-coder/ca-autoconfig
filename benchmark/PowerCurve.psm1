@@ -84,7 +84,8 @@ function Assert-CAPowerCurveRun {
     foreach ($name in @('schemaVersion', 'runId', 'createdUtc', 'source', 'privacy', 'workload', 'protocol', 'result', 'gpus')) {
         Assert-CAProperty -Object $Run -Name $name -Path 'run'
     }
-    if ([int]$Run.schemaVersion -ne 1) { throw "Unsupported benchmark schema version '$($Run.schemaVersion)'." }
+    $schemaVersion = [int]$Run.schemaVersion
+    if ($schemaVersion -notin @(1, 2)) { throw "Unsupported benchmark schema version '$($Run.schemaVersion)'." }
     if ([string]$Run.source -notin @('live', 'fixture')) { throw "Unsupported benchmark source '$($Run.source)'." }
     if ([string]::IsNullOrWhiteSpace([string]$Run.runId)) { throw 'run.runId must not be empty.' }
 
@@ -117,10 +118,28 @@ function Assert-CAPowerCurveRun {
             throw "run.result.throughput.$name must be null or a positive finite number."
         }
     }
+    $workUnitsPerSecond = $null
+    if ($schemaVersion -eq 2) {
+        foreach ($name in @('workUnitsPerSecond', 'workUnit')) {
+            Assert-CAProperty -Object $Run.result.throughput -Name $name -Path 'run.result.throughput'
+        }
+        $workUnitsPerSecond = $Run.result.throughput.workUnitsPerSecond
+        $workUnit = $Run.result.throughput.workUnit
+        if ($null -ne $workUnitsPerSecond -and (-not (Test-CAFiniteNumber $workUnitsPerSecond) -or [double]$workUnitsPerSecond -le 0)) {
+            throw 'run.result.throughput.workUnitsPerSecond must be null or a positive finite number.'
+        }
+        if ($null -eq $workUnitsPerSecond -and $null -ne $workUnit) {
+            throw 'run.result.throughput.workUnit must be null when workUnitsPerSecond is null.'
+        }
+        if ($null -ne $workUnitsPerSecond -and ($null -eq $workUnit -or [string]$workUnit -notmatch '^[A-Za-z][A-Za-z0-9._-]{0,31}$')) {
+            throw 'run.result.throughput.workUnit must be a safe non-empty unit when workUnitsPerSecond is present.'
+        }
+    }
     if ([string]$Run.result.status -eq 'passed' -and
         $null -eq $Run.result.throughput.promptTokensPerSecond -and
-        $null -eq $Run.result.throughput.generationTokensPerSecond) {
-        throw 'A passed run must include prompt or generation throughput.'
+        $null -eq $Run.result.throughput.generationTokensPerSecond -and
+        $null -eq $workUnitsPerSecond) {
+        throw 'A passed run must include token or work-unit throughput.'
     }
 
     $gpus = @($Run.gpus)
@@ -196,22 +215,30 @@ function ConvertTo-CAPowerCurveRows {
         $peakTemperature = if ($temperatures.Count) { [Math]::Round((($temperatures | Measure-Object -Maximum).Maximum), 3) } else { $null }
         $generation = if ($null -eq $run.result.throughput.generationTokensPerSecond) { $null } else { [double]$run.result.throughput.generationTokensPerSecond }
         $prompt = if ($null -eq $run.result.throughput.promptTokensPerSecond) { $null } else { [double]$run.result.throughput.promptTokensPerSecond }
+        $workRate = if ([int]$run.schemaVersion -eq 2 -and $null -ne $run.result.throughput.workUnitsPerSecond) { [double]$run.result.throughput.workUnitsPerSecond } else { $null }
+        $workUnit = if ([int]$run.schemaVersion -eq 2 -and $null -ne $run.result.throughput.workUnit) { [string]$run.result.throughput.workUnit } else { $null }
         $efficiency = if ($null -ne $generation -and $null -ne $meanPower -and $meanPower -gt 0) {
             [Math]::Round($generation / $meanPower, 6)
+        } else { $null }
+        $workEfficiency = if ($null -ne $workRate -and $null -ne $meanPower -and $meanPower -gt 0) {
+            [Math]::Round($workRate / $meanPower, 9)
         } else { $null }
 
         [pscustomobject][ordered]@{
             RunId = [string]$run.runId
-            WorkloadKey = @([string]$run.workload.class, [string]$run.workload.name, [string]$run.workload.model, [string]$run.workload.quantization, [string]$run.workload.backend) -join '|'
+            WorkloadKey = @([string]$run.workload.class, [string]$run.workload.name, [string]$run.workload.model, [string]$run.workload.quantization, [string]$run.workload.backend, [string]$workUnit) -join '|'
             Workload = [string]$run.workload.name
             Profile = Format-CAProfile -Gpus @($run.gpus)
             Repetition = [int]$run.protocol.repetition
             Status = [string]$run.result.status
             PromptTokensPerSecond = $prompt
             GenerationTokensPerSecond = $generation
+            WorkUnitsPerSecond = $workRate
+            WorkUnit = $workUnit
             MeanBoardPowerWatts = $meanPower
             PeakTemperatureC = $peakTemperature
             GenerationTokensPerJoule = $efficiency
+            WorkUnitsPerJoule = $workEfficiency
             SampleCount = $sampleCount
             MissingPowerSamples = $missingPower
         }
@@ -241,18 +268,21 @@ function New-CAPowerCurveMarkdown {
     $lines.Add('')
     $lines.Add('A measured efficiency leader is not a universal recommendation. Board limits, cooling, drivers, model shape, quantization, context, batching, and workload phase can change the result.')
     $lines.Add('')
-    $lines.Add('| Run | Power profile | Status | Prompt tok/s | Generation tok/s | Mean board W | Peak °C | Generation tok/J | Missing power samples |')
-    $lines.Add('| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |')
+    $lines.Add('| Run | Power profile | Status | Prompt tok/s | Generation tok/s | Work rate | Unit | Mean board W | Peak °C | Generation tok/J | Work/J | Missing power samples |')
+    $lines.Add('| --- | --- | --- | ---: | ---: | ---: | --- | ---: | ---: | ---: | ---: | ---: |')
     foreach ($row in $rows) {
-        $lines.Add(('| {0} | {1} | {2} | {3} | {4} | {5} | {6} | {7} | {8} |' -f
+        $lines.Add(('| {0} | {1} | {2} | {3} | {4} | {5} | {6} | {7} | {8} | {9} | {10} | {11} |' -f
             (Format-CAMarkdownValue $row.RunId),
             (Format-CAMarkdownValue $row.Profile),
             (Format-CAMarkdownValue $row.Status),
             (Format-CAMarkdownValue $row.PromptTokensPerSecond),
             (Format-CAMarkdownValue $row.GenerationTokensPerSecond),
+            (Format-CAMarkdownValue $row.WorkUnitsPerSecond),
+            (Format-CAMarkdownValue $row.WorkUnit),
             (Format-CAMarkdownValue $row.MeanBoardPowerWatts),
             (Format-CAMarkdownValue $row.PeakTemperatureC),
             (Format-CAMarkdownValue $row.GenerationTokensPerJoule '0.000000'),
+            (Format-CAMarkdownValue $row.WorkUnitsPerJoule '0.000000000'),
             $row.MissingPowerSamples))
     }
 
@@ -263,10 +293,25 @@ function New-CAPowerCurveMarkdown {
         $comparable = @($group.Group | Where-Object {
             $_.Status -eq 'passed' -and $null -ne $_.GenerationTokensPerJoule
         } | Sort-Object GenerationTokensPerJoule -Descending)
+        $workComparable = @($group.Group | Where-Object {
+            $_.Status -eq 'passed' -and $null -ne $_.WorkUnitsPerJoule -and $null -ne $_.WorkUnit
+        } | Sort-Object WorkUnitsPerJoule -Descending)
         $workloadName = [string]$group.Group[0].Workload
         if ($comparable.Count -ge 2) {
             $best = $comparable[0]
-            $lines.Add("- **$(Format-CAMarkdownValue $workloadName):** highest measured generation efficiency in this dataset was `$(Format-CAMarkdownValue $best.Profile)` at `$(Format-CAMarkdownValue $best.GenerationTokensPerJoule '0.000000')` tokens/J. Treat it as a candidate for repetition, not a universal best limit.")
+            $lines.Add(('- **{0}:** highest measured generation efficiency in this dataset was `{1}` at `{2}` tokens/J. Treat it as a candidate for repetition, not a universal best limit.' -f
+                (Format-CAMarkdownValue $workloadName),
+                (Format-CAMarkdownValue $best.Profile),
+                (Format-CAMarkdownValue $best.GenerationTokensPerJoule '0.000000')))
+        }
+        elseif ($workComparable.Count -ge 2) {
+            $best = $workComparable[0]
+            $unit = [string]$best.WorkUnit
+            $lines.Add(('- **{0}:** highest measured {1} efficiency in this dataset was `{2}` at `{3}` {1}/J. Treat it as a candidate for repetition, not a universal best limit.' -f
+                (Format-CAMarkdownValue $workloadName),
+                (Format-CAMarkdownValue $unit),
+                (Format-CAMarkdownValue $best.Profile),
+                (Format-CAMarkdownValue $best.WorkUnitsPerJoule '0.000000000')))
         }
         else {
             $lines.Add("- **$(Format-CAMarkdownValue $workloadName):** fewer than two comparable passed runs; no efficiency leader is reported.")
@@ -274,7 +319,7 @@ function New-CAPowerCurveMarkdown {
     }
 
     $lines.Add('')
-    $lines.Add('Generated from schema-v1 anonymized exports. `N/A` is retained as missing evidence rather than converted to zero.')
+    $lines.Add('Generated from schema-v1/v2 anonymized exports. `N/A` is retained as missing evidence rather than converted to zero.')
     return $lines -join "`n"
 }
 

@@ -4,6 +4,13 @@ This project follows semantic versioning after `v1.0.0`. Pre-1.0 releases may ch
 
 ## Unreleased
 
+## v0.2.3-alpha.1 — ComfyUI image-efficiency adapter
+
+- Added schema-v2 generalized work throughput and unit-aware efficiency reporting, while retaining schema-v1 token-run compatibility.
+- Added a loopback-first ComfyUI adapter with empty-queue preflight, cache-separated deterministic seeds, client-window image/work-unit throughput, concurrent NVIDIA sampling, and no output download.
+- Added eight deterministic ComfyUI tests covering API-workflow validation, immutable seed injection, queue/history parsing, seed-node cache rejection, remote-endpoint refusal, concurrent telemetry, failed-run preservation, and workflow/output omission in both PowerShell runtimes.
+- Fixed Markdown observation sentences so the selected profile and efficiency render as values instead of an escaped PowerShell expression, with direct regression coverage.
+
 ## v0.2.2-alpha.2 — Offline llama.cpp power-run adapter
 
 - Added a local, offline llama.cpp adapter that runs an explicit `llama-bench`/GGUF pair, validates exact official JSON `pp` and `tg` evidence, and samples selected NVIDIA GPUs concurrently.

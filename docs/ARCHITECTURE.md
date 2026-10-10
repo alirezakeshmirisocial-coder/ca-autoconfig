@@ -104,6 +104,7 @@ flowchart TB
 
     ollama[Local Ollama adapter] --> curve[Anonymized power-curve run]
     llamabench[Local llama-bench process] --> curve
+    comfy[Local ComfyUI API workflow] --> curve
     smi2[nvidia-smi query only] --> curve
     lab[Adaptive cooling lab] --> advice[Deterministic advice only<br/>CanApply = false]
     advice -. no actuator .-> gpu
@@ -113,6 +114,7 @@ flowchart TB
 - The unlock guard can relock Windows after a failed challenge, but it is a separate installation and is not a replacement for Windows Hello, BitLocker, or operating-system access control.
 - The Ollama adapter sends a user-supplied prompt to loopback by default, samples NVIDIA telemetry during that request, and exports neither prompt nor generated text. Remote endpoints require an explicit flag. It cannot pull models, elevate, or change a GPU profile.
 - The llama.cpp adapter launches only explicit local inputs, validates the exact official JSON `pp`/`tg` result shape, and samples telemetry during the measured process. It has no network/download/elevation path and exports neither local paths, raw commands, child streams, nor llama-bench machine fields.
+- The ComfyUI adapter sends an explicit API-format workflow to loopback by default, requires an empty queue, changes only the nominated seed between warm-up and measurement, and reports schema-v2 work units. It never fetches outputs or exports workflow/history content; a remote endpoint requires explicit opt-in.
 - The adaptive cooling assembly is deterministic and hardware-independent. It has no hardware adapter, process launch, persistence, network access, or write path; `CanApply` is always `false`.
 
 See [PRIVACY.md](../PRIVACY.md), [SECURITY.md](../SECURITY.md), and the [adaptive cooling design](../fan-control/ADAPTIVE_FAN_SYSTEM.md) for the detailed policies.
@@ -127,6 +129,7 @@ See [PRIVACY.md](../PRIVACY.md), [SECURITY.md](../SECURITY.md), and the [adaptiv
 | GPU task | Run the protected apply script as SYSTEM; write result/log files | User-controlled command lines; hidden profile changes |
 | Ollama benchmark | Call a local model; read official timing counters; query NVIDIA telemetry; write an anonymized run | Model pulls; implicit remote prompts; GPU writes; prompt/response export |
 | llama.cpp benchmark | Launch explicit local `llama-bench`/GGUF inputs; validate official JSON; query NVIDIA telemetry; write an anonymized run | Downloads; network clients; elevation; GPU writes; path/command/console export |
+| ComfyUI benchmark | Submit an explicit workflow to an empty opted-in endpoint; query completion and NVIDIA telemetry; write generalized anonymized throughput | Implicit remote workflows; output downloads; global interrupt/free/history mutation; GPU writes; workflow/history export |
 | Presence experiment | Local camera inference after opt-in | Default installation; cloud face processing; raw-frame retention in SFace mode |
 | Cooling simulation | Return bounded advice and emergency status | Device writes or authorization to apply advice |
 
@@ -149,7 +152,7 @@ See [PRIVACY.md](../PRIVACY.md), [SECURITY.md](../SECURITY.md), and the [adaptiv
 | HUD core | `tests/SystemOverlay.Smoke.Tests.ps1` compiles the shared source, round-trips settings, validates live multi-GPU telemetry, and exercises 13 deterministic NVIDIA identity/state/success/failure cases. |
 | Compiled app | `tests/DesktopApp.Smoke.Tests.ps1` builds and launches the .NET entry point in a no-hardware-write smoke mode. |
 | Privileged helper | `tests/GpuLimits.Safety.Tests.ps1` checks explicit targets, preflight-before-write, rollback, ACL intent, and safe combined-installer defaults without changing hardware. |
-| Power-curve lab | `benchmark/Run-Tests.ps1` runs 15 schema/report tests, nine Ollama tests, and nine llama-bench tests in both PowerShell runtimes, including workload-isolation, exact-row validation, remote-endpoint rejection, concurrent fixture telemetry, privacy omission, and failed-run preservation. |
+| Power-curve lab | `benchmark/Run-Tests.ps1` runs 19 schema/report tests, nine Ollama tests, nine llama-bench tests, and eight ComfyUI tests in both PowerShell runtimes, including unit-aware efficiency, workload isolation, cache rejection, remote-endpoint rejection, concurrent fixture telemetry, privacy omission, and failed-run preservation. |
 | Cooling model | `fan-control/Run-Tests.ps1` runs the isolated safety, calibration, prediction, drift, and emergency scenarios. |
 | Demo | `tools/Capture-HudDemo.ps1` uses `PrintWindow` on CA AutoConfig windows only, verifies state transitions, and restores the HUD to locked mode. |
 
