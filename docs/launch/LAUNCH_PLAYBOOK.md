@@ -61,7 +61,7 @@ At every stage, a stalled conversion triggers a product/evidence review—downlo
 
 This is the concrete order for leaving the zero-star baseline; dates start when the missing inputs are available, not when a promotional deadline says they should:
 
-1. **Days 1–2 — make every commit independently trustworthy:** authorize the GitHub token's `workflow` scope, activate the prepared Windows CI workflow, keep the 10-minute WMI/PDH gates field-specific, and publish any failing run unchanged.
+1. **Days 1–2 — make every commit independently trustworthy:** authorize the GitHub token's `workflow` scope, activate the prepared Windows CI workflow, keep the 10-minute WMI/formatted-PDH/raw-PDH gates field-specific, and publish any failing run unchanged.
 2. **Days 3–5 — remove install uncertainty:** obtain one real Windows Sandbox or disposable-machine install/task/uninstall report, fix the first reproducible failure, and document exact supported Windows/NVIDIA boundaries. Signing proceeds only with a maintainer-controlled certificate.
 3. **Days 4–8 — create the first useful research asset:** use a maintainer-supplied local model or API workflow to run at least three interleaved reference/candidate repetitions. Publish sanitized raw JSON, exact public protocol, failures, temperatures, prompt and generation windows, tokens/J or images/J only where phase alignment is proven, and the evidence-gated card.
 4. **Days 6–10 — close the first feedback loop:** help ten individual design partners run exactly one of monitor placement, clean install, Windows telemetry, or power-curve reproduction. Convert repeated failure modes into docs/tests; do not ask participants for stars.

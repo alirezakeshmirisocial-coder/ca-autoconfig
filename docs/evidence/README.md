@@ -11,6 +11,7 @@ Each file proves only the fields and environment stated in its companion researc
 | [`windows-gpu-pdh-fields-600s-2026-10-10.json`](windows-gpu-pdh-fields-600s-2026-10-10.json) | Dual RTX 3090, Windows 10, standard-user native-PDH field-isolation run; 300/300 memory-valid and 285/300 engine-valid collections | `aed1d30d006b349e7c0ce2c614b6f24b7e5df349cf846b34e99a6cc93619aa27` |
 | [`windows-gpu-pdh-persistent-600s-2026-10-10.json`](windows-gpu-pdh-persistent-600s-2026-10-10.json) | Same host and cadence with one baseline-once persistent PDH query; 300/300 memory-valid and 292/300 engine-valid collections | `bbf6f38e9c3764bec6822a59747698901b09f3d504965380fc3f34fba2705b35` |
 | [`windows-gpu-pdh-adapter-recovery-600s-2026-10-10.json`](windows-gpu-pdh-adapter-recovery-600s-2026-10-10.json) | Same host/cadence with adapter-scoped failure retention and fresh-baseline recovery after an invalid formatted item; 300/300 memory-valid and 294/300 engine-valid collections | `87810c22c94ddeab2a15d6ed9ec750b8c0032b549f02d919f114ee36a246fbb9` |
+| [`windows-gpu-pdh-raw-600s-2026-10-10.json`](windows-gpu-pdh-raw-600s-2026-10-10.json) | Same host/cadence with explicit adjacent raw pairing, guarded duplicate aggregation, and proven zero baselines; 300/300 memory-valid and 300/300 engine-valid collections | `96d9f1df738ba9d1af0822f808a346912eb43b0ae24a5628c4e9eaf9df7195f4` |
 
 The committed JSON retains its final newline, so its repository-file digest intentionally differs from any otherwise identical no-final-newline scratch artifact.
 

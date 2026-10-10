@@ -57,6 +57,13 @@ namespace CA.SystemOverlay
             return Run(new DxgiWindowsGpuAdapterSource(), source, "windows-pdh");
         }
 
+        internal static WindowsGpuLiveProbeResult RunPdhRaw(PdhWindowsGpuCounterSource source)
+        {
+            if (source == null)
+                throw new ArgumentNullException("source");
+            return Run(new DxgiWindowsGpuAdapterSource(), source, "windows-pdh-raw-engine");
+        }
+
         internal static WindowsGpuLiveProbeResult Run(IWindowsGpuAdapterSource adapterSource, IWindowsGpuCounterSource counterSource)
         {
             return Run(adapterSource, counterSource, "injected-fixture");
@@ -195,9 +202,18 @@ namespace CA.SystemOverlay
             try
             {
                 bool usePdh = String.Equals(provider, "pdh", StringComparison.OrdinalIgnoreCase);
-                if (!usePdh && !String.Equals(provider, "wmi", StringComparison.OrdinalIgnoreCase))
-                    throw new ArgumentException("Windows GPU provider must be 'wmi' or 'pdh'.", "provider");
-                WindowsGpuLiveProbeResult probe = usePdh ? WindowsGpuLiveProbe.RunPdh() : WindowsGpuLiveProbe.Run();
+                bool usePdhRaw = String.Equals(provider, "pdh-raw", StringComparison.OrdinalIgnoreCase);
+                if (!usePdh && !usePdhRaw && !String.Equals(provider, "wmi", StringComparison.OrdinalIgnoreCase))
+                    throw new ArgumentException("Windows GPU provider must be 'wmi', 'pdh', or 'pdh-raw'.", "provider");
+                WindowsGpuLiveProbeResult probe;
+                if (usePdhRaw)
+                {
+                    using (PdhWindowsGpuCounterSource source =
+                        new PdhWindowsGpuCounterSource(new NativeRawPdhGpuCounterReader()))
+                        probe = WindowsGpuLiveProbe.RunPdhRaw(source);
+                }
+                else
+                    probe = usePdh ? WindowsGpuLiveProbe.RunPdh() : WindowsGpuLiveProbe.Run();
                 WindowsGpuLiveReportDocument document = Create(probe, DateTime.UtcNow);
                 string fullPath = Path.GetFullPath(resultPath);
                 string directory = Path.GetDirectoryName(fullPath);

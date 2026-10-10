@@ -103,8 +103,9 @@ namespace CA.SystemOverlay
                 if (windowsGpuProviderSpecified && String.IsNullOrWhiteSpace(windowsGpuProbeResult) && String.IsNullOrWhiteSpace(windowsGpuPollResult))
                     throw new ArgumentException("--windows-gpu-provider is only valid with a Windows GPU probe or polling benchmark.");
                 if (!String.Equals(windowsGpuProvider, "wmi", StringComparison.OrdinalIgnoreCase) &&
-                    !String.Equals(windowsGpuProvider, "pdh", StringComparison.OrdinalIgnoreCase))
-                    throw new ArgumentException("--windows-gpu-provider must be 'wmi' or 'pdh'.");
+                    !String.Equals(windowsGpuProvider, "pdh", StringComparison.OrdinalIgnoreCase) &&
+                    !String.Equals(windowsGpuProvider, "pdh-raw", StringComparison.OrdinalIgnoreCase))
+                    throw new ArgumentException("--windows-gpu-provider must be 'wmi', 'pdh', or 'pdh-raw'.");
                 if (!String.IsNullOrWhiteSpace(windowsGpuProbeResult) && !String.IsNullOrWhiteSpace(windowsGpuPollResult))
                     throw new ArgumentException("Choose either the one-shot Windows GPU probe or the polling benchmark, not both.");
                 if (windowsGpuPollSeconds < 10 || windowsGpuPollSeconds > 3600)

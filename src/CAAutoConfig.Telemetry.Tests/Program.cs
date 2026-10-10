@@ -46,6 +46,7 @@ internal static class Program
                 Console.WriteLine("PASS " + test.Name);
             }
             _passed += WindowsGpuPdhTests.RunAll();
+            _passed += WindowsGpuPdhRawTests.RunAll();
             _passed += WindowsGpuPollingTests.RunAll();
             Console.WriteLine(_passed + " Windows GPU telemetry tests passed. Fixtures performed no hardware access.");
             return 0;

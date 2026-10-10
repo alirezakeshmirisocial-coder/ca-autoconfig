@@ -69,13 +69,38 @@ namespace CA.SystemOverlay
             try
             {
                 bool usePdh = String.Equals(providerName, "pdh", StringComparison.OrdinalIgnoreCase);
-                if (!usePdh && !String.Equals(providerName, "wmi", StringComparison.OrdinalIgnoreCase))
-                    throw new ArgumentException("Windows GPU provider must be 'wmi' or 'pdh'.", "providerName");
-                using (PdhWindowsGpuCounterSource pdhSource = usePdh ? new PdhWindowsGpuCounterSource() : null)
+                bool usePdhRaw = String.Equals(providerName, "pdh-raw", StringComparison.OrdinalIgnoreCase);
+                if (!usePdh && !usePdhRaw && !String.Equals(providerName, "wmi", StringComparison.OrdinalIgnoreCase))
+                    throw new ArgumentException("Windows GPU provider must be 'wmi', 'pdh', or 'pdh-raw'.", "providerName");
+                using (PdhWindowsGpuCounterSource pdhSource = usePdh
+                    ? new PdhWindowsGpuCounterSource()
+                    : (usePdhRaw
+                        ? new PdhWindowsGpuCounterSource(new NativeRawPdhGpuCounterReader())
+                        : null))
                 {
-                    Func<WindowsGpuLiveProbeResult> collector = usePdh
-                        ? new Func<WindowsGpuLiveProbeResult>(delegate { return WindowsGpuLiveProbe.RunPdh(pdhSource); })
-                        : new Func<WindowsGpuLiveProbeResult>(WindowsGpuLiveProbe.Run);
+                    Func<WindowsGpuLiveProbeResult> collector;
+                    string counterProvider;
+                    if (usePdhRaw)
+                    {
+                        collector = new Func<WindowsGpuLiveProbeResult>(delegate
+                        {
+                            return WindowsGpuLiveProbe.RunPdhRaw(pdhSource);
+                        });
+                        counterProvider = "windows-pdh-raw-engine";
+                    }
+                    else if (usePdh)
+                    {
+                        collector = new Func<WindowsGpuLiveProbeResult>(delegate
+                        {
+                            return WindowsGpuLiveProbe.RunPdh(pdhSource);
+                        });
+                        counterProvider = "windows-pdh";
+                    }
+                    else
+                    {
+                        collector = new Func<WindowsGpuLiveProbeResult>(WindowsGpuLiveProbe.Run);
+                        counterProvider = "windows-wmi-formatted";
+                    }
                     TimeSpan cpuStart;
                     TimeSpan cpuEnd;
                     Stopwatch elapsed = Stopwatch.StartNew();
@@ -112,7 +137,7 @@ namespace CA.SystemOverlay
                         intervalMilliseconds,
                         elapsed.ElapsedMilliseconds,
                         cpuPercent,
-                        usePdh ? "windows-pdh" : "windows-wmi-formatted");
+                        counterProvider);
                     string fullPath = Path.GetFullPath(resultPath);
                     string directory = Path.GetDirectoryName(fullPath);
                     if (!String.IsNullOrWhiteSpace(directory))

@@ -11,6 +11,7 @@ namespace CA.SystemOverlay
         public WindowsGpuCounterKind Kind;
         public double Value;
         public uint CounterStatus;
+        public string FailureReasonCode;
     }
 
     internal interface IPdhGpuCounterReader
@@ -77,6 +78,17 @@ namespace CA.SystemOverlay
                         Kind = sample.Kind,
                         Value = Double.NaN,
                         FailureReasonCode = GetFamilyReason(sample.Kind, "instance-invalid")
+                    });
+                    continue;
+                }
+                if (!String.IsNullOrWhiteSpace(sample.FailureReasonCode))
+                {
+                    observations.Add(new WindowsGpuCounterObservation
+                    {
+                        InstanceName = sample.InstanceName,
+                        Kind = sample.Kind,
+                        Value = Double.NaN,
+                        FailureReasonCode = sample.FailureReasonCode
                     });
                     continue;
                 }
