@@ -5,6 +5,7 @@ This project follows semantic versioning after `v1.0.0`. Pre-1.0 releases may ch
 ## Unreleased
 
 - Added a privacy-safe animated demo generator that captures only CA AutoConfig windows and restores the live HUD to locked mode.
+- Documented the runtime map, privilege split, trust boundaries, failure behavior, and verification surface for the compiled preview.
 - Expanded the prepared Windows CI example to cover the compiled desktop smoke test and privileged-helper safety boundary.
 - Granted only the configured user read/run access to the protected SYSTEM GPU task, so the control panel can inspect and trigger it without permission to rewrite its action.
 - Replaced the public observation-only thermal recommendation with a calibration-first predictive simulation that refuses flat/confounded data and out-of-domain extrapolation.

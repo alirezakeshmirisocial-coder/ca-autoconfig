@@ -24,7 +24,7 @@ The product direction is a tiny, trustworthy Windows HUD and safe power optimize
 - [x] Separate the optional camera/presence experiment and GPU mutation from the default HUD installation.
 - [x] Add an English screenshot and public privacy statement.
 - [x] Add a short privacy-safe, app-window-only demo.
-- [ ] Add architecture documentation.
+- [x] Add architecture documentation with explicit runtime, privilege, privacy, and failure boundaries.
 
 ## Milestone 3 — Workload-aware Power Advisor
 
