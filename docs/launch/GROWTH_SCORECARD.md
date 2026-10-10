@@ -10,7 +10,7 @@ The public objective is 5,000 genuine GitHub stars. That is an outcome to work t
 | Forks | 0 |
 | Watchers | 0 |
 | Open issues | 4 |
-| Releases | 15 |
+| Releases | 17 |
 | 14-day unique visitors | 0 |
 | 14-day unique cloners | 0 |
 | Latest release ZIP downloads | 0 |
@@ -70,5 +70,6 @@ No tracking is added to the desktop app. GitHub's aggregate repository/release c
 | 2026-10-10 | GitHub public repository | Open-source visibility + workload topics | 0 | 0 | 0 | 0 | Secret/history/image audit passed; repository changed from private to public and anonymous access was verified. No external campaign or vote solicitation. |
 | 2026-10-10 | GitHub release + project Discussion | `v0.2.5-alpha.2` fail-closed workload gate | 0 | 0 | 0 | 0 | Candidate gate rejects failed/reset/incomplete/unstable/hot/weak evidence; fixture-only proof, no real curve, external post, or vote solicitation. |
 | 2026-10-10 | GitHub release + project Discussion | `v0.2.6-alpha.1` transactional compiled helper | 0 | 0 | 0 | 0 | Exact protected rollback and fixed Apply/Reset tasks released with fixture-only helper evidence; no live migration, external post, or vote solicitation. |
+| 2026-10-10 | GitHub release + project Discussion | `v0.2.6-alpha.2` read-only GPU limit plan | 0 | 0 | 0 | 0 | Pre-UAC board/migration checks and independent helper enforcement released; live query-only migration block verified, with no reset, GPU mutation, external post, or vote solicitation. |
 
 Add a row after a legitimate launch or collaboration. Never use referral tags to track people inside the application, buy traffic, solicit votes, or attribute normal organic traffic to a campaign without evidence.
