@@ -7,7 +7,7 @@ param(
     )]
     [string]$Action = 'ControlPanel',
 
-    [switch]$Elevated
+    [switch]$ConfirmHardwareRisk
 )
 
 Set-StrictMode -Version Latest
@@ -15,31 +15,12 @@ $ErrorActionPreference = 'Stop'
 $presenceTaskName = 'CA Presence Monitor (NO LOCK)'
 $overlayTaskName = 'CA System Overlay'
 $gpuTaskName = 'CA GPU Limits'
-$powerShellPath = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
+$gpuResetTaskName = 'CA GPU Limits Reset'
 $nvidiaSmi = Join-Path $env:SystemRoot 'System32\nvidia-smi.exe'
 $gpuInstallPath = Join-Path $env:ProgramData 'CAGpuLimits'
-$gpuApplyScript = Join-Path $gpuInstallPath 'Apply-GpuLimits.ps1'
+$gpuHelperPath = Join-Path $gpuInstallPath 'CAGpuHelper.exe'
 $gpuStatePath = Join-Path $gpuInstallPath 'gpu-limits-state.json'
-$gpuAutoStatePath = Join-Path $gpuInstallPath 'autostart-state.json'
 $overlaySettingsPath = Join-Path $env:LOCALAPPDATA 'CAAutoConfig\settings.json'
-$isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(
-    [Security.Principal.WindowsBuiltInRole]::Administrator
-)
-
-function Invoke-ElevatedControl {
-    param([Parameter(Mandatory = $true)][string]$ElevatedAction)
-    $arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`" -Action $ElevatedAction -Elevated"
-    $process = Start-Process -FilePath $powerShellPath -ArgumentList $arguments -Verb RunAs -Wait -PassThru -WindowStyle Hidden
-    if ($process.ExitCode -ne 0) {
-        throw "Elevated action '$ElevatedAction' failed or was cancelled (exit $($process.ExitCode))."
-    }
-}
-
-function Assert-Admin {
-    if (-not $isAdmin -or -not $Elevated) {
-        throw 'This internal action requires an elevated process.'
-    }
-}
 
 function Start-CameraMonitor {
     $task = Get-ScheduledTask -TaskName $presenceTaskName -ErrorAction SilentlyContinue
@@ -86,116 +67,46 @@ function Open-SystemOverlaySettings {
     throw 'The HUD started, but its settings channel did not become ready. Try again in a moment.'
 }
 
-function Set-GpuAutoState {
-    param([bool]$Enabled)
-    [ordered]@{
-        timestampUtc = [DateTime]::UtcNow.ToString('o')
-        enabled      = $Enabled
-    } | ConvertTo-Json | Set-Content -LiteralPath $gpuAutoStatePath -Encoding UTF8
-}
-
-function Apply-GpuLimits {
-    $task = Get-ScheduledTask -TaskName $gpuTaskName -ErrorAction SilentlyContinue
+function Invoke-FixedGpuTask {
+    param(
+        [Parameter(Mandatory = $true)][string]$TaskName,
+        [Parameter(Mandatory = $true)][string]$ExpectedStatus
+    )
+    $task = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
     if ($null -eq $task) {
-        throw "The approved GPU task is not installed: $gpuTaskName"
+        throw "The approved GPU task is not installed: $TaskName"
     }
     $previousTimestamp = ''
     if (Test-Path -LiteralPath $gpuStatePath -PathType Leaf) {
         try { $previousTimestamp = [string](Get-Content -Raw -LiteralPath $gpuStatePath | ConvertFrom-Json).timestampUtc }
         catch { $previousTimestamp = '' }
     }
-    Start-ScheduledTask -TaskName $gpuTaskName
-    $deadline = [DateTime]::UtcNow.AddSeconds(20)
+    Start-ScheduledTask -TaskName $TaskName
+    $deadline = [DateTime]::UtcNow.AddSeconds(30)
     do {
         Start-Sleep -Milliseconds 400
         if (-not (Test-Path -LiteralPath $gpuStatePath -PathType Leaf)) { continue }
         try {
             $state = Get-Content -Raw -LiteralPath $gpuStatePath | ConvertFrom-Json
             if ([string]$state.timestampUtc -eq $previousTimestamp) { continue }
-            if ([string]$state.status -eq 'applied') { return }
+            if ([string]$state.status -eq $ExpectedStatus) { return }
             if ([string]$state.status -eq 'failed') { throw "GPU task failed: $($state.message)" }
         }
         catch {
             if ($_.Exception.Message -like 'GPU task failed:*') { throw }
         }
     } while ([DateTime]::UtcNow -lt $deadline)
-    throw 'The GPU task did not publish a fresh result within 20 seconds.'
+    throw "The GPU task '$TaskName' did not publish a fresh result within 30 seconds."
 }
 
-function Reset-GpuLimits {
-    Assert-Admin
-    if (-not (Test-Path -LiteralPath $gpuStatePath -PathType Leaf)) {
-        throw 'The applied GPU profile state is missing; refusing to guess which GPUs to reset.'
-    }
-    $state = Get-Content -Raw -LiteralPath $gpuStatePath | ConvertFrom-Json
-    $statusProperty = $state.PSObject.Properties['status']
-    $profilesProperty = $state.PSObject.Properties['results']
-    if ($null -eq $statusProperty -or [string]$statusProperty.Value -ne 'applied' -or
-        $null -eq $profilesProperty -or @($profilesProperty.Value).Count -eq 0) {
-        throw 'No applied GPU profile is available; refusing to reset guessed GPU indices.'
-    }
+function Apply-GpuLimits { Invoke-FixedGpuTask -TaskName $gpuTaskName -ExpectedStatus 'applied' }
 
-    $resetTargets = @()
-    $seenTargets = @{}
-    foreach ($profile in @($profilesProperty.Value)) {
-        $uuidProperty = $profile.PSObject.Properties['uuid']
-        $indexProperty = $profile.PSObject.Properties['index']
-        $uuid = if ($null -ne $uuidProperty) { [string]$uuidProperty.Value } else { '' }
-        $profileIndex = -1
-        if ($null -ne $indexProperty) { $profileIndex = [int]$indexProperty.Value }
-        if (-not [string]::IsNullOrWhiteSpace($uuid)) {
-            if ($uuid -notmatch '^GPU-[0-9A-Fa-f-]+$') { throw "The applied profile contains an invalid GPU UUID: $uuid" }
-            $target = $uuid
-        }
-        elseif ($profileIndex -ge 0) {
-            # Backward compatibility for profiles created before UUID pinning.
-            $target = [string]$profileIndex
-        }
-        else {
-            throw 'The applied profile contains no usable GPU identity.'
-        }
-        if ($seenTargets.ContainsKey($target)) { throw "The applied profile contains duplicate GPU target $target." }
-        $seenTargets[$target] = $true
+function Reset-GpuLimits { Invoke-FixedGpuTask -TaskName $gpuResetTaskName -ExpectedStatus 'reset' }
 
-        $identityText = (& $nvidiaSmi -i $target --query-gpu=index,uuid,power.default_limit --format=csv,noheader,nounits | Out-String).Trim()
-        if ($LASTEXITCODE -ne 0) { throw "Could not read default power for GPU $target." }
-        $identityParts = @($identityText -split ',' | ForEach-Object { $_.Trim() })
-        if ($identityParts.Count -lt 3) { throw "Could not verify GPU $target before restoring default power." }
-        $actualIndex = [int]::Parse($identityParts[0], [Globalization.CultureInfo]::InvariantCulture)
-        $actualUuid = [string]$identityParts[1]
-        if ($target -like 'GPU-*' -and -not [string]::Equals($target, $actualUuid, [StringComparison]::OrdinalIgnoreCase)) {
-            throw "GPU identity changed while preflighting reset target $target; no reset was attempted."
-        }
-        $defaultPower = [double]::Parse($identityParts[2], [Globalization.CultureInfo]::InvariantCulture)
-        $resetTargets += [pscustomobject]@{
-            Target       = $target
-            Index        = $actualIndex
-            Uuid         = $actualUuid
-            DefaultPower = $defaultPower
-        }
+function Assert-HardwareConfirmation {
+    if (-not $ConfirmHardwareRisk) {
+        throw 'This command changes GPU driver state. Review it and rerun with -ConfirmHardwareRisk.'
     }
-
-    $results = @()
-    foreach ($resetTarget in $resetTargets) {
-        $target = [string]$resetTarget.Target
-        & $nvidiaSmi -i $target -rgc | Out-Null
-        if ($LASTEXITCODE -ne 0) { throw "Could not reset locked clocks on GPU $target." }
-        $defaultPowerText = ([double]$resetTarget.DefaultPower).ToString('0.###', [Globalization.CultureInfo]::InvariantCulture)
-        & $nvidiaSmi -i $target -pl $defaultPowerText | Out-Null
-        if ($LASTEXITCODE -ne 0) { throw "Could not restore default power on GPU $target." }
-        $results += [ordered]@{
-            index                   = [int]$resetTarget.Index
-            uuid                    = [string]$resetTarget.Uuid
-            restoredPowerLimitWatts = [double]$resetTarget.DefaultPower
-            graphicsClockReset      = $true
-        }
-    }
-    [ordered]@{
-        timestampUtc = [DateTime]::UtcNow.ToString('o')
-        status       = 'reset'
-        computer     = $env:COMPUTERNAME
-        results      = $results
-    } | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $gpuStatePath -Encoding UTF8
 }
 
 function Set-AutoStart {
@@ -208,9 +119,6 @@ function Set-AutoStart {
     }
     if ($Enabled) { Enable-ScheduledTask -InputObject $overlay | Out-Null }
     else { Disable-ScheduledTask -InputObject $overlay | Out-Null }
-    if ($null -ne (Get-ScheduledTask -TaskName $gpuTaskName -ErrorAction SilentlyContinue)) {
-        Invoke-ElevatedControl -ElevatedAction $(if ($Enabled) { 'EnableAutoStart' } else { 'DisableAutoStart' })
-    }
 }
 
 function Get-CombinedStatusText {
@@ -306,56 +214,29 @@ function Get-CombinedStatusText {
         $lines.Add('GPU limits: nvidia-smi not found')
     }
 
-    $gpuAutoEnabled = $true
-    if (Test-Path -LiteralPath $gpuAutoStatePath -PathType Leaf) {
-        $gpuAutoEnabled = [bool](Get-Content -Raw -LiteralPath $gpuAutoStatePath | ConvertFrom-Json).enabled
-    }
-    $gpuInstalled = Test-Path -LiteralPath $gpuApplyScript -PathType Leaf
-    $lines.Add("GPU startup helper: installed=$gpuInstalled | auto-start=$gpuAutoEnabled | SYSTEM task")
+    $gpuApplyTask = Get-ScheduledTask -TaskName $gpuTaskName -ErrorAction SilentlyContinue
+    $gpuAutoEnabled = $null -ne $gpuApplyTask -and [string]$gpuApplyTask.State -ne 'Disabled'
+    $gpuInstalled = (Test-Path -LiteralPath $gpuHelperPath -PathType Leaf) -and
+        $null -ne (Get-ScheduledTask -TaskName $gpuTaskName -ErrorAction SilentlyContinue) -and
+        $null -ne (Get-ScheduledTask -TaskName $gpuResetTaskName -ErrorAction SilentlyContinue)
+    $lines.Add("GPU helper: installed=$gpuInstalled | auto-start=$gpuAutoEnabled | fixed apply/reset SYSTEM tasks")
     $lines.Add('Windows lock integration: DISABLED')
     return $lines -join [Environment]::NewLine
 }
 
-if ($Elevated) {
-    try {
-        switch ($Action) {
-            'ApplyGpu' { Apply-GpuLimits }
-            'ResetGpu' { Reset-GpuLimits }
-            'EnableAutoStart' {
-                Assert-Admin
-                if ($null -ne (Get-ScheduledTask -TaskName $gpuTaskName -ErrorAction SilentlyContinue)) {
-                    Enable-ScheduledTask -TaskName $gpuTaskName | Out-Null
-                    Set-GpuAutoState -Enabled $true
-                }
-            }
-            'DisableAutoStart' {
-                Assert-Admin
-                if ($null -ne (Get-ScheduledTask -TaskName $gpuTaskName -ErrorAction SilentlyContinue)) {
-                    Disable-ScheduledTask -TaskName $gpuTaskName | Out-Null
-                    Set-GpuAutoState -Enabled $false
-                }
-            }
-            default { throw "Unsupported elevated action: $Action" }
-        }
-        exit 0
-    }
-    catch {
-        Write-Error $_.Exception.Message
-        exit 1
-    }
-}
-
 switch ($Action) {
     'StartAll' {
+        Assert-HardwareConfirmation
         Start-CameraMonitor
         Start-SystemOverlay
         Apply-GpuLimits
         return
     }
     'StopAll' {
+        Assert-HardwareConfirmation
         Stop-CameraMonitor
         Stop-SystemOverlay
-        Invoke-ElevatedControl -ElevatedAction 'ResetGpu'
+        Reset-GpuLimits
         return
     }
     'StartCamera' { Start-CameraMonitor; return }
@@ -363,8 +244,8 @@ switch ($Action) {
     'StartOverlay' { Start-SystemOverlay; return }
     'StopOverlay' { Stop-SystemOverlay; return }
     'OpenOverlaySettings' { Open-SystemOverlaySettings; return }
-    'ApplyGpu' { Apply-GpuLimits; return }
-    'ResetGpu' { Invoke-ElevatedControl -ElevatedAction 'ResetGpu'; return }
+    'ApplyGpu' { Assert-HardwareConfirmation; Apply-GpuLimits; return }
+    'ResetGpu' { Assert-HardwareConfirmation; Reset-GpuLimits; return }
     'EnableAutoStart' { Set-AutoStart -Enabled $true; return }
     'DisableAutoStart' { Set-AutoStart -Enabled $false; return }
     'Status' { Get-CombinedStatusText; return }
@@ -443,17 +324,41 @@ function Invoke-UiAction {
     }
 }
 
-New-ControlButton 'Start all' 28 292 ([Drawing.Color]::FromArgb(27, 138, 91)) { Invoke-UiAction { Start-CameraMonitor; Start-SystemOverlay; Apply-GpuLimits } }
-New-ControlButton 'Stop all' 224 292 ([Drawing.Color]::FromArgb(181, 63, 63)) { Invoke-UiAction { Stop-CameraMonitor; Stop-SystemOverlay; Invoke-ElevatedControl 'ResetGpu' } }
+function Confirm-UiGpuAction {
+    param([Parameter(Mandatory = $true)][string]$Message)
+    $choice = [Windows.Forms.MessageBox]::Show(
+        $Message,
+        'CA AutoConfig - confirm GPU change',
+        [Windows.Forms.MessageBoxButtons]::YesNo,
+        [Windows.Forms.MessageBoxIcon]::Warning,
+        [Windows.Forms.MessageBoxDefaultButton]::Button2
+    )
+    return $choice -eq [Windows.Forms.DialogResult]::Yes
+}
+
+New-ControlButton 'Start all' 28 292 ([Drawing.Color]::FromArgb(27, 138, 91)) {
+    if (Confirm-UiGpuAction 'Apply the installed, UUID-pinned GPU profile now?') {
+        Invoke-UiAction { Start-CameraMonitor; Start-SystemOverlay; Apply-GpuLimits }
+    }
+}
+New-ControlButton 'Stop all' 224 292 ([Drawing.Color]::FromArgb(181, 63, 63)) {
+    if (Confirm-UiGpuAction 'Stop the monitors and restore the exact pre-apply GPU power limits and vendor-managed clocks?') {
+        Invoke-UiAction { Stop-CameraMonitor; Stop-SystemOverlay; Reset-GpuLimits }
+    }
+}
 New-ControlButton 'Refresh status' 420 292 ([Drawing.Color]::FromArgb(70, 83, 105)) { Refresh-ControlStatus }
 New-ControlButton 'Start camera' 28 346 ([Drawing.Color]::FromArgb(52, 96, 153)) { Invoke-UiAction { Start-CameraMonitor } }
 New-ControlButton 'Stop camera' 224 346 ([Drawing.Color]::FromArgb(88, 92, 102)) { Invoke-UiAction { Stop-CameraMonitor } }
 New-ControlButton 'Start HUD' 420 346 ([Drawing.Color]::FromArgb(52, 96, 153)) { Invoke-UiAction { Start-SystemOverlay } }
 New-ControlButton 'Stop HUD' 28 400 ([Drawing.Color]::FromArgb(88, 92, 102)) { Invoke-UiAction { Stop-SystemOverlay } }
-New-ControlButton 'Apply GPU limits' 224 400 ([Drawing.Color]::FromArgb(52, 96, 153)) { Invoke-UiAction { Apply-GpuLimits } }
-New-ControlButton 'Reset GPU defaults' 420 400 ([Drawing.Color]::FromArgb(88, 92, 102)) { Invoke-UiAction { Invoke-ElevatedControl 'ResetGpu' } }
-New-ControlButton 'Enable auto-start' 28 454 ([Drawing.Color]::FromArgb(88, 92, 102)) { Invoke-UiAction { Set-AutoStart $true } }
-New-ControlButton 'Disable auto-start' 224 454 ([Drawing.Color]::FromArgb(88, 92, 102)) { Invoke-UiAction { Set-AutoStart $false } }
+New-ControlButton 'Apply GPU limits' 224 400 ([Drawing.Color]::FromArgb(52, 96, 153)) {
+    if (Confirm-UiGpuAction 'Apply the installed, UUID-pinned GPU profile now?') { Invoke-UiAction { Apply-GpuLimits } }
+}
+New-ControlButton 'Rollback GPU profile' 420 400 ([Drawing.Color]::FromArgb(88, 92, 102)) {
+    if (Confirm-UiGpuAction 'Restore the exact pre-apply GPU power limits and vendor-managed clocks?') { Invoke-UiAction { Reset-GpuLimits } }
+}
+New-ControlButton 'Auto-start HUD/camera' 28 454 ([Drawing.Color]::FromArgb(88, 92, 102)) { Invoke-UiAction { Set-AutoStart $true } }
+New-ControlButton 'Pause HUD/camera' 224 454 ([Drawing.Color]::FromArgb(88, 92, 102)) { Invoke-UiAction { Set-AutoStart $false } }
 New-ControlButton 'HUD settings' 420 454 ([Drawing.Color]::FromArgb(52, 96, 153)) { Invoke-UiAction { Open-SystemOverlaySettings } }
 
 Refresh-ControlStatus

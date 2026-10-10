@@ -7,17 +7,25 @@ $root = Split-Path -Parent $PSScriptRoot
 $buildScript = Join-Path $root 'Build-DesktopApp.ps1'
 $desktopInstaller = Join-Path $root 'Install-DesktopApp.ps1'
 $overlayInstaller = Join-Path $root 'Install-SystemOverlay.ps1'
+$controlPanel = Join-Path $root 'CA-ControlPanel.ps1'
 $resultRoot = Join-Path ([IO.Path]::GetTempPath()) ('ca-desktop-app-test-' + [Guid]::NewGuid().ToString('N'))
 $resultPath = Join-Path $resultRoot 'result.json'
 
 try {
     $desktopInstallerSource = Get-Content -Raw -LiteralPath $desktopInstaller
     $overlayInstallerSource = Get-Content -Raw -LiteralPath $overlayInstaller
+    $controlPanelSource = Get-Content -Raw -LiteralPath $controlPanel
     if ($desktopInstallerSource -notmatch 'IsNullOrWhiteSpace\(\$ExecutablePath\)' -or $desktopInstallerSource -notmatch 'TargetDeviceName') {
         throw 'The packaged installer does not resolve its default executable after initialization or forward an explicit display target.'
     }
     if ($overlayInstallerSource -notmatch 'existingTargetDeviceName' -or $overlayInstallerSource -notmatch 'requested display is not currently attached') {
         throw 'The overlay installer does not preserve and validate the selected display across upgrades.'
+    }
+    if ($desktopInstallerSource -notmatch 'CA-ControlPanel\.ps1' -or $desktopInstallerSource -notmatch 'CA AutoConfig\.lnk') {
+        throw 'The desktop installer does not install the control panel and its shortcut.'
+    }
+    if ($controlPanelSource -match '-Verb RunAs' -or $controlPanelSource -match "'-pl'" -or $controlPanelSource -match "'-rgc'") {
+        throw 'The installed standard-user control panel contains an elevation or direct GPU-mutation path.'
     }
     $build = & $buildScript -Configuration Release -SelfContained:$SelfContained
     if ([string]$build.Status -ne 'Built') { throw 'Compiled desktop app build did not report success.' }
@@ -48,6 +56,7 @@ try {
         Sha256        = $build.Sha256
         SettingsSchema = [int]$result.schemaVersion
         InstallerPreservesDisplay = $true
+        ControlPanelStaysUnprivileged = $true
         HardwareWrites = [bool]$result.hardwareWrites
     }
 }

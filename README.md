@@ -7,7 +7,7 @@
 
 CA AutoConfig is an open-source, lightweight Windows HUD and conservative GPU power companion for local-AI and multi-GPU workstations. It keeps essential CPU, memory, storage, CUDA/SM, VRAM, temperature, and board-power information visible without stealing focus from the applications underneath it.
 
-[Latest alpha](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/releases/tag/v0.2.5-alpha.2) · [Join one focused alpha test](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/discussions/9) · [Desktop preview](docs/DESKTOP_PREVIEW.md) · [Hardware matrix](docs/HARDWARE_MATRIX.md) · [Power-curve lab](benchmark/POWER_CURVE_METHOD.md) · [Architecture](docs/ARCHITECTURE.md) · [Roadmap](ROADMAP.md) · [Contributor issues](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/milestone/1) · [Discussions](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/discussions) · [Growth scorecard](docs/launch/GROWTH_SCORECARD.md)
+[Latest alpha](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/releases/tag/v0.2.6-alpha.1) · [Join one focused alpha test](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/discussions/9) · [Desktop preview](docs/DESKTOP_PREVIEW.md) · [Hardware matrix](docs/HARDWARE_MATRIX.md) · [Power-curve lab](benchmark/POWER_CURVE_METHOD.md) · [Architecture](docs/ARCHITECTURE.md) · [Roadmap](ROADMAP.md) · [Contributor issues](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/milestone/1) · [Discussions](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/discussions) · [Growth scorecard](docs/launch/GROWTH_SCORECARD.md)
 
 ![Three-step CA AutoConfig demo showing the locked HUD, edit mode, and monitor and shortcut settings](docs/assets/hud-demo.gif)
 
@@ -40,7 +40,7 @@ Contributors can build and smoke-test the same app from source:
 
 The original `Install-SystemOverlay.ps1` PowerShell-hosted path remains available as a compatibility fallback.
 
-The elevated GPU helper is deliberately separate and opt-in. It requires explicit GPU indices, clock, power, and risk acknowledgement. Indices are used only to select cards during installation; the installed task resolves and pins their stable NVIDIA UUIDs, then preflights every target before changing one. The `280 W / 1700 MHz` values used on the maintainer's workstation are not universal recommendations. Treat advisor values as benchmark candidates for your exact board and workload.
+The compiled elevated GPU helper is deliberately separate and opt-in. It accepts only fixed `apply` or `reset` commands and runs through two ACL-protected SYSTEM tasks; the standard-user control panel cannot construct privileged arguments. Installation requires explicit GPU indices, clock, power, and risk acknowledgement. Indices select cards once, then the tasks pin stable NVIDIA UUIDs. Apply stores exact pre-change power values in a protected atomic rollback record; Reset restores those values and vendor-managed clocks. The `280 W / 1700 MHz` values used on the maintainer's workstation are not universal recommendations. Treat advisor values as benchmark candidates for your exact board and workload.
 
 If you run local AI on Windows, the most useful contribution right now is a privacy-safe [hardware or monitor report](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/issues/new/choose). The Settings window can copy a sanitized diagnostic block for that report. No star is required; reproducible results and focused pull requests are what move the project forward.
 
@@ -253,7 +253,7 @@ HUD در حالت عادی نیمه‌شفاف، بدون Focus و click-through
 .\Install-GpuLimits.ps1 -GpuIndexList '0,1' -MaxGraphicsClockMHz 1700 -PowerLimitWatts 280 -AcceptHardwareRisk
 ```
 
-نصاب indexهای انتخاب‌شده را یک‌بار به UUID پایدار NVIDIA تبدیل می‌کند، سپس UAC درخواست می‌کند و Task با نام `CA GPU Limits` را تحت حساب `SYSTEM` ثبت می‌کند. Task بعد از نصب دیگر به ترتیب متغیر indexها وابسته نیست. قبل از هر تغییر، هویت تمام GPUها و بازهٔ توان آن‌ها بررسی می‌شود. اگر مرحلهٔ اعمال شکست بخورد، اسکریپت به‌صورت best-effort قفل کلاک خودش را reset و Power Limit قبلی را restore می‌کند و نتیجهٔ rollback را در state ثبت می‌کند. Task پانزده ثانیه بعد از Logon اجرا می‌شود و از نظر عملکرد معادل چهار فرمان زیر با UUID واقعی کارت‌ها است:
+نصاب indexهای انتخاب‌شده را یک‌بار به UUID پایدار NVIDIA تبدیل می‌کند، hash فایل helper را پیش و پس از UAC بررسی می‌کند و دو Task ثابت `CA GPU Limits` و `CA GPU Limits Reset` را تحت حساب `SYSTEM` ثبت می‌کند. کاربر فقط اجازهٔ Read/Run این Taskها را دارد و نمی‌تواند command یا argument آن‌ها را بازنویسی کند. Helper قبل از هر تغییر همهٔ کارت‌ها را preflight می‌کند و Power Limit دقیق قبل از Apply را در فایل محافظت‌شده و atomic ذخیره می‌کند. در شکست جزئی rollback معکوس انجام می‌دهد؛ دکمهٔ Rollback نیز همان مقدارهای واقعی قبلی و کلاک vendor-managed را برمی‌گرداند. Task اعمال پانزده ثانیه بعد از Logon اجرا می‌شود و از نظر عملکرد معادل چهار فرمان زیر با UUID واقعی کارت‌ها است:
 
 ```powershell
 nvidia-smi -i GPU-<uuid-of-selected-card-0> -pl 280
@@ -262,13 +262,13 @@ nvidia-smi -i GPU-<uuid-of-selected-card-1> -pl 280
 nvidia-smi -i GPU-<uuid-of-selected-card-1> -lgc 0,1700
 ```
 
-وضعیت آخر در `C:\ProgramData\CAGpuLimits\gpu-limits-state.json` و خروجی جزئی در `C:\ProgramData\CAGpuLimits\gpu-limits.log` ذخیره می‌شود. حذف Task:
+وضعیت آخر در `C:\ProgramData\CAGpuLimits\gpu-limits-state.json`، rollback دقیق در `gpu-limits-backup.json` و لاگ محلی در `gpu-limits.log` ذخیره می‌شود. Apply و Rollback دستی در کنترل‌پنل تأیید صریح می‌خواهند. برای command line نیز `-ConfirmHardwareRisk` لازم است. حذف Taskها:
 
 ```powershell
 .\Uninstall-GpuLimits.ps1
 ```
 
-حذف Task تنظیم فعلی درایور را فوراً reset نمی‌کند؛ تنظیمات موجود تا reboot یا reset درایور باقی می‌ماند.
+حذف Taskها تنظیم فعلی درایور را فوراً reset نمی‌کند و فایل rollback را عمداً نگه می‌دارد. ابتدا از کنترل‌پنل `Rollback GPU profile` را اجرا کنید و بعد uninstall کنید.
 
 دادهٔ آزمایش در `%LOCALAPPDATA%\CAUnlockGuardLab` است و با دستور زیر کاملاً حذف می‌شود:
 

@@ -60,8 +60,8 @@ sequenceDiagram
     actor User
     participant Installer as Install-GpuLimits.ps1
     participant UAC as Windows UAC
-    participant Task as CA GPU Limits task (SYSTEM)
-    participant Helper as Protected apply script
+    participant Tasks as Fixed Apply/Reset tasks (SYSTEM)
+    participant Helper as Compiled strict-command helper
     participant Driver as nvidia-smi / NVIDIA driver
     participant State as State + log files
     participant HUD as Standard-user HUD
@@ -70,9 +70,11 @@ sequenceDiagram
     Installer->>Driver: Resolve selected indices to stable UUIDs (read only)
     Installer->>UAC: Request elevation
     UAC-->>Installer: Administrator-approved process
-    Installer->>Task: Install reviewed command and ACL
-    Task->>Helper: Run after configured-user logon
+    Installer->>Installer: Pin helper SHA-256 across UAC
+    Installer->>Tasks: Install reviewed fixed commands and ACLs
+    Tasks->>Helper: Run apply after logon or reset on demand
     Helper->>Driver: Preflight every UUID-pinned target
+    Helper->>State: Atomically save exact pre-apply values
     Helper->>Driver: Apply power cap, then clock ceiling
     Helper->>Driver: Read back live values
     Helper->>State: Write applied/failed result and rollback report
@@ -80,7 +82,9 @@ sequenceDiagram
     HUD->>Driver: Compare with live values
 ```
 
-Installation requires all of these inputs: GPU indices, maximum graphics clock, power limit, and `-AcceptHardwareRisk`. Numeric indices select the cards once; before UAC the installer resolves them through a read-only NVIDIA query and carries their validated UUIDs into the protected task. Every UUID-pinned target is preflighted before any card is changed. If a later operation fails, the helper makes a best-effort reverse-order rollback against the same UUID: reset the graphics-clock lock and restore the original power cap for each changed card.
+Installation requires all of these inputs: GPU indices, maximum graphics clock, power limit, and `-AcceptHardwareRisk`. Numeric indices select the cards once; before UAC the installer resolves them through a read-only NVIDIA query and carries their validated UUIDs into the protected task. The compiled helper hash is pinned before elevation and checked again before and after staging. Its command parser accepts only one exact Apply grammar or the argument-free Reset command, and process arguments go directly to the fixed System32 `nvidia-smi.exe` without a shell.
+
+Every UUID-pinned target is preflighted before any card is changed. Before mutation, Apply atomically records the exact prior power cap for every target in the protected directory. If a later operation fails, it makes a reverse-order rollback against the same UUIDs. The separate fixed Reset task reads only that protected record, restores exact prior power caps and vendor-managed graphics clocks, and verifies the result. If reset fails partway, it attempts to restore the previously applied profile so cards do not silently remain in a mixed state.
 
 The installed source and state are under:
 
@@ -88,7 +92,7 @@ The installed source and state are under:
 %ProgramData%\CAGpuLimits\
 ```
 
-That directory is administrator-owned and rejects reparse-point installation. SYSTEM and Administrators receive full control; standard Users receive read and execute access. The scheduled task runs as SYSTEM, but its task descriptor grants only the configured user read/run access, not permission to rewrite the action. The control panel's Apply action starts that exact reviewed task and waits for a fresh state result; it never reconstructs the helper command. Reset requires elevation, reads and preflights the applied UUID-pinned profile, and refuses to guess targets when state is missing or invalid. This lets the configured user inspect, stop, and start the approved profile without turning the UI into a general elevation path.
+That directory is administrator-owned and rejects reparse-point installation. SYSTEM and Administrators receive full control; standard Users receive read and execute access. Both tasks run as SYSTEM, but their descriptors grant only the configured user read/run access, not permission to rewrite either action. The control panel starts those exact reviewed tasks and waits for fresh state; it has no direct `-pl`, `-lgc`, or `-rgc` path. Manual Apply and Reset require explicit confirmation. This lets the configured user inspect, stop, start, and roll back the approved profile without turning the UI into a general elevation path.
 
 The HUD's green GPU indicator is not based on the state file alone. It requires a successful state from the current boot, the same configured profile across the expected UUIDs, matching live power caps, and graphics clocks that do not exceed the ceiling beyond a small telemetry tolerance. A driver/reboot index reorder is accepted only when UUID identity still matches; a different card at an old index stays red. Missing, stale, failed, or mismatched evidence also stays red. Index-only state from older releases remains readable so upgrades fail safely without an unnecessary outage.
 
@@ -127,8 +131,8 @@ See [PRIVACY.md](../PRIVACY.md), [SECURITY.md](../SECURITY.md), and the [adaptiv
 | --- | --- | --- |
 | HUD process | Read telemetry; draw UI; save user settings; register a hotkey; copy an explicitly requested sanitized diagnostic to the local clipboard | Administrator elevation; GPU writes; camera access; network telemetry; automatic report upload |
 | Settings event | Ask the existing user-session process to open its settings window | Arbitrary commands or payloads |
-| GPU installer | Validate explicit values; request UAC; install one fixed task action | Silent elevation; inferred GPU targets; universal power presets |
-| GPU task | Run the protected apply script as SYSTEM; write result/log files | User-controlled command lines; hidden profile changes |
+| GPU installer | Validate explicit values; pin the helper hash across UAC; install fixed Apply/Reset task actions | Silent elevation; inferred GPU targets; universal power presets |
+| GPU tasks/helper | Run strict compiled Apply/Reset commands as SYSTEM; keep atomic state/rollback records | User-controlled privileged arguments; shell execution; guessed reset targets; hidden profile changes |
 | Ollama benchmark | Call a local model; read official timing counters; query NVIDIA telemetry; write an anonymized run | Model pulls; implicit remote prompts; GPU writes; prompt/response export |
 | llama.cpp benchmark | Launch explicit local `llama-bench`/GGUF inputs; validate official JSON; query NVIDIA telemetry; write an anonymized run | Downloads; network clients; elevation; GPU writes; path/command/console export |
 | ComfyUI benchmark | Submit an explicit workflow to an empty opted-in endpoint; query completion and NVIDIA telemetry; write generalized anonymized throughput | Implicit remote workflows; output downloads; global interrupt/free/history mutation; GPU writes; workflow/history export |
@@ -155,7 +159,7 @@ See [PRIVACY.md](../PRIVACY.md), [SECURITY.md](../SECURITY.md), and the [adaptiv
 | Unlock guard | `tests/Guard.Smoke.Tests.ps1` exercises success, timeout-with-lock-suppressed, and fail-open collision behavior. |
 | HUD core | `tests/SystemOverlay.Smoke.Tests.ps1` compiles the shared source, round-trips settings, verifies diagnostic UUID/path redaction, validates live multi-GPU telemetry, and exercises 13 deterministic NVIDIA identity/state/success/failure cases. |
 | Compiled app | `tests/DesktopApp.Smoke.Tests.ps1` builds and launches the .NET entry point in a no-hardware-write smoke mode. |
-| Privileged helper | `tests/GpuLimits.Safety.Tests.ps1` checks explicit targets, preflight-before-write, rollback, ACL intent, and safe combined-installer defaults without changing hardware. |
+| Privileged helper | `tests/GpuLimits.Safety.Tests.ps1` runs eight compiled fake-runner cases plus policy checks for strict commands, preflight-before-write, exact rollback, recovery, corrupt-record rejection, hash-pinned elevation, fixed tasks, confirmation, ACL intent, and safe defaults without changing hardware. |
 | Power-curve lab | `benchmark/Run-Tests.ps1` runs 28 schema/report/card tests, 12 idle-gate tests, 14 workload-advisor tests, nine Ollama tests, nine llama-bench tests, and eight ComfyUI tests in both PowerShell runtimes, including phase-aware energy labeling, paired idle regression, workload failure/reset/clock rejection, legacy downgrade safety, workload isolation, evidence-gated SVG output, cache rejection, remote-endpoint rejection, concurrent fixture telemetry, and privacy omission. |
 | Cooling model | `fan-control/Run-Tests.ps1` runs the isolated safety, calibration, prediction, drift, and emergency scenarios. |
 | Demo | `tools/Capture-HudDemo.ps1` uses `PrintWindow` on CA AutoConfig windows only, verifies state transitions, and restores the HUD to locked mode. |
@@ -168,9 +172,8 @@ The research basis and current phase-alignment boundary are recorded in [`resear
 
 The current public preview intentionally exposes the remaining work:
 
-1. Replace the script-based privileged action with a minimal authenticated helper and explicit reset operation.
-2. Add a WDDM provider/fallback with the same capability and failure contract as the simulated NVIDIA source.
-3. Sign binaries and exercise install, upgrade, uninstall, sleep, driver-reset, and clean-machine recovery in CI.
-4. Keep measured workload benchmarks separate from generic or vendor-independent claims.
+1. Add a WDDM provider/fallback with the same capability and failure contract as the simulated NVIDIA source.
+2. Sign binaries and exercise install, upgrade, uninstall, sleep, driver-reset, and clean-machine recovery in CI.
+3. Keep measured workload benchmarks separate from generic or vendor-independent claims.
 
 Changes that weaken the privilege split, make GPU writes implicit, convert unknown evidence into success, or connect cooling advice directly to an actuator are architecture changes and require a security-focused review.

@@ -4,6 +4,13 @@ This project follows semantic versioning after `v1.0.0`. Pre-1.0 releases may ch
 
 ## Unreleased
 
+## v0.2.6-alpha.1 — Transactional compiled GPU helper
+
+- Replaced the PowerShell-based SYSTEM action with a small compiled helper that accepts only strict `apply` or `reset` commands, launches the fixed System32 `nvidia-smi.exe` without a shell, and refuses standard-user direct execution.
+- Added a protected, atomic rollback record containing the exact pre-apply power limits. Apply and reset both preflight every UUID-pinned target, verify results, and attempt reverse recovery after partial failure.
+- Split privileged mutation into fixed ACL-protected Apply and Reset tasks. The control panel can run those reviewed commands but cannot supply privileged arguments or call `-pl`, `-lgc`, or `-rgc` itself.
+- Added explicit confirmation for manual GPU changes, hash pinning across UAC, legacy-migration refusal when original values are unknown, and eight hardware-isolated compiled-helper safety tests.
+
 ## v0.2.5-alpha.2 — Fail-closed workload candidates
 
 - Added an explicit-reference workload candidate gate that requires live phase-aligned schema-v3 evidence, repeated complete sampling, lower power, configurable throughput retention and efficiency gain, bounded temperature, and stable loaded clocks below a declared ceiling.

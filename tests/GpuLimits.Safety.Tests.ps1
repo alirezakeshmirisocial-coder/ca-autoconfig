@@ -5,7 +5,10 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $root = Split-Path -Parent $PSScriptRoot
-$applyPath = Join-Path $root 'Apply-GpuLimits.ps1'
+$helperPath = Join-Path $root 'src\CAAutoConfig.GpuHelper\Program.cs'
+$helperProjectPath = Join-Path $root 'src\CAAutoConfig.GpuHelper\CAAutoConfig.GpuHelper.csproj'
+$helperTestsProjectPath = Join-Path $root 'src\CAAutoConfig.GpuHelper.Tests\CAAutoConfig.GpuHelper.Tests.csproj'
+$buildPath = Join-Path $root 'Build-GpuHelper.ps1'
 $installPath = Join-Path $root 'Install-GpuLimits.ps1'
 $combinedPath = Join-Path $root 'Install-CombinedAutoconfig.ps1'
 $controlPanelPath = Join-Path $root 'CA-ControlPanel.ps1'
@@ -18,7 +21,7 @@ function Assert-True {
     if (-not $Condition) { throw $Message }
 }
 
-foreach ($path in @($applyPath, $installPath, $combinedPath, $controlPanelPath)) {
+foreach ($path in @($buildPath, $installPath, $combinedPath, $controlPanelPath)) {
     $tokens = $null
     $errors = $null
     [void][Management.Automation.Language.Parser]::ParseFile($path, [ref]$tokens, [ref]$errors)
@@ -26,57 +29,76 @@ foreach ($path in @($applyPath, $installPath, $combinedPath, $controlPanelPath))
     Assert-True ($errors.Count -eq 0) "PowerShell parser errors in $path`: $parseMessage"
 }
 
-$apply = Get-Content -Raw -LiteralPath $applyPath
+foreach ($path in @($helperPath, $helperProjectPath, $helperTestsProjectPath)) {
+    Assert-True (Test-Path -LiteralPath $path -PathType Leaf) "Required compiled-helper source is missing: $path"
+}
+
+$helper = Get-Content -Raw -LiteralPath $helperPath
+$project = Get-Content -Raw -LiteralPath $helperProjectPath
 $install = Get-Content -Raw -LiteralPath $installPath
 $combined = Get-Content -Raw -LiteralPath $combinedPath
 $controlPanel = Get-Content -Raw -LiteralPath $controlPanelPath
 
-Assert-True ($apply -match '\[Parameter\(Mandatory = \$true\)\]\s*\[ValidateNotNullOrEmpty\(\)\]\s*\[string\]\$GpuIndexList') 'Apply script must require an explicit GPU index list.'
-Assert-True ($apply -match '\[string\]\$GpuUuidList' -and $apply -match "\^GPU-\[0-9A-Fa-f-\]\+\$") 'Apply script must accept and validate installer-resolved NVIDIA UUIDs.'
-Assert-True ($apply -match '\[Parameter\(Mandatory = \$true\)\]\s*\[ValidateRange\(300, 3000\)\]\s*\[int\]\$MaxGraphicsClockMHz') 'Apply script must require an explicit clock limit.'
-Assert-True ($apply -match '\[Parameter\(Mandatory = \$true\)\]\s*\[ValidateRange\(50, 1000\)\]\s*\[int\]\$PowerLimitWatts') 'Apply script must require an explicit power limit.'
+Assert-True ($project -match '<OutputType>Exe</OutputType>' -and $project -match '<PublishSingleFile>true</PublishSingleFile>') 'The privileged helper must be a compiled single-file executable.'
+Assert-True ($helper -match 'EnsureElevated\(\)' -and $helper -match 'WindowsBuiltInRole\.Administrator' -and $helper -match 'identity\.IsSystem') 'The helper must reject standard-user direct execution.'
+Assert-True ($helper -match 'ArgumentList\.Add\(argument\)' -and $helper -notmatch 'cmd\.exe') 'nvidia-smi arguments must bypass shell command parsing.'
+Assert-True ($helper -match 'args\.Length != 7' -and $helper -match 'args\.Length == 1' -and $helper -match 'canonical NVIDIA GPU UUID') 'The helper must expose only strict apply/reset grammars with canonical UUID targets.'
+Assert-True ($helper -match 'powerLimitWatts > row\.DefaultPowerWatts \+ 0\.5') 'The helper must refuse a limit above the vendor default.'
 
-$preflightPosition = $apply.IndexOf('$inventoryRows +=')
-$mutationPosition = $apply.IndexOf("'-pl', [string]`$PowerLimitWatts")
-Assert-True ($preflightPosition -ge 0 -and $mutationPosition -gt $preflightPosition) 'All targets must be inventoried before the first power mutation.'
-Assert-True ($apply -match "'-rgc'" -and $apply -match 'OriginalPower' -and $apply -match "rollback\s+=") 'Failure handling must retain best-effort clock and power rollback.'
-Assert-True ($apply.Contains("'-i', `$target, '-pl'") -and $apply.Contains("'-i', `$target, '-lgc'") -and $apply.Contains('[string]$change.Target')) 'Apply and rollback mutations must address the UUID-pinned target.'
+$preflightPosition = $helper.IndexOf('inventory = targets.Select(Preflight).ToList()')
+$mutationPosition = $helper.IndexOf('RunChecked("set power"')
+Assert-True ($preflightPosition -ge 0 -and $mutationPosition -gt $preflightPosition) 'All targets must pass preflight before the first mutation.'
+Assert-True ($helper -match 'gpu-limits-backup\.json' -and $helper -match 'OriginalPowerLimitWatts' -and $helper -match 'DeleteRollback') 'The helper must keep and consume a protected exact-value rollback record.'
+Assert-True ($helper -match 'RollBackFailedApply' -and $helper -match 'rollback graphics clock' -and $helper -match 'rollback power') 'Apply failures must attempt reverse rollback.'
+Assert-True ($helper -match 'restore applied power after failed reset' -and $helper -match 'restore applied clock after failed reset') 'Reset failures must attempt to restore the previously applied profile.'
 
 Assert-True ($install -match 'if \(-not \$AcceptHardwareRisk\)') 'GPU installation must require explicit hardware-risk acknowledgement.'
-Assert-True ($install.Contains("'-GpuIndexList', `$gpuIndexArgument")) 'The elevated installer must preserve the explicit GPU list.'
-Assert-True ($install -match '--query-gpu=index,uuid' -and $install.Contains("'-ResolvedGpuUuidList', `$gpuUuidArgument")) 'The installer must resolve stable UUIDs before elevation and preserve them across UAC.'
-Assert-True ($install -match '-GpuUuidList \$escapedGpuUuidArgument') 'The scheduled action must pin approved GPUs by UUID.'
-Assert-True ($install -match 'SetAccessRuleProtection\(\$true, \$false\)' -and $install -match 'S-1-5-32-545' -and $install -match 'ReadAndExecute') 'The SYSTEM task script directory must be protected from user writes.'
-Assert-True ($install -match 'FileAttributes\]::ReparsePoint') 'The privileged installer must reject a reparse-point install directory.'
-Assert-True ($install -match '<SecurityDescriptor>\$escapedTaskSecurityDescriptor</SecurityDescriptor>' -and $install -match 'GRGX') 'The configured user must receive read/run task access without task-write access.'
-Assert-True ($install -match 'SetSecurityDescriptor\(\$taskSecurityDescriptor, 0\)' -and $install -match 'GetSecurityDescriptor\(4\)') 'The installer must apply and read back the task security descriptor through the supported API.'
-Assert-True ($install.Contains("'-TargetUserName', ('`"{0}`"' -f `$TargetUserName)")) 'Elevation must preserve the requesting Windows user name.'
-Assert-True ($install.Contains("'-TargetUserSid', `$TargetUserSid")) 'Elevation must preserve the requesting Windows user SID.'
-Assert-True ($combined -match 'if \(\$InstallPresenceMonitor\)') 'Presence monitoring must be opt-in in the combined installer.'
-Assert-True ($combined -match 'if \(\$InstallGpuLimits -or \$ReinstallGpuTask\)') 'GPU mutation must be opt-in in the combined installer.'
-Assert-True ($controlPanel -match 'function Apply-GpuLimits[\s\S]+?Start-ScheduledTask -TaskName \$gpuTaskName') 'The control panel must trigger the reviewed GPU task instead of rebuilding its command.'
-Assert-True ($controlPanel -notmatch '& \$powerShellPath -NoProfile -ExecutionPolicy Bypass -File \$gpuApplyScript') 'The control panel must not invoke the parameterized privileged helper without its approved task arguments.'
-Assert-True ($controlPanel -match "'ApplyGpu' \{ Apply-GpuLimits; return \}") 'The user-facing Apply action must use the readable/runnable task without a second UAC path.'
-Assert-True ($controlPanel -match 'Get-ScheduledTask -TaskName \$presenceTaskName -ErrorAction SilentlyContinue') 'HUD-only installs must tolerate an absent optional camera task.'
-Assert-True ($controlPanel -notmatch 'foreach \(\$index in 0, 1\)' -and $controlPanel -match '\$profilesProperty\.Value' -and $controlPanel -match '\$target = \$uuid') 'Reset must use the applied profile and prefer stable UUIDs instead of hard-coded GPU indices.'
-Assert-True ($controlPanel -notmatch '\$parts\[1\] - 280\.0' -and $controlPanel -match '\$expectedByUuid' -and $controlPanel -match 'limits-active=\$profileStatus') 'Status must compare against the applied profile instead of a maintainer-specific 280 W constant.'
+Assert-True ($install -match 'ExpectedHelperSha256' -and $install -match 'changed between validation and elevation') 'The helper binary must be hash-pinned across UAC.'
+Assert-True ($install -match 'internal elevation handoff fields') 'Unprivileged callers must not inject installer-resolved identity or hash handoff fields.'
+Assert-True ($install -match 'FileAttributes\]::ReparsePoint' -and $install -match 'SetAccessRuleProtection\(\$true, \$false\)') 'The privileged install path and source must reject reparse points and use a protected ACL.'
+Assert-True ($install -match '\$resetTaskName = ''CA GPU Limits Reset''' -and $install -match '-Arguments ''reset''' -and $install -match 'apply --targets') 'Installer must create separate fixed apply and reset tasks.'
+Assert-True ($install -match '<Command>\$escapedHelper</Command>' -and $install -notmatch '<Command>\$escapedPowerShell</Command>') 'SYSTEM tasks must execute the compiled helper directly.'
+Assert-True ($install -match 'SetSecurityDescriptor\(\$SecurityDescriptor, 0\)' -and $install -match 'GRGX') 'Configured user must have read/run but not task-write access.'
+Assert-True ($install -match 'legacy applied profile has no protected original-value record') 'Legacy migration must refuse to invent rollback values.'
+
+Assert-True ($combined -match 'if \(\$InstallPresenceMonitor\)') 'Presence monitoring must remain opt-in.'
+Assert-True ($combined -match 'if \(\$InstallGpuLimits -or \$ReinstallGpuTask\)') 'GPU mutation must remain opt-in.'
+Assert-True ($controlPanel -match 'Invoke-FixedGpuTask -TaskName \$gpuTaskName' -and $controlPanel -match 'Invoke-FixedGpuTask -TaskName \$gpuResetTaskName') 'Control panel must start only the reviewed fixed tasks.'
+Assert-True ($controlPanel -notmatch "'-rgc'" -and $controlPanel -notmatch "'-pl'") 'The standard-user control panel must contain no direct GPU mutation command.'
+Assert-True ($controlPanel -notmatch '-Verb RunAs' -and $controlPanel -notmatch '\[switch\]\$Elevated') 'The installed standard-user control panel must never elevate its own writable script.'
+Assert-True ($controlPanel -match 'Confirm-UiGpuAction' -and $controlPanel -match 'Assert-HardwareConfirmation') 'Interactive and command-line GPU changes must require explicit confirmation.'
+Assert-True ($controlPanel -match '\$expectedByUuid' -and $controlPanel -match 'limits-active=\$profileStatus') 'Status must compare live telemetry with the applied UUID-pinned profile.'
 
 $blockedWithoutRisk = $false
 try {
     & $installPath -GpuIndexList '0' -MaxGraphicsClockMHz 1700 -PowerLimitWatts 280 2>$null
 }
-catch {
-    $blockedWithoutRisk = $_.Exception.Message -match 'opt-in'
+catch { $blockedWithoutRisk = $_.Exception.Message -match 'opt-in' }
+Assert-True $blockedWithoutRisk 'The installer must fail before helper discovery, elevation, or hardware access when acknowledgement is absent.'
+
+$blockedInternalHandoff = $false
+try {
+    & $installPath -GpuIndexList '0' -MaxGraphicsClockMHz 1700 -PowerLimitWatts 280 -AcceptHardwareRisk `
+        -ResolvedGpuUuidList 'GPU-00000000-0000-0000-0000-000000000000' 2>$null
 }
-Assert-True $blockedWithoutRisk 'The installer must fail before elevation or hardware access when acknowledgement is absent.'
+catch { $blockedInternalHandoff = $_.Exception.Message -match 'internal elevation handoff' }
+Assert-True $blockedInternalHandoff 'A normal caller must not inject installer-resolved UUIDs.'
+
+$dotnet = Get-Command dotnet -ErrorAction SilentlyContinue
+$dotnetPath = if ($null -ne $dotnet) { $dotnet.Source } else { Join-Path $root '.tools\dotnet\dotnet.exe' }
+Assert-True (Test-Path -LiteralPath $dotnetPath -PathType Leaf) 'The .NET 8 SDK is required to run isolated GPU helper tests.'
+& $dotnetPath run --project $helperTestsProjectPath --configuration Release
+Assert-True ($LASTEXITCODE -eq 0) 'Compiled GPU helper safety tests failed.'
 
 [pscustomobject]@{
-    Status              = 'Passed'
-    ExplicitTargets     = $true
-    PreflightBeforeWrite = $true
-    BestEffortRollback  = $true
-    StableUuidTargets   = $true
-    ProtectedTaskSource = $true
-    ControlPanelUsesTask = $true
-    CombinedDefaultsSafe = $true
+    Status                    = 'Passed'
+    CompiledHelper            = $true
+    StrictCommandGrammar      = $true
+    PreflightBeforeWrite      = $true
+    ProtectedExactRollback    = $true
+    StableUuidTargets         = $true
+    HashPinnedElevation       = $true
+    FixedApplyResetTasks      = $true
+    ExplicitConfirmation      = $true
+    CombinedDefaultsSafe      = $true
 }

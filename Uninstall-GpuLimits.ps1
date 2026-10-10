@@ -3,7 +3,7 @@ param([switch]$Elevated)
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
-$taskName = 'CA GPU Limits'
+$taskNames = @('CA GPU Limits', 'CA GPU Limits Reset')
 $powerShellPath = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(
     [Security.Principal.WindowsBuiltInRole]::Administrator
@@ -14,9 +14,11 @@ if (-not $isAdmin) {
     if ($process.ExitCode -ne 0) { throw "Elevated removal failed with exit code $($process.ExitCode)." }
     return
 }
-$task = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
-if ($null -ne $task) {
-    if ([string]$task.State -eq 'Running') { Stop-ScheduledTask -TaskName $taskName }
-    Unregister-ScheduledTask -TaskName $taskName -Confirm:$false
+foreach ($taskName in $taskNames) {
+    $task = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
+    if ($null -ne $task) {
+        if ([string]$task.State -eq 'Running') { Stop-ScheduledTask -TaskName $taskName }
+        Unregister-ScheduledTask -TaskName $taskName -Confirm:$false
+    }
 }
-Write-Host 'GPU limit startup task removed. Current driver settings remain until reboot/reset.' -ForegroundColor Green
+Write-Host 'GPU apply/reset tasks removed. Current driver settings and protected rollback data remain until an explicit rollback or reboot.' -ForegroundColor Green

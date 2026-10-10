@@ -5,6 +5,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $taskName = 'CA System Overlay'
 $installPath = Join-Path $env:LOCALAPPDATA 'CASystemOverlay'
+$shortcutPath = Join-Path ([Environment]::GetFolderPath('Desktop')) 'CA AutoConfig.lnk'
 $task = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
 if ($null -ne $task) {
     if ([string]$task.State -eq 'Running') {
@@ -15,5 +16,8 @@ if ($null -ne $task) {
 }
 if ($RemoveFiles -and (Test-Path -LiteralPath $installPath -PathType Container)) {
     Remove-Item -LiteralPath $installPath -Recurse -Force
+}
+if (Test-Path -LiteralPath $shortcutPath -PathType Leaf) {
+    Remove-Item -LiteralPath $shortcutPath -Force
 }
 Write-Host 'CA System Overlay task removed.' -ForegroundColor Green

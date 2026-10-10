@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [ValidatePattern('^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$')]
-    [string]$Version = '0.2.5-alpha.2',
+    [string]$Version = '0.2.6-alpha.1',
 
     [ValidateSet('win-x64')]
     [string]$Runtime = 'win-x64'
@@ -23,14 +23,22 @@ $build = & (Join-Path $PSScriptRoot 'Build-DesktopApp.ps1') -Configuration Relea
 if ([string]$build.Status -ne 'Built' -or -not $build.SelfContained) {
     throw 'The self-contained desktop build did not complete.'
 }
+$helperBuild = & (Join-Path $PSScriptRoot 'Build-GpuHelper.ps1') -Configuration Release -Runtime $Runtime -SelfContained
+if ([string]$helperBuild.Status -ne 'Built' -or -not $helperBuild.SelfContained) {
+    throw 'The self-contained GPU helper build did not complete.'
+}
 
 if (Test-Path -LiteralPath $stagePath) { Remove-Item -LiteralPath $stagePath -Recurse -Force }
 New-Item -ItemType Directory -Force -Path $stagePath | Out-Null
 Copy-Item -LiteralPath $build.Executable -Destination (Join-Path $stagePath 'CAAutoConfig.exe')
+Copy-Item -LiteralPath $helperBuild.Executable -Destination (Join-Path $stagePath 'CAGpuHelper.exe')
 foreach ($relativePath in @(
     'Install-DesktopApp.ps1',
     'Install-SystemOverlay.ps1',
     'Uninstall-SystemOverlay.ps1',
+    'Install-GpuLimits.ps1',
+    'Uninstall-GpuLimits.ps1',
+    'CA-ControlPanel.ps1',
     'LICENSE',
     'PRIVACY.md',
     'SECURITY.md'
@@ -57,4 +65,5 @@ Set-Content -LiteralPath $checksumPath -Encoding ascii -NoNewline -Value "$hash 
     SizeBytes    = (Get-Item -LiteralPath $zipPath).Length
     Sha256       = $hash
     ExecutableSha256 = $build.Sha256
+    GpuHelperSha256  = $helperBuild.Sha256
 }

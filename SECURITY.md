@@ -16,7 +16,9 @@ We aim to acknowledge a complete report within three business days. A fix and di
 
 - Monitoring should run without administrator rights.
 - Elevation is required only for applying or resetting GPU limits and installing privileged scheduled tasks.
-- The SYSTEM task executes only an administrator-owned, non-reparse-point script path that normal users can read but cannot modify.
+- The two SYSTEM tasks execute only an administrator-owned, hash-pinned compiled helper from a non-reparse-point directory. Normal users can read and run the fixed Apply/Reset tasks but cannot modify their commands.
+- The helper accepts only strict `apply` or `reset` grammars, invokes the fixed System32 `nvidia-smi.exe` without a shell, preflights every UUID-pinned target, and refuses standard-user direct execution.
+- Apply writes an atomic protected record of exact pre-change values before mutation. Reset consumes that record; it never guesses targets or rollback power limits.
 - Power recommendations are read-only candidates until the user explicitly starts a benchmark and confirms an apply operation.
 - Recommendations must remain inside vendor-reported limits and must not exceed the vendor default.
 - The Ollama adapter is loopback-only by default, never pulls a model, and has no GPU-write or elevation path; remote prompt transmission requires an explicit flag.

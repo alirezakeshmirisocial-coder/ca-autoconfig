@@ -17,7 +17,7 @@ The product direction is a tiny, trustworthy Windows HUD and safe power optimize
 
 - [x] Move the HUD into a compiled .NET 8 application with a versioned, forward-write-protected settings schema.
 - [x] Resolve selected GPU indices once at installation, pin the task/state to NVIDIA UUIDs, and verify live identity with legacy-state fallback.
-- [ ] Isolate the minimal elevated apply/reset helper behind an authenticated local boundary.
+- [x] Isolate the minimal elevated apply/reset helper behind fixed ACL-protected Task Scheduler commands and a compiled strict-command executable.
 - [x] Add a deterministic simulated NVIDIA source and fail-closed tests for missing, timed-out, empty, partial, malformed, and explicit-`N/A` telemetry.
 - [ ] Add a WDDM provider/fallback with the same capability and failure contract.
 - [x] Package a reproducible self-contained `win-x64` ZIP with a least-privilege installer and checksum.
@@ -37,7 +37,7 @@ The product direction is a tiny, trustworthy Windows HUD and safe power optimize
 - [ ] Offer Balanced, Eco, Quiet, and Default profiles only when evidence is sufficient.
 - [x] Add a read-only, paired idle-power regression gate before recommending a persistent graphics-clock lock; fixture evidence can exercise thresholds but can never authorize progression.
 - [x] Reject a workload candidate after driver-reset evidence, workload error, incomplete data, unstable loaded clocks, or a clock-ceiling violation.
-- [ ] Require explicit confirmation, administrator elevation, and a tested one-click rollback.
+- [x] Require explicit manual confirmation, administrator-approved installation, and a hardware-isolated, exact-value one-click rollback path.
 - [x] Turn the anonymized JSON benchmark into a deterministic, evidence-gated AI Power Curve SVG card.
 - [x] Add schema-v3 phase provenance so only same-window throughput and board power can produce per-joule claims.
 
