@@ -30,6 +30,12 @@ After grouping only duplicates with identical timing metadata and proving the ze
 
 The required [600-second sanitized run](../evidence/windows-gpu-pdh-raw-600s-2026-10-10.json) then completed 300/300 full mappings, with 300/300 engine-valid and memory-valid collections, zero partial/unavailable/overlap collections, 7 ms final latency, 1587 ms maximum including warm-up, and 0.021% normalized CPU. Its repository SHA-256 is `96d9f1df738ba9d1af0822f808a346912eb43b0ae24a5628c4e9eaf9df7195f4`. Final zero load and sorted dedicated-memory values agreed with a contemporaneous read-only `nvidia-smi` query within sampling delay. This is still idle single-host evidence, not a production claim.
 
+## Live process-churn result
+
+The bounded [`Invoke-WindowsGpuChurnValidation.ps1`](../../tools/Invoke-WindowsGpuChurnValidation.ps1) harness starts the explicit raw provider, waits for its baseline, then opens only the repository's local WebGL fixture in a fresh headless Edge/Chrome profile. It discovers and later stops only processes whose executable and unique temporary-profile token both match. Process-scoped Windows counters are used only to prove the fixture rendered on a GPU; PID-bearing instance names never enter either output. The browser profile is removed only after its resolved path is rechecked under the system temporary directory with the dedicated `ca-gpu-churn-*` prefix.
+
+The [60-second schema-v3 polling report](../evidence/windows-gpu-pdh-raw-churn-60s-2026-10-10.json) and [linked sanitized churn summary](../evidence/windows-gpu-pdh-raw-churn-summary-60s-2026-10-10.json) observed the browser process plus two positive process-specific GPU-counter samples, with a 1.452% maximum. The separately sampled whole-card `nvidia-smi` integer percentage remained 0; it is optional corroboration, not the proof of browser activity. The provider completed 29/30 full mappings, retained exactly one `pdh-engine-baseline-missing` partial for adapter 0 when the process appeared, kept dedicated memory valid 30/30, and recorded zero unavailable collections or overlaps. The next interval recovered and the stopped process left no stale row. Because the run retained one engine failure, `engineLoadReadyForValidation` and overall readiness stayed false even though the final state was healthy. This is the intended fail-closed boundary.
+
 ## Reproduce without enabling the HUD
 
 From a current source build:
@@ -44,11 +50,24 @@ From a current source build:
 
 The command performs no hardware write, elevation, network access, provider fallback, background installation, or HUD integration. Review the JSON before sharing it. Submit complete sanitized results through the [Windows GPU result form](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/issues/new?template=windows-gpu-result.yml); failures are useful evidence and a star is neither required nor requested.
 
+To reproduce the low-load lifecycle test with a locally installed Edge or Chrome and the self-contained source build:
+
+```powershell
+.\tools\Invoke-WindowsGpuChurnValidation.ps1 `
+  -DurationSeconds 60 `
+  -PollMilliseconds 2000 `
+  -ChurnStartSeconds 10 `
+  -ChurnSeconds 20 `
+  -ResultPath .\windows-gpu-pdh-raw-churn.json
+```
+
+The harness writes the untouched polling report plus a separate `.churn-summary.json` that contains only the browser product/version, sanitized aggregate proof, report hash, and safety flags. It deliberately omits even the user-selected report filename. Inspect both before sharing. A `CHURN_NOT_PROVEN` result is valid negative evidence; do not retry with elevation or weaken browser isolation.
+
 ## Remaining proof
 
-- Deterministic coverage now proves the intended process lifecycle: a new nonzero engine fails only its first interval, recovers once an adjacent baseline exists, and disappears without leaving a stale row. Live loaded process-churn evidence is still required.
-- Repeat the 600-second result after sleep/resume and under deliberate process churn; retain every intermediate failure.
+- Deterministic coverage and one low-load live browser run now prove the intended process lifecycle: a new nonzero engine fails only its first interval, recovers once an adjacent baseline exists, and disappears without leaving a stale row. Loaded inference/process churn still needs independent evidence.
+- Repeat the 600-second result after sleep/resume and during a loaded local-AI workload; retain every intermediate failure.
 - Loaded inference and image-generation runs must agree with an independent vendor source within a declared sampling tolerance.
-- Sleep/resume, live process churn, driver reset, adapter reorder, and stale-data behavior need explicit system tests.
+- Sleep/resume, loaded process churn, driver reset, adapter reorder, and stale-data behavior need explicit system tests.
 - External Windows 10/11 results must cover NVIDIA, AMD, Intel, integrated/discrete, a non-English display language, and an inaccessible-counter environment.
 - Even a perfect single-host run keeps `CanUseInHud=false`; production promotion requires the broader contract above.

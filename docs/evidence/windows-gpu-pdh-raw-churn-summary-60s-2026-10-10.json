@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "capturedUtc": "2026-10-10T15:42:15.7822086Z",
+  "scenario": "deliberate-gpu-process-start-stop-churn",
+  "status": "CHURN_OBSERVED",
+  "fixture": "local-webgl-file",
+  "browserProduct": "msedge",
+  "browserVersion": "155.0.4283.45",
+  "durationSeconds": 60,
+  "intervalMilliseconds": 2000,
+  "churnStartSeconds": 10,
+  "churnDurationSeconds": 20,
+  "browserProcessObserved": true,
+  "positiveBrowserGpuCounterSamples": 2,
+  "maximumBrowserGpuCounter": 1.452,
+  "maximumNvidiaLoadPercent": 0,
+  "pollingReportSha256": "db9a4c0e6aeb0030987a8738c97105e48d7e0c2bba04afc629b030b5bff0b1cb",
+  "counterProvider": "windows-pdh-raw-engine",
+  "completedCollections": 30,
+  "fullMappings": 29,
+  "partialMappings": 1,
+  "unavailableCollections": 0,
+  "engineValidCollections": 29,
+  "memoryValidCollections": 30,
+  "suppressedOverlaps": 0,
+  "failureReasonCounts": [
+    {
+      "code": "pdh-engine-baseline-missing",
+      "count": 1
+    },
+    {
+      "code": "pdh-engine-baseline-missing-adapter-0",
+      "count": 1
+    }
+  ],
+  "canUseInHud": false,
+  "hardwareWrites": false,
+  "networkAccess": false,
+  "elevationRequested": false,
+  "rawAdapterIdentifiersIncluded": false,
+  "fixtureHardwareWrites": false,
+  "fixtureElevationRequested": false,
+  "fixtureUsesLocalFileOnly": true
+}

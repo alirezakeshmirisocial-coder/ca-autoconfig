@@ -19,6 +19,7 @@ CA AutoConfig is being built for people running local LLMs, diffusion models, an
 .\tests\DesktopPackageVerifier.Tests.ps1
 .\tests\CleanMachineSandbox.Tests.ps1
 .\tests\WindowsGpuCapability.Tests.ps1
+.\tests\WindowsGpuChurnHarness.Tests.ps1
 dotnet run --project .\src\CAAutoConfig.Telemetry.Tests\CAAutoConfig.Telemetry.Tests.csproj -c Release
 .\tests\GpuLimits.Safety.Tests.ps1
 .\tests\GpuLimitPlan.Tests.ps1
