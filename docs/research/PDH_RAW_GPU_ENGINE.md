@@ -75,6 +75,18 @@ The separate `.sleep-resume-summary.json` hashes the untouched polling report an
 
 Even `READY_FOR_MANUAL_SLEEP_RESUME_REVIEW` sets `promotionAuthorized=false` and `canUseInHud=false`. The [120-second no-sleep control report](../evidence/windows-gpu-pdh-raw-no-resume-control-120s-2026-10-10.json) and [linked summary](../evidence/windows-gpu-pdh-raw-no-resume-control-summary-120s-2026-10-10.json) verified the negative path: the event log was readable, zero new resume events produced `NO_RESUME_OBSERVED`, and the provider still completed 61/61 full engine/memory collections with no partial, unavailable, or overlapping collection. The repository report SHA-256 is `1d4a227d9de9b37e7abbd0372d15d7296e1628779199acf8759b1ce3ee20f963`; the linked summary SHA-256 is `c971476afcbcb240098a7d3e823f2cedc4c28b7f56d16a564b4fe3378f6e9a69`. No live sleep was initiated, so actual lifecycle compatibility is still unproven.
 
+## Preflight before sharing
+
+Run the offline attachment check against the exact bytes you intend to submit:
+
+```powershell
+.\tools\Test-WindowsGpuEvidenceBundle.ps1 `
+  -ReportPath .\windows-gpu-pdh-raw.json `
+  -SummaryPath .\windows-gpu-pdh-raw.sleep-resume-summary.json
+```
+
+Omit `-SummaryPath` for a standalone polling report. The preflight accepts supported WMI, formatted-PDH, and raw-PDH schema-v3 reports; validates collection arithmetic, failure-code sanitation, read-only/privacy flags, and loaded/churn/sleep hash links; and scans object fields/string values for common identity, path, command, prompt, workflow, or raw-event disclosures. It performs no network, event-log, process, or hardware access and never rewrites either input. `SafeToAttach=true` is a privacy/linkage result, not a successful-provider or HUD claim; safe negative evidence should still be submitted.
+
 ## Reproduce without enabling the HUD
 
 From a current source build:

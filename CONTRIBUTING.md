@@ -22,6 +22,7 @@ CA AutoConfig is being built for people running local LLMs, diffusion models, an
 .\tests\WindowsGpuChurnHarness.Tests.ps1
 .\tests\WindowsGpuLoadedValidation.Tests.ps1
 .\tests\WindowsGpuSleepResumeValidation.Tests.ps1
+.\tests\WindowsGpuEvidenceBundle.Tests.ps1
 dotnet run --project .\src\CAAutoConfig.Telemetry.Tests\CAAutoConfig.Telemetry.Tests.csproj -c Release
 .\tests\GpuLimits.Safety.Tests.ps1
 .\tests\GpuLimitPlan.Tests.ps1
@@ -38,6 +39,8 @@ Clean-machine testers should use the [Windows Sandbox protocol](docs/CLEAN_MACHI
 Include GPU model, driver version, Windows version, supported minimum/default/maximum power limits, workload, observed watts, temperature, throughput, and whether the test produced a driver reset or workload error. Remove usernames, machine names, UUIDs, and personal paths before posting. Prefer the versioned, privacy-checked export and protocol in [benchmark/POWER_CURVE_METHOD.md](benchmark/POWER_CURVE_METHOD.md).
 
 Windows WMI/formatted-PDH/raw-PDH provider reports should use the dedicated [Windows GPU telemetry form](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/issues/new?template=windows-gpu-result.yml). Include the exact provider and display language because performance-counter behavior and localization are part of the compatibility boundary, retain every full/partial/per-field/unavailable/failure count, and never paste raw counter-instance names, LUIDs, PIDs, PNP/PCI identifiers, or UUIDs. `READY_FOR_VALIDATION` and `PARTIAL_READY_FOR_VALIDATION` are research evidence only; neither authorizes HUD integration.
+
+Run [`Test-WindowsGpuEvidenceBundle.ps1`](tools/Test-WindowsGpuEvidenceBundle.ps1) before attaching a polling report. Supply `-SummaryPath` for a loaded-workload, process-churn, or sleep/resume summary. The preflight validates the exact report bytes, summary hash, arithmetic, safety flags, and common private fields without changing or uploading anything. A safe failed result remains suitable evidence; do not delete or retry it merely to obtain a green status.
 
 For a loaded local-AI result, collect the raw-PDH report concurrently with a current schema-v3 workload recorder, then use [`New-WindowsGpuLoadedValidationSummary.ps1`](tools/New-WindowsGpuLoadedValidationSummary.ps1). A `READY_FOR_MANUAL_VALUE_COMPARISON` result proves only that the explicit windows overlap, every workload GPU sustained the declared load for the required share of complete utilization samples, and the Windows provider retained complete samples. It does not compare the Windows values with an independent vendor source and cannot authorize HUD integration. Publish both anonymized inputs, the linked summary, declared thresholds, and every retained failure.
 

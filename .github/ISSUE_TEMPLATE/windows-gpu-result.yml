@@ -62,10 +62,16 @@ body:
     id: report
     attributes:
       label: Sanitized JSON report
-      description: Attach or paste the complete schema-v3 report, including full, partial, engine-valid, memory-valid, unavailable, and failure-reason counts. Inspect it before submission.
+      description: Attach or paste the complete schema-v3 report, including full, partial, engine-valid, memory-valid, unavailable, and failure-reason counts. Inspect it before submission and run the offline Test-WindowsGpuEvidenceBundle.ps1 preflight when available.
       render: json
     validations:
       required: true
+  - type: textarea
+    id: scenario_summary
+    attributes:
+      label: Linked scenario summary JSON (optional)
+      description: For loaded-workload, process-churn, or sleep/resume evidence, paste or attach the complete sanitized summary that SHA-256-links to the exact report bytes. Failed summaries are useful. Leave blank for a standalone report.
+      render: json
   - type: textarea
     id: observations
     attributes:

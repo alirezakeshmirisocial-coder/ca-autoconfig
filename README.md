@@ -64,6 +64,8 @@ The installer runs the same plan automatically. It refuses an incomplete profile
 
 If you run local AI on Windows, the most useful contribution right now is a privacy-safe [hardware or monitor report](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/issues/new/choose), or the focused [Windows Sandbox reproduction](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/issues/10) if Sandbox is already enabled. The Settings window can copy a sanitized diagnostic block for hardware reports. No star is required; reproducible results and focused pull requests are what move the project forward.
 
+Before attaching a Windows GPU polling report and optional loaded/churn/sleep summary, run `.\tools\Test-WindowsGpuEvidenceBundle.ps1 -ReportPath <report.json> -SummaryPath <summary.json>`. The offline preflight verifies exact hash linkage, count arithmetic, privacy fields, and read-only flags. It accepts safe negative results and never uploads or rewrites either file.
+
 ## Read-only power-curve lab
 
 The [`benchmark`](benchmark/POWER_CURVE_METHOD.md) lab records NVIDIA board telemetry beside token or image throughput measured by your workload. Schema-v3 declares the exact power and rate windows, and permits `/J` only when those windows align; phase rates divided by whole-request/process watts remain visibly labeled rate/power indices. It never changes the active power, clock, voltage, or fan profile. Versioned exports omit GPU UUIDs, machine/user names, paths, raw commands, prompts, workflows, and generated content; missing readings remain explicit `null` values.
