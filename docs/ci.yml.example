@@ -1,0 +1,27 @@
+# Copy this file to .github/workflows/ci.yml after the GitHub CLI token
+# has been authorized with the workflow scope.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-tests:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Guard smoke tests
+        shell: pwsh
+        run: .\tests\Guard.Smoke.Tests.ps1
+      - name: HUD compile and policy tests
+        shell: pwsh
+        run: .\tests\SystemOverlay.Smoke.Tests.ps1
+      - name: Adaptive fan policy tests
+        shell: pwsh
+        run: .\fan-control\Run-Tests.ps1

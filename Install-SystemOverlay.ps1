@@ -1,0 +1,128 @@
+[CmdletBinding()]
+param()
+
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+Add-Type -AssemblyName System.Windows.Forms
+$taskName = 'CA System Overlay'
+$installPath = Join-Path $env:LOCALAPPDATA 'CASystemOverlay'
+$sourceOverlay = Join-Path $PSScriptRoot 'SystemOverlay.cs'
+$sourceRunner = Join-Path $PSScriptRoot 'Start-SystemOverlay.ps1'
+$installedOverlay = Join-Path $installPath 'SystemOverlay.cs'
+$installedRunner = Join-Path $installPath 'Start-SystemOverlay.ps1'
+$powerShellPath = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
+
+foreach ($path in @($sourceOverlay, $sourceRunner, $powerShellPath)) {
+    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+        throw "Required System Overlay component is missing: $path"
+    }
+}
+
+$existing = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
+if ($null -ne $existing) {
+    if ([string]$existing.State -eq 'Running') {
+        Stop-ScheduledTask -TaskName $taskName
+        Start-Sleep -Milliseconds 700
+    }
+    Unregister-ScheduledTask -TaskName $taskName -Confirm:$false
+}
+
+New-Item -ItemType Directory -Force -Path $installPath | Out-Null
+Copy-Item -Force -LiteralPath $sourceOverlay -Destination $installedOverlay
+Copy-Item -Force -LiteralPath $sourceRunner -Destination $installedRunner
+
+$screens = [System.Windows.Forms.Screen]::AllScreens
+$targetDeviceName = if ($screens.Count -ge 3) {
+    [string]$screens[2].DeviceName
+}
+elseif ($null -ne [System.Windows.Forms.Screen]::PrimaryScreen) {
+    [string][System.Windows.Forms.Screen]::PrimaryScreen.DeviceName
+}
+else {
+    throw 'Windows did not report an attached display.'
+}
+$userName = [Security.Principal.WindowsIdentity]::GetCurrent().Name
+$escapedUser = [Security.SecurityElement]::Escape($userName)
+$escapedPowerShell = [Security.SecurityElement]::Escape($powerShellPath)
+$escapedRunner = [Security.SecurityElement]::Escape($installedRunner)
+$escapedTargetDevice = [Security.SecurityElement]::Escape($targetDeviceName)
+$escapedWorkingDirectory = [Security.SecurityElement]::Escape($installPath)
+$startLocal = (Get-Date).AddSeconds(-5).ToString('yyyy-MM-ddTHH:mm:ss')
+$arguments = "-NoProfile -STA -ExecutionPolicy Bypass -WindowStyle Hidden -File &quot;$escapedRunner&quot; -TargetDeviceName &quot;$escapedTargetDevice&quot;"
+
+$taskXml = @"
+<?xml version="1.0" encoding="UTF-16"?>
+<Task version="1.4" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+  <RegistrationInfo>
+    <Description>Lightweight configurable CA hardware HUD with per-monitor placement and power telemetry.</Description>
+  </RegistrationInfo>
+  <Triggers>
+    <LogonTrigger>
+      <StartBoundary>$startLocal</StartBoundary>
+      <Enabled>true</Enabled>
+      <UserId>$escapedUser</UserId>
+    </LogonTrigger>
+    <SessionStateChangeTrigger>
+      <StartBoundary>$startLocal</StartBoundary>
+      <Enabled>true</Enabled>
+      <StateChange>SessionUnlock</StateChange>
+      <UserId>$escapedUser</UserId>
+    </SessionStateChangeTrigger>
+  </Triggers>
+  <Principals>
+    <Principal id="Author">
+      <UserId>$escapedUser</UserId>
+      <LogonType>InteractiveToken</LogonType>
+      <RunLevel>LeastPrivilege</RunLevel>
+    </Principal>
+  </Principals>
+  <Settings>
+    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
+    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
+    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
+    <AllowHardTerminate>true</AllowHardTerminate>
+    <StartWhenAvailable>true</StartWhenAvailable>
+    <AllowStartOnDemand>true</AllowStartOnDemand>
+    <Enabled>true</Enabled>
+    <Hidden>false</Hidden>
+    <ExecutionTimeLimit>PT0S</ExecutionTimeLimit>
+    <Priority>7</Priority>
+  </Settings>
+  <Actions Context="Author">
+    <Exec>
+      <Command>$escapedPowerShell</Command>
+      <Arguments>$arguments</Arguments>
+      <WorkingDirectory>$escapedWorkingDirectory</WorkingDirectory>
+    </Exec>
+  </Actions>
+</Task>
+"@
+
+$tempXml = Join-Path ([IO.Path]::GetTempPath()) ("ca-system-overlay-{0}.xml" -f [Guid]::NewGuid().ToString('N'))
+try {
+    $taskXml | Set-Content -LiteralPath $tempXml -Encoding Unicode
+    & schtasks.exe /Create /TN $taskName /XML $tempXml /F | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        throw "Task Scheduler returned exit code $LASTEXITCODE while creating the overlay task."
+    }
+}
+finally {
+    Remove-Item -Force -ErrorAction SilentlyContinue -LiteralPath $tempXml
+}
+
+Start-ScheduledTask -TaskName $taskName
+Start-Sleep -Seconds 3
+$task = Get-ScheduledTask -TaskName $taskName
+$info = Get-ScheduledTaskInfo -TaskName $taskName
+[pscustomobject]@{
+    TaskName       = $taskName
+    State          = $task.State
+    LastTaskResult = $info.LastTaskResult
+    AutoStart      = 'Logon + SessionUnlock'
+    TargetDevice   = $targetDeviceName
+    Position       = 'Configurable (default lower-left)'
+    ClickThrough   = 'Locked by default; tiny lock control remains interactive'
+    Settings       = (Join-Path $env:LOCALAPPDATA 'CAAutoConfig\settings.json')
+    DefaultHotkey  = 'Ctrl+Alt+L'
+    PollSeconds    = 2
+} | Format-List

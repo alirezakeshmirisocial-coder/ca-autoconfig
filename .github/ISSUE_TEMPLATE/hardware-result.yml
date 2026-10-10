@@ -1,0 +1,45 @@
+name: Hardware result
+description: Share a reproducible local-AI power and thermal result.
+title: "[Hardware]: "
+labels: [hardware-data]
+body:
+  - type: input
+    id: gpu
+    attributes:
+      label: GPU model and board variant
+    validations:
+      required: true
+  - type: input
+    id: driver
+    attributes:
+      label: Driver and Windows version
+    validations:
+      required: true
+  - type: input
+    id: limits
+    attributes:
+      label: Minimum, default, maximum, and tested watts
+      placeholder: 100 / 350 / 380 W; tested at 280 W
+    validations:
+      required: true
+  - type: textarea
+    id: workload
+    attributes:
+      label: Workload and exact command or workflow
+    validations:
+      required: true
+  - type: textarea
+    id: result
+    attributes:
+      label: Throughput, watts, temperature, and duration
+    validations:
+      required: true
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety checks
+      options:
+        - label: No driver reset or workload error occurred.
+          required: true
+        - label: I removed GPU UUIDs, usernames, machine names, and personal paths.
+          required: true

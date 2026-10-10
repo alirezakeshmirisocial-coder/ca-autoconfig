@@ -1,0 +1,29 @@
+name: Feature proposal
+description: Propose a focused improvement for AI-workstation monitoring or safe power control.
+title: "[Feature]: "
+labels: [enhancement, needs-discussion]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: User problem
+      description: Describe the workflow problem before proposing an interface.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+    validations:
+      required: true
+  - type: textarea
+    id: safety
+    attributes:
+      label: Permissions, privacy, and failure behavior
+      description: Explain elevation, network, telemetry, camera, and fail-safe implications.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence or comparable tools

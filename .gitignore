@@ -1,0 +1,35 @@
+# Local runtime and biometric data
+artifacts/
+.impeccable/
+*.log
+*.jsonl
+*.bak
+face-model.yml
+durable-run.json
+pending-alert.json
+
+# Python environments and caches
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+
+# .NET and editor output
+bin/
+obj/
+.vs/
+.vscode/
+*.user
+*.suo
+
+# Packaging output
+dist/
+release/
+*.zip
+*.msix
+
+# Local settings and secrets
+.env
+.env.*
+settings.local.json
+*.webhook

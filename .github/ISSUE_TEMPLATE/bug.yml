@@ -1,0 +1,47 @@
+name: Bug report
+description: Report a reproducible CA AutoConfig problem without including private machine data.
+title: "[Bug]: "
+labels: [bug, needs-triage]
+body:
+  - type: markdown
+    attributes:
+      value: Do not include GPU UUIDs, usernames, biometric files, webhook URLs, or private logs. Report security issues through the process in SECURITY.md.
+  - type: textarea
+    id: behavior
+    attributes:
+      label: What happened?
+      description: Explain the expected and observed behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction steps
+      placeholder: "1. Start…\n2. Select…\n3. Observe…"
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Windows, GPU, and driver
+      placeholder: Windows 11 24H2; RTX 3090; driver 000.00
+    validations:
+      required: true
+  - type: dropdown
+    id: elevation
+    attributes:
+      label: Did the problem involve an elevated action?
+      options: [No, Yes, Unsure]
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Sanitized evidence
+      description: Add a screenshot or short log excerpt after removing personal data.
