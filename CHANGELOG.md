@@ -4,6 +4,13 @@ This project follows semantic versioning after `v1.0.0`. Pre-1.0 releases may ch
 
 ## Unreleased
 
+## v0.2.2-alpha.2 — Offline llama.cpp power-run adapter
+
+- Added a local, offline llama.cpp adapter that runs an explicit `llama-bench`/GGUF pair, validates exact official JSON `pp` and `tg` evidence, and samples selected NVIDIA GPUs concurrently.
+- Added nine deterministic llama-bench tests covering strict parsing, repetition completeness, no-download/no-network/no-mutation boundaries, concurrent process telemetry, private-field omission, and failed-process preservation in both PowerShell runtimes.
+- Kept GGUF paths, raw commands, child stdout/stderr, and llama-bench CPU/GPU identity fields out of schema-v1 exports; the measured power interval is explicitly labeled as a process window.
+- Added workload `name` to the report comparison key so different prompt, token, batch, context, or adapter protocols cannot be ranked together merely because model/backend labels match.
+
 ## v0.2.2-alpha.1 — Local Ollama power-run adapter
 
 - Added a local-first Ollama power-run adapter that samples NVIDIA telemetry during a deterministic generation request and derives uncached prompt/generation throughput from official API counters.

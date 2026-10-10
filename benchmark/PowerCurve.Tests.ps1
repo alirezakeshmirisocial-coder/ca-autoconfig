@@ -73,6 +73,15 @@ Test-Case 'report labels the fixture leader without universal claims' {
     Assert-True ($report -match 'GPU0 280 W \+ GPU1 280 W') 'Expected fixture leader is missing.'
 }
 
+Test-Case 'different workload names cannot be ranked as comparable' {
+    $first = $fixtureTextBefore[0] | ConvertFrom-Json
+    $second = $fixtureTextBefore[1] | ConvertFrom-Json
+    $second.workload.name = 'Synthetic dual-3090 llama.cpp fixture with different settings'
+    $report = New-CAPowerCurveMarkdown -Runs @($first, $second)
+    Assert-True ($report -notmatch 'highest measured generation efficiency') 'Different workload names were incorrectly ranked together.'
+    Assert-True (@([regex]::Matches($report, 'fewer than two comparable passed runs')).Count -eq 2) 'Different workloads did not receive separate evidence warnings.'
+}
+
 Test-Case 'a GPU UUID field is rejected' {
     $copy = ($fixtureTextBefore[0] | ConvertFrom-Json)
     $copy.gpus[0] | Add-Member -NotePropertyName uuid -NotePropertyValue 'GPU-secret'

@@ -14,7 +14,7 @@ The face components store local model data or embeddings. They do not need to sa
 
 ## Network behavior
 
-The HUD and GPU helper make no network requests. The Ollama benchmark adapter calls `http://127.0.0.1:11434` by default and refuses a non-loopback endpoint unless the user passes `-AllowRemoteEndpoint`; that explicit override sends the supplied prompt to the chosen server. The adapter never writes prompt text or generated text into its benchmark export and does not upload the export. The guard has an optional user-supplied failure webhook; it is disabled unless the user configures a URL. Future update checks, benchmark sharing, or community leaderboards must be opt-in and documented before release.
+The HUD and GPU helper make no network requests. The Ollama benchmark adapter calls `http://127.0.0.1:11434` by default and refuses a non-loopback endpoint unless the user passes `-AllowRemoteEndpoint`; that explicit override sends the supplied prompt to the chosen server. The adapter never writes prompt text or generated text into its benchmark export and does not upload the export. The llama.cpp adapter has no network client or download path: it launches only the explicit local `llama-bench` and GGUF inputs. Its export omits the model path, raw command, child stdout/stderr, and llama-bench CPU/GPU identity fields. The guard has an optional user-supplied failure webhook; it is disabled unless the user configures a URL. Future update checks, benchmark sharing, or community leaderboards must be opt-in and documented before release.
 
 ## Public reports
 

@@ -202,7 +202,7 @@ function ConvertTo-CAPowerCurveRows {
 
         [pscustomobject][ordered]@{
             RunId = [string]$run.runId
-            WorkloadKey = @([string]$run.workload.class, [string]$run.workload.model, [string]$run.workload.quantization, [string]$run.workload.backend) -join '|'
+            WorkloadKey = @([string]$run.workload.class, [string]$run.workload.name, [string]$run.workload.model, [string]$run.workload.quantization, [string]$run.workload.backend) -join '|'
             Workload = [string]$run.workload.name
             Profile = Format-CAProfile -Gpus @($run.gpus)
             Repetition = [int]$run.protocol.repetition

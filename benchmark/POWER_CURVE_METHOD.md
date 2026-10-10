@@ -55,6 +55,31 @@ Install the model yourself, keep Ollama running locally, and use a fixed public 
 
 The adapter does not pull models or change GPU settings. It records a run as `incomplete` when generation ends before the default ten-second measurement window, and as `failed` when the measured request or its metrics fail. Local loopback is the default; a non-loopback endpoint requires `-AllowRemoteEndpoint` because it sends the supplied prompt to that server. Apply each candidate power profile through the separate reviewed workflow, then record at least three interleaved repetitions per profile.
 
+### llama.cpp: drive `llama-bench` and sample GPUs together
+
+Download/build llama.cpp and obtain the GGUF model yourself. The adapter never downloads either one. Give it non-sensitive labels rather than relying on a potentially private filename:
+
+```powershell
+.\benchmark\Invoke-LlamaBenchPowerRun.ps1 `
+  -LlamaBenchPath 'C:\tools\llama.cpp\llama-bench.exe' `
+  -ModelPath 'D:\models\qwen2.5-coder-14b-q4_k_m.gguf' `
+  -ModelLabel 'Qwen2.5 Coder 14B' `
+  -Quantization 'Q4_K_M' `
+  -BenchmarkId 'qwen25-coder-14b-v1' `
+  -GpuIndexList '0,1' `
+  -PromptTokens 512 `
+  -GenerationTokens 128 `
+  -BenchRepetitions 5 `
+  -Repetition 1 `
+  -OutputPath .\artifacts\runs\llamacpp-profile-a-r1.json
+```
+
+The adapter first runs one same-shape warm-up repetition. It then starts a second process with `--no-warmup`, requests JSON output, and samples the selected GPUs until that process exits. The exporter requires exactly one `pp` row and one `tg` row matching the requested token counts, a complete `samples_ts` set, positive finite rates, and one consistent build/backend identity. Ambiguous or malformed output fails closed.
+
+The power window is deliberately labeled `process-window`: it includes measured-process model load and shutdown, while llama-bench's official `avg_ts` values exclude tokenization and sampling and cover its benchmark operations. That distinction must remain in published methodology. The schema export omits `model_filename`, `cpu_info`, `gpu_info`, the GGUF path, child stdout/stderr, and the raw command. See the official [`llama-bench` syntax and JSON fields](https://github.com/ggml-org/llama.cpp/blob/master/tools/llama-bench/README.md).
+
+Use the same safe labels and all numeric options for every point in a curve. Apply each candidate power profile through the separate reviewed workflow, record at least three interleaved outer `-Repetition` runs, and keep failed/incomplete JSON files.
+
 ### Manual or other workloads
 
 Start the workload yourself and wait until it is ready to benchmark. Obtain prompt/generation throughput from the workload's own benchmark output, then keep the same workload running while the recorder observes the selected GPUs:
@@ -102,7 +127,7 @@ $runs = Get-ChildItem .\artifacts\runs\*.json | ForEach-Object FullName
 .\benchmark\New-PowerCurveReport.ps1 -InputPath $runs -OutputPath .\artifacts\power-curve.md
 ```
 
-The report compares only identical workload fingerprints (`class`, `model`, `quantization`, and `backend`). It may identify the most efficient measured profile inside that group, but it always labels the result as a candidate for repetition—not a universal best limit.
+The report compares only identical workload fingerprints (`class`, `name`, `model`, `quantization`, and `backend`). The adapters put their performance-affecting protocol settings in `name`, so unlike token counts, batches, or prompts are not ranked together. It may identify the most efficient measured profile inside a matching group, but it always labels the result as a candidate for repetition—not a universal best limit.
 
 ## Export schema and privacy
 

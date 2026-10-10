@@ -20,4 +20,5 @@ We aim to acknowledge a complete report within three business days. A fix and di
 - Power recommendations are read-only candidates until the user explicitly starts a benchmark and confirms an apply operation.
 - Recommendations must remain inside vendor-reported limits and must not exceed the vendor default.
 - The Ollama adapter is loopback-only by default, never pulls a model, and has no GPU-write or elevation path; remote prompt transmission requires an explicit flag.
+- The llama.cpp adapter accepts only explicit local executable/model paths, has no network/download/elevation path, uses query-only NVIDIA telemetry, and never exports the child command, model path, stdout, or stderr.
 - The RGB-camera presence feature is not liveness detection and is not a replacement for Windows Hello, BitLocker, or a strong Windows credential.
