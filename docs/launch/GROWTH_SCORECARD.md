@@ -58,5 +58,6 @@ No tracking is added to the desktop app. GitHub's aggregate repository/release c
 | Date | Source | Asset | Visitors | Cloners/downloads | Stars | Reports | Notes |
 | --- | --- | --- | ---: | ---: | ---: | ---: | --- |
 | 2026-10-10 | Baseline | `v0.2.1-alpha.1` | 0 | 0 | 0 | 0 | Pre-distribution baseline; no external launch posted. |
+| 2026-10-10 | GitHub release + project Discussion | `v0.2.1-alpha.3` UUID hardening | 0 | 0 | 0 | 0 | First-party release announcement only; no Reddit/HN/community post and no vote solicitation. |
 
 Add a row after a legitimate launch or collaboration. Never use referral tags to track people inside the application, buy traffic, solicit votes, or attribute normal organic traffic to a campaign without evidence.
