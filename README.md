@@ -58,7 +58,7 @@ Before any UAC prompt, inspect the read-only plan. It queries each selected card
 
 The installer runs the same plan automatically. It refuses an incomplete profile, a value outside any board's reported limits/default/maximum clock, an unacknowledged increase over the current cap, or an unsafe legacy/profile migration. The planner may suggest a shared no-raise **power starting point**; it intentionally never fabricates a workload-independent clock suggestion.
 
-If you run local AI on Windows, the most useful contribution right now is a privacy-safe [hardware or monitor report](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/issues/new/choose). The Settings window can copy a sanitized diagnostic block for that report. No star is required; reproducible results and focused pull requests are what move the project forward.
+If you run local AI on Windows, the most useful contribution right now is a privacy-safe [hardware or monitor report](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/issues/new/choose), or the focused [Windows Sandbox reproduction](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/issues/10) if Sandbox is already enabled. The Settings window can copy a sanitized diagnostic block for hardware reports. No star is required; reproducible results and focused pull requests are what move the project forward.
 
 ## Read-only power-curve lab
 
