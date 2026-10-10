@@ -18,6 +18,8 @@ param(
 
     [string]$TargetUserSid = '',
 
+    [string]$ResolvedGpuUuidList = '',
+
     [switch]$Elevated
 )
 
@@ -31,6 +33,7 @@ $statePath = Join-Path $installPath 'gpu-limits-state.json'
 $installResultPath = Join-Path $installPath 'install-result.json'
 $sourceApply = Join-Path $PSScriptRoot 'Apply-GpuLimits.ps1'
 $powerShellPath = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
+$nvidiaSmi = Join-Path $env:SystemRoot 'System32\nvidia-smi.exe'
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(
     [Security.Principal.WindowsBuiltInRole]::Administrator
 )
@@ -104,6 +107,38 @@ if (@($gpuIndexValues | Select-Object -Unique).Count -ne $gpuIndexValues.Count) 
 }
 $gpuIndexArgument = $gpuIndexValues -join ','
 
+$gpuUuidValues = @()
+if ([string]::IsNullOrWhiteSpace($ResolvedGpuUuidList)) {
+    if (-not (Test-Path -LiteralPath $nvidiaSmi -PathType Leaf)) {
+        throw "nvidia-smi was not found: $nvidiaSmi"
+    }
+    foreach ($index in $gpuIndexValues) {
+        $oldPreference = $ErrorActionPreference
+        try {
+            $ErrorActionPreference = 'Continue'
+            $identityOutput = (& $nvidiaSmi -i $index --query-gpu=index,uuid --format=csv,noheader,nounits 2>&1 | Out-String).Trim()
+            $identityExitCode = $LASTEXITCODE
+        }
+        finally { $ErrorActionPreference = $oldPreference }
+        $identityParts = @($identityOutput -split ',' | ForEach-Object { $_.Trim() })
+        if ($identityExitCode -ne 0 -or $identityParts.Count -lt 2 -or [int]$identityParts[0] -ne $index -or $identityParts[1] -notmatch '^GPU-[0-9A-Fa-f-]+$') {
+            throw "Could not resolve stable UUID for GPU index ${index}: $identityOutput"
+        }
+        $gpuUuidValues += [string]$identityParts[1]
+    }
+}
+else {
+    foreach ($token in @($ResolvedGpuUuidList -split ',')) {
+        $uuid = $token.Trim()
+        if ($uuid -notmatch '^GPU-[0-9A-Fa-f-]+$') { throw "Invalid resolved GPU UUID '$uuid'." }
+        $gpuUuidValues += $uuid
+    }
+}
+if ($gpuUuidValues.Count -ne $gpuIndexValues.Count -or @($gpuUuidValues | Select-Object -Unique).Count -ne $gpuUuidValues.Count) {
+    throw 'Resolved GPU UUIDs must be unique and match the approved GPU index count.'
+}
+$gpuUuidArgument = $gpuUuidValues -join ','
+
 if (-not $isAdmin) {
     if ($Elevated) {
         throw 'Elevation was requested, but the process is still not running as Administrator.'
@@ -114,6 +149,7 @@ if (-not $isAdmin) {
         '-ExecutionPolicy', 'Bypass',
         '-File', ('"{0}"' -f $PSCommandPath),
         '-GpuIndexList', $gpuIndexArgument,
+        '-ResolvedGpuUuidList', $gpuUuidArgument,
         '-MaxGraphicsClockMHz', [string]$MaxGraphicsClockMHz,
         '-PowerLimitWatts', [string]$PowerLimitWatts,
         '-AcceptHardwareRisk',
@@ -165,17 +201,18 @@ try {
     $escapedTaskSecurityDescriptor = [Security.SecurityElement]::Escape($taskSecurityDescriptor)
     $escapedPowerShell = [Security.SecurityElement]::Escape($powerShellPath)
     $escapedScript = [Security.SecurityElement]::Escape($installedApply)
+    $escapedGpuUuidArgument = [Security.SecurityElement]::Escape($gpuUuidArgument)
     $escapedLog = [Security.SecurityElement]::Escape($logPath)
     $escapedState = [Security.SecurityElement]::Escape($statePath)
     $escapedInstallPath = [Security.SecurityElement]::Escape($installPath)
     $startLocal = (Get-Date).AddSeconds(-5).ToString('yyyy-MM-ddTHH:mm:ss')
-    $arguments = "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File &quot;$escapedScript&quot; -GpuIndexList $gpuIndexArgument -MaxGraphicsClockMHz $MaxGraphicsClockMHz -PowerLimitWatts $PowerLimitWatts -LogPath &quot;$escapedLog&quot; -StatePath &quot;$escapedState&quot;"
+    $arguments = "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File &quot;$escapedScript&quot; -GpuIndexList $gpuIndexArgument -GpuUuidList $escapedGpuUuidArgument -MaxGraphicsClockMHz $MaxGraphicsClockMHz -PowerLimitWatts $PowerLimitWatts -LogPath &quot;$escapedLog&quot; -StatePath &quot;$escapedState&quot;"
 
     $taskXml = @"
 <?xml version="1.0" encoding="UTF-16"?>
 <Task version="1.4" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
   <RegistrationInfo>
-    <Description>Apply explicitly approved NVIDIA limits to GPU indices $gpuIndexArgument after the configured user logs on: max graphics clock ${MaxGraphicsClockMHz}MHz, power limit ${PowerLimitWatts}W.</Description>
+    <Description>Apply explicitly approved NVIDIA limits to UUID-pinned GPUs selected from indices $gpuIndexArgument after the configured user logs on: max graphics clock ${MaxGraphicsClockMHz}MHz, power limit ${PowerLimitWatts}W.</Description>
     <SecurityDescriptor>$escapedTaskSecurityDescriptor</SecurityDescriptor>
   </RegistrationInfo>
   <Triggers>
@@ -267,6 +304,7 @@ try {
         runAs                 = 'SYSTEM'
         trigger               = 'Logon + 15 seconds'
         gpuIndices            = @($gpuIndexValues)
+        gpuUuids              = @($gpuUuidValues)
         maxGraphicsClockMHz   = $MaxGraphicsClockMHz
         powerLimitWatts       = $PowerLimitWatts
         appliedNow            = $true

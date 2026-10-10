@@ -124,18 +124,69 @@ function Apply-GpuLimits {
 
 function Reset-GpuLimits {
     Assert-Admin
+    if (-not (Test-Path -LiteralPath $gpuStatePath -PathType Leaf)) {
+        throw 'The applied GPU profile state is missing; refusing to guess which GPUs to reset.'
+    }
+    $state = Get-Content -Raw -LiteralPath $gpuStatePath | ConvertFrom-Json
+    $statusProperty = $state.PSObject.Properties['status']
+    $profilesProperty = $state.PSObject.Properties['results']
+    if ($null -eq $statusProperty -or [string]$statusProperty.Value -ne 'applied' -or
+        $null -eq $profilesProperty -or @($profilesProperty.Value).Count -eq 0) {
+        throw 'No applied GPU profile is available; refusing to reset guessed GPU indices.'
+    }
+
+    $resetTargets = @()
+    $seenTargets = @{}
+    foreach ($profile in @($profilesProperty.Value)) {
+        $uuidProperty = $profile.PSObject.Properties['uuid']
+        $indexProperty = $profile.PSObject.Properties['index']
+        $uuid = if ($null -ne $uuidProperty) { [string]$uuidProperty.Value } else { '' }
+        $profileIndex = -1
+        if ($null -ne $indexProperty) { $profileIndex = [int]$indexProperty.Value }
+        if (-not [string]::IsNullOrWhiteSpace($uuid)) {
+            if ($uuid -notmatch '^GPU-[0-9A-Fa-f-]+$') { throw "The applied profile contains an invalid GPU UUID: $uuid" }
+            $target = $uuid
+        }
+        elseif ($profileIndex -ge 0) {
+            # Backward compatibility for profiles created before UUID pinning.
+            $target = [string]$profileIndex
+        }
+        else {
+            throw 'The applied profile contains no usable GPU identity.'
+        }
+        if ($seenTargets.ContainsKey($target)) { throw "The applied profile contains duplicate GPU target $target." }
+        $seenTargets[$target] = $true
+
+        $identityText = (& $nvidiaSmi -i $target --query-gpu=index,uuid,power.default_limit --format=csv,noheader,nounits | Out-String).Trim()
+        if ($LASTEXITCODE -ne 0) { throw "Could not read default power for GPU $target." }
+        $identityParts = @($identityText -split ',' | ForEach-Object { $_.Trim() })
+        if ($identityParts.Count -lt 3) { throw "Could not verify GPU $target before restoring default power." }
+        $actualIndex = [int]::Parse($identityParts[0], [Globalization.CultureInfo]::InvariantCulture)
+        $actualUuid = [string]$identityParts[1]
+        if ($target -like 'GPU-*' -and -not [string]::Equals($target, $actualUuid, [StringComparison]::OrdinalIgnoreCase)) {
+            throw "GPU identity changed while preflighting reset target $target; no reset was attempted."
+        }
+        $defaultPower = [double]::Parse($identityParts[2], [Globalization.CultureInfo]::InvariantCulture)
+        $resetTargets += [pscustomobject]@{
+            Target       = $target
+            Index        = $actualIndex
+            Uuid         = $actualUuid
+            DefaultPower = $defaultPower
+        }
+    }
+
     $results = @()
-    foreach ($index in 0, 1) {
-        & $nvidiaSmi -i $index -rgc | Out-Null
-        if ($LASTEXITCODE -ne 0) { throw "Could not reset locked clocks on GPU $index." }
-        $defaultText = (& $nvidiaSmi -i $index --query-gpu=power.default_limit --format=csv,noheader,nounits).Trim()
-        if ($LASTEXITCODE -ne 0) { throw "Could not read default power for GPU $index." }
-        $defaultPower = [double]::Parse($defaultText, [Globalization.CultureInfo]::InvariantCulture)
-        & $nvidiaSmi -i $index -pl ([string]$defaultPower) | Out-Null
-        if ($LASTEXITCODE -ne 0) { throw "Could not restore default power on GPU $index." }
+    foreach ($resetTarget in $resetTargets) {
+        $target = [string]$resetTarget.Target
+        & $nvidiaSmi -i $target -rgc | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw "Could not reset locked clocks on GPU $target." }
+        $defaultPowerText = ([double]$resetTarget.DefaultPower).ToString('0.###', [Globalization.CultureInfo]::InvariantCulture)
+        & $nvidiaSmi -i $target -pl $defaultPowerText | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw "Could not restore default power on GPU $target." }
         $results += [ordered]@{
-            index                   = $index
-            restoredPowerLimitWatts = $defaultPower
+            index                   = [int]$resetTarget.Index
+            uuid                    = [string]$resetTarget.Uuid
+            restoredPowerLimitWatts = [double]$resetTarget.DefaultPower
             graphicsClockReset      = $true
         }
     }
@@ -181,6 +232,10 @@ function Get-CombinedStatusText {
         $overlayEnabled = [string]$overlay.State -ne 'Disabled'
         $targetDisplay = 'install default'
         $shortcut = 'Ctrl+Alt+L'
+        $overlayArguments = [string]$overlay.Actions.Arguments
+        if ($overlayArguments -match '(?:--display|-TargetDeviceName)\s+(?:"|&quot;)([^"&\s]+)(?:"|&quot;)') {
+            $targetDisplay = [string]$Matches[1]
+        }
         if (Test-Path -LiteralPath $overlaySettingsPath -PathType Leaf) {
             try {
                 $overlaySettings = Get-Content -Raw -LiteralPath $overlaySettingsPath | ConvertFrom-Json
@@ -195,12 +250,55 @@ function Get-CombinedStatusText {
     }
 
     if (Test-Path -LiteralPath $nvidiaSmi -PathType Leaf) {
-        $gpuLines = @(& $nvidiaSmi --query-gpu=index,power.limit,power.default_limit,clocks.gr --format=csv,noheader,nounits)
+        $expectedByUuid = @{}
+        $expectedByIndex = @{}
+        if (Test-Path -LiteralPath $gpuStatePath -PathType Leaf) {
+            try {
+                $gpuState = Get-Content -Raw -LiteralPath $gpuStatePath | ConvertFrom-Json
+                $stateStatus = $gpuState.PSObject.Properties['status']
+                $stateProfiles = $gpuState.PSObject.Properties['results']
+                if ($null -ne $stateStatus -and [string]$stateStatus.Value -eq 'applied' -and $null -ne $stateProfiles) {
+                    foreach ($profile in @($stateProfiles.Value)) {
+                        $indexProperty = $profile.PSObject.Properties['index']
+                        $uuidProperty = $profile.PSObject.Properties['uuid']
+                        $powerProperty = $profile.PSObject.Properties['powerLimitWatts']
+                        $clockProperty = $profile.PSObject.Properties['maxGraphicsClockMHz']
+                        if ($null -eq $powerProperty -or $null -eq $clockProperty) { continue }
+                        $expected = [pscustomobject]@{
+                            PowerLimitWatts = [double]$powerProperty.Value
+                            MaxClockMHz      = [int]$clockProperty.Value
+                        }
+                        if ($null -ne $uuidProperty -and [string]$uuidProperty.Value -match '^GPU-[0-9A-Fa-f-]+$') {
+                            $expectedByUuid[[string]$uuidProperty.Value] = $expected
+                        }
+                        elseif ($null -ne $indexProperty -and [int]$indexProperty.Value -ge 0) {
+                            $expectedByIndex[[int]$indexProperty.Value] = $expected
+                        }
+                    }
+                }
+            }
+            catch { }
+        }
+
+        $gpuLines = @(& $nvidiaSmi --query-gpu=index,uuid,power.limit,power.default_limit,clocks.gr --format=csv,noheader,nounits)
         foreach ($line in $gpuLines) {
             $parts = @($line -split ',' | ForEach-Object { $_.Trim() })
-            if ($parts.Count -ge 4) {
-                $limited = ([Math]::Abs([double]$parts[1] - 280.0) -le 0.5)
-                $lines.Add("GPU $($parts[0]): power=$($parts[1])W (default $($parts[2])W), clock=$($parts[3])MHz, limits-active=$limited")
+            if ($parts.Count -ge 5) {
+                $index = [int]$parts[0]
+                $uuid = [string]$parts[1]
+                $currentPower = [double]::Parse($parts[2], [Globalization.CultureInfo]::InvariantCulture)
+                $currentClock = -1
+                [void][int]::TryParse($parts[4], [Globalization.NumberStyles]::Integer, [Globalization.CultureInfo]::InvariantCulture, [ref]$currentClock)
+                $expected = if ($expectedByUuid.ContainsKey($uuid)) { $expectedByUuid[$uuid] } elseif ($expectedByIndex.ContainsKey($index)) { $expectedByIndex[$index] } else { $null }
+                if ($null -eq $expected) {
+                    $profileStatus = 'unmanaged'
+                }
+                else {
+                    $powerMatches = [Math]::Abs($currentPower - [double]$expected.PowerLimitWatts) -le 0.5
+                    $clockMatches = $currentClock -ge 0 -and $currentClock -le ([int]$expected.MaxClockMHz + 30)
+                    $profileStatus = if ($powerMatches -and $clockMatches) { 'yes' } else { 'no' }
+                }
+                $lines.Add("GPU $index ($uuid): power=$($parts[2])W (default $($parts[3])W), clock=$($parts[4])MHz, limits-active=$profileStatus")
             }
         }
     }

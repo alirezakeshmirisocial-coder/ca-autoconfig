@@ -4,6 +4,8 @@ param(
     [ValidateNotNullOrEmpty()]
     [string]$GpuIndexList,
 
+    [string]$GpuUuidList = '',
+
     [Parameter(Mandatory = $true)]
     [ValidateRange(300, 3000)]
     [int]$MaxGraphicsClockMHz,
@@ -66,32 +68,62 @@ if (@($gpuIndexValues | Select-Object -Unique).Count -ne $gpuIndexValues.Count) 
     throw 'GPU indices must not contain duplicates.'
 }
 
+$gpuTargetValues = @()
+if ([string]::IsNullOrWhiteSpace($GpuUuidList)) {
+    $gpuTargetValues = @($gpuIndexValues | ForEach-Object { [string]$_ })
+}
+else {
+    foreach ($token in @($GpuUuidList -split ',')) {
+        $uuid = $token.Trim()
+        if ($uuid -notmatch '^GPU-[0-9A-Fa-f-]+$') {
+            throw "Invalid GPU UUID '$uuid'. Expected NVIDIA's GPU-... identifier."
+        }
+        $gpuTargetValues += $uuid
+    }
+    if ($gpuTargetValues.Count -ne $gpuIndexValues.Count) {
+        throw 'GPU UUID count must match the explicitly approved GPU index count.'
+    }
+    if (@($gpuTargetValues | Select-Object -Unique).Count -ne $gpuTargetValues.Count) {
+        throw 'GPU UUIDs must not contain duplicates.'
+    }
+}
+
 $results = @()
 $inventoryRows = @()
 $modifiedRows = @()
 try {
     # Preflight every target before changing any card. This prevents an invalid
     # later index or out-of-range power request from leaving an earlier GPU changed.
-    foreach ($index in $gpuIndexValues) {
+    for ($position = 0; $position -lt $gpuIndexValues.Count; $position++) {
+        $requestedIndex = [int]$gpuIndexValues[$position]
+        $target = [string]$gpuTargetValues[$position]
         $inventory = Invoke-NvidiaSmi -Arguments @(
-            '-i', [string]$index,
-            '--query-gpu=index,name,power.min_limit,power.max_limit,power.limit',
+            '-i', $target,
+            '--query-gpu=index,uuid,name,power.min_limit,power.max_limit,power.limit',
             '--format=csv,noheader,nounits'
         )
         $parts = @($inventory -split ',' | ForEach-Object { $_.Trim() })
-        if ($parts.Count -lt 5 -or [int]$parts[0] -ne $index) {
-            throw "Could not validate GPU index $index from nvidia-smi output: $inventory"
+        $actualIndex = -1
+        if ($parts.Count -lt 6 -or -not [int]::TryParse($parts[0], [ref]$actualIndex)) {
+            throw "Could not validate GPU target $target from nvidia-smi output: $inventory"
         }
-        $minimumPower = [double]::Parse($parts[2], [Globalization.CultureInfo]::InvariantCulture)
-        $maximumPower = [double]::Parse($parts[3], [Globalization.CultureInfo]::InvariantCulture)
-        $originalPower = [double]::Parse($parts[4], [Globalization.CultureInfo]::InvariantCulture)
+        $actualUuid = [string]$parts[1]
+        if ($target -like 'GPU-*' -and -not [string]::Equals($actualUuid, $target, [StringComparison]::OrdinalIgnoreCase)) {
+            throw "GPU UUID verification failed for target $target`: nvidia-smi returned $actualUuid."
+        }
+        $minimumPower = [double]::Parse($parts[3], [Globalization.CultureInfo]::InvariantCulture)
+        $maximumPower = [double]::Parse($parts[4], [Globalization.CultureInfo]::InvariantCulture)
+        $originalPower = [double]::Parse($parts[5], [Globalization.CultureInfo]::InvariantCulture)
         if ($PowerLimitWatts -lt $minimumPower -or $PowerLimitWatts -gt $maximumPower) {
-            throw "Requested ${PowerLimitWatts}W is outside GPU $index range ${minimumPower}-${maximumPower}W."
+            throw "Requested ${PowerLimitWatts}W is outside GPU $actualIndex ($actualUuid) range ${minimumPower}-${maximumPower}W."
         }
 
         $inventoryRows += [pscustomobject]@{
-            Index         = $index
-            Name          = $parts[1]
+            RequestedIndex = $requestedIndex
+            Index         = $actualIndex
+            Uuid          = $actualUuid
+            Target        = $target
+            Name          = $parts[2]
             MinimumPower  = $minimumPower
             MaximumPower  = $maximumPower
             OriginalPower = $originalPower
@@ -100,33 +132,41 @@ try {
 
     foreach ($row in $inventoryRows) {
         $index = [int]$row.Index
+        $target = [string]$row.Target
         $change = [pscustomobject]@{
             Index         = $index
+            Uuid          = [string]$row.Uuid
+            Target        = $target
             OriginalPower = [double]$row.OriginalPower
             PowerChanged  = $false
             ClockChanged  = $false
         }
         $modifiedRows += $change
-        $powerOutput = Invoke-NvidiaSmi -Arguments @('-i', [string]$index, '-pl', [string]$PowerLimitWatts)
+        $powerOutput = Invoke-NvidiaSmi -Arguments @('-i', $target, '-pl', [string]$PowerLimitWatts)
         $change.PowerChanged = $true
-        $clockOutput = Invoke-NvidiaSmi -Arguments @('-i', [string]$index, '-lgc', "0,$MaxGraphicsClockMHz")
+        $clockOutput = Invoke-NvidiaSmi -Arguments @('-i', $target, '-lgc', "0,$MaxGraphicsClockMHz")
         $change.ClockChanged = $true
         $verify = Invoke-NvidiaSmi -Arguments @(
-            '-i', [string]$index,
-            '--query-gpu=index,name,power.limit,clocks.gr',
+            '-i', $target,
+            '--query-gpu=index,uuid,name,power.limit,clocks.gr',
             '--format=csv,noheader,nounits'
         )
         $verifyParts = @($verify -split ',' | ForEach-Object { $_.Trim() })
-        $actualPower = [double]::Parse($verifyParts[2], [Globalization.CultureInfo]::InvariantCulture)
+        if ($verifyParts.Count -lt 5 -or -not [string]::Equals($verifyParts[1], [string]$row.Uuid, [StringComparison]::OrdinalIgnoreCase)) {
+            throw "GPU $target identity verification failed after apply: $verify"
+        }
+        $actualPower = [double]::Parse($verifyParts[3], [Globalization.CultureInfo]::InvariantCulture)
         if ([Math]::Abs($actualPower - $PowerLimitWatts) -gt 0.5) {
             throw "GPU $index power verification failed: expected ${PowerLimitWatts}W, got ${actualPower}W."
         }
         $results += [ordered]@{
             index               = $index
+            requestedIndex      = [int]$row.RequestedIndex
+            uuid                = [string]$row.Uuid
             name                = $row.Name
             maxGraphicsClockMHz = $MaxGraphicsClockMHz
             powerLimitWatts     = $actualPower
-            currentClockMHz     = [double]::Parse($verifyParts[3], [Globalization.CultureInfo]::InvariantCulture)
+            currentClockMHz     = [double]::Parse($verifyParts[4], [Globalization.CultureInfo]::InvariantCulture)
             clockCommandOutput  = $clockOutput
             powerCommandOutput  = $powerOutput
         }
@@ -149,8 +189,8 @@ catch {
     foreach ($change in @($modifiedRows | Sort-Object Index -Descending)) {
         if ($change.ClockChanged) {
             try {
-                Invoke-NvidiaSmi -Arguments @('-i', [string]$change.Index, '-rgc') | Out-Null
-                $rollback += "GPU $($change.Index) graphics clock lock reset"
+                Invoke-NvidiaSmi -Arguments @('-i', [string]$change.Target, '-rgc') | Out-Null
+                $rollback += "GPU $($change.Index) ($($change.Uuid)) graphics clock lock reset"
             }
             catch {
                 $rollback += "GPU $($change.Index) graphics clock rollback failed: $($_.Exception.Message)"
@@ -159,7 +199,7 @@ catch {
         if ($change.PowerChanged) {
             try {
                 Invoke-NvidiaSmi -Arguments @(
-                    '-i', [string]$change.Index,
+                    '-i', [string]$change.Target,
                     '-pl', ([double]$change.OriginalPower).ToString('0.###', [Globalization.CultureInfo]::InvariantCulture)
                 ) | Out-Null
                 $rollback += "GPU $($change.Index) power restored to $($change.OriginalPower)W"

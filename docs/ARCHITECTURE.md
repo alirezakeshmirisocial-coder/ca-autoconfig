@@ -66,12 +66,13 @@ sequenceDiagram
     participant State as State + log files
     participant HUD as Standard-user HUD
 
-    User->>Installer: Explicit GPU list, MHz, watts, risk acknowledgement
+    User->>Installer: Explicit GPU index list, MHz, watts, risk acknowledgement
+    Installer->>Driver: Resolve selected indices to stable UUIDs (read only)
     Installer->>UAC: Request elevation
     UAC-->>Installer: Administrator-approved process
-    Installer->>Driver: Preflight every requested GPU
     Installer->>Task: Install reviewed command and ACL
     Task->>Helper: Run after configured-user logon
+    Helper->>Driver: Preflight every UUID-pinned target
     Helper->>Driver: Apply power cap, then clock ceiling
     Helper->>Driver: Read back live values
     Helper->>State: Write applied/failed result and rollback report
@@ -79,7 +80,7 @@ sequenceDiagram
     HUD->>Driver: Compare with live values
 ```
 
-Installation requires all of these inputs: GPU indices, maximum graphics clock, power limit, and `-AcceptHardwareRisk`. Every target is preflighted before any card is changed. If a later operation fails, the helper makes a best-effort reverse-order rollback: reset the graphics-clock lock and restore the original power cap for each changed card.
+Installation requires all of these inputs: GPU indices, maximum graphics clock, power limit, and `-AcceptHardwareRisk`. Numeric indices select the cards once; before UAC the installer resolves them through a read-only NVIDIA query and carries their validated UUIDs into the protected task. Every UUID-pinned target is preflighted before any card is changed. If a later operation fails, the helper makes a best-effort reverse-order rollback against the same UUID: reset the graphics-clock lock and restore the original power cap for each changed card.
 
 The installed source and state are under:
 
@@ -87,9 +88,9 @@ The installed source and state are under:
 %ProgramData%\CAGpuLimits\
 ```
 
-That directory is administrator-owned and rejects reparse-point installation. SYSTEM and Administrators receive full control; standard Users receive read and execute access. The scheduled task runs as SYSTEM, but its task descriptor grants only the configured user read/run access, not permission to rewrite the action. The control panel's Apply action starts that exact reviewed task and waits for a fresh state result; it never reconstructs the helper command. This lets the configured user inspect, stop, and start the approved profile without turning the UI into a general elevation path.
+That directory is administrator-owned and rejects reparse-point installation. SYSTEM and Administrators receive full control; standard Users receive read and execute access. The scheduled task runs as SYSTEM, but its task descriptor grants only the configured user read/run access, not permission to rewrite the action. The control panel's Apply action starts that exact reviewed task and waits for a fresh state result; it never reconstructs the helper command. Reset requires elevation, reads and preflights the applied UUID-pinned profile, and refuses to guess targets when state is missing or invalid. This lets the configured user inspect, stop, and start the approved profile without turning the UI into a general elevation path.
 
-The HUD's green GPU indicator is not based on the state file alone. It requires a successful state from the current boot, the same configured profile across the expected cards, matching live power caps, and graphics clocks that do not exceed the ceiling beyond a small telemetry tolerance. Missing, stale, failed, or mismatched evidence stays red.
+The HUD's green GPU indicator is not based on the state file alone. It requires a successful state from the current boot, the same configured profile across the expected UUIDs, matching live power caps, and graphics clocks that do not exceed the ceiling beyond a small telemetry tolerance. A driver/reboot index reorder is accepted only when UUID identity still matches; a different card at an old index stays red. Missing, stale, failed, or mismatched evidence also stays red. Index-only state from older releases remains readable so upgrades fail safely without an unnecessary outage.
 
 ## Optional experiments stay outside the default install
 
@@ -138,7 +139,7 @@ See [PRIVACY.md](../PRIVACY.md), [SECURITY.md](../SECURITY.md), and the [adaptiv
 | Surface | Verification |
 | --- | --- |
 | Unlock guard | `tests/Guard.Smoke.Tests.ps1` exercises success, timeout-with-lock-suppressed, and fail-open collision behavior. |
-| HUD core | `tests/SystemOverlay.Smoke.Tests.ps1` compiles the shared source, round-trips settings, validates live multi-GPU telemetry, and exercises eight deterministic NVIDIA success/failure cases. |
+| HUD core | `tests/SystemOverlay.Smoke.Tests.ps1` compiles the shared source, round-trips settings, validates live multi-GPU telemetry, and exercises 13 deterministic NVIDIA identity/state/success/failure cases. |
 | Compiled app | `tests/DesktopApp.Smoke.Tests.ps1` builds and launches the .NET entry point in a no-hardware-write smoke mode. |
 | Privileged helper | `tests/GpuLimits.Safety.Tests.ps1` checks explicit targets, preflight-before-write, rollback, ACL intent, and safe combined-installer defaults without changing hardware. |
 | Power-curve lab | `benchmark/Run-Tests.ps1` validates calculations, missing values, privacy rejection, fixture dry-run reporting, and the absence of NVIDIA mutation flags. |
@@ -151,10 +152,9 @@ The prepared Windows workflow is in [`docs/ci.yml.example`](ci.yml.example). It 
 
 The current public preview intentionally exposes the remaining work:
 
-1. Identify GPUs by UUID instead of mutable numeric index.
-2. Replace the script-based privileged action with a minimal authenticated helper and explicit reset operation.
-3. Add simulated NVIDIA/WDDM providers for malformed and missing telemetry.
-4. Sign binaries and exercise install, upgrade, uninstall, sleep, driver-reset, and clean-machine recovery in CI.
-5. Keep measured workload benchmarks separate from generic or vendor-independent claims.
+1. Replace the script-based privileged action with a minimal authenticated helper and explicit reset operation.
+2. Add a WDDM provider/fallback with the same capability and failure contract as the simulated NVIDIA source.
+3. Sign binaries and exercise install, upgrade, uninstall, sleep, driver-reset, and clean-machine recovery in CI.
+4. Keep measured workload benchmarks separate from generic or vendor-independent claims.
 
 Changes that weaken the privilege split, make GPU writes implicit, convert unknown evidence into success, or connect cooling advice directly to an actuator are architecture changes and require a security-focused review.

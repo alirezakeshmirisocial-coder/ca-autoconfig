@@ -16,7 +16,7 @@ The product direction is a tiny, trustworthy Windows HUD and safe power optimize
 ## Milestone 2 — Public technical preview
 
 - [x] Move the HUD into a compiled .NET 8 application with a versioned, forward-write-protected settings schema.
-- [ ] Address GPUs by UUID rather than mutable numeric index.
+- [x] Resolve selected GPU indices once at installation, pin the task/state to NVIDIA UUIDs, and verify live identity with legacy-state fallback.
 - [ ] Isolate the minimal elevated apply/reset helper behind an authenticated local boundary.
 - [x] Add a deterministic simulated NVIDIA source and fail-closed tests for missing, timed-out, empty, partial, malformed, and explicit-`N/A` telemetry.
 - [ ] Add a WDDM provider/fallback with the same capability and failure contract.

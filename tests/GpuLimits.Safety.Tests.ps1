@@ -32,6 +32,7 @@ $combined = Get-Content -Raw -LiteralPath $combinedPath
 $controlPanel = Get-Content -Raw -LiteralPath $controlPanelPath
 
 Assert-True ($apply -match '\[Parameter\(Mandatory = \$true\)\]\s*\[ValidateNotNullOrEmpty\(\)\]\s*\[string\]\$GpuIndexList') 'Apply script must require an explicit GPU index list.'
+Assert-True ($apply -match '\[string\]\$GpuUuidList' -and $apply -match "\^GPU-\[0-9A-Fa-f-\]\+\$") 'Apply script must accept and validate installer-resolved NVIDIA UUIDs.'
 Assert-True ($apply -match '\[Parameter\(Mandatory = \$true\)\]\s*\[ValidateRange\(300, 3000\)\]\s*\[int\]\$MaxGraphicsClockMHz') 'Apply script must require an explicit clock limit.'
 Assert-True ($apply -match '\[Parameter\(Mandatory = \$true\)\]\s*\[ValidateRange\(50, 1000\)\]\s*\[int\]\$PowerLimitWatts') 'Apply script must require an explicit power limit.'
 
@@ -39,9 +40,12 @@ $preflightPosition = $apply.IndexOf('$inventoryRows +=')
 $mutationPosition = $apply.IndexOf("'-pl', [string]`$PowerLimitWatts")
 Assert-True ($preflightPosition -ge 0 -and $mutationPosition -gt $preflightPosition) 'All targets must be inventoried before the first power mutation.'
 Assert-True ($apply -match "'-rgc'" -and $apply -match 'OriginalPower' -and $apply -match "rollback\s+=") 'Failure handling must retain best-effort clock and power rollback.'
+Assert-True ($apply.Contains("'-i', `$target, '-pl'") -and $apply.Contains("'-i', `$target, '-lgc'") -and $apply.Contains('[string]$change.Target')) 'Apply and rollback mutations must address the UUID-pinned target.'
 
 Assert-True ($install -match 'if \(-not \$AcceptHardwareRisk\)') 'GPU installation must require explicit hardware-risk acknowledgement.'
 Assert-True ($install.Contains("'-GpuIndexList', `$gpuIndexArgument")) 'The elevated installer must preserve the explicit GPU list.'
+Assert-True ($install -match '--query-gpu=index,uuid' -and $install.Contains("'-ResolvedGpuUuidList', `$gpuUuidArgument")) 'The installer must resolve stable UUIDs before elevation and preserve them across UAC.'
+Assert-True ($install -match '-GpuUuidList \$escapedGpuUuidArgument') 'The scheduled action must pin approved GPUs by UUID.'
 Assert-True ($install -match 'SetAccessRuleProtection\(\$true, \$false\)' -and $install -match 'S-1-5-32-545' -and $install -match 'ReadAndExecute') 'The SYSTEM task script directory must be protected from user writes.'
 Assert-True ($install -match 'FileAttributes\]::ReparsePoint') 'The privileged installer must reject a reparse-point install directory.'
 Assert-True ($install -match '<SecurityDescriptor>\$escapedTaskSecurityDescriptor</SecurityDescriptor>' -and $install -match 'GRGX') 'The configured user must receive read/run task access without task-write access.'
@@ -54,6 +58,8 @@ Assert-True ($controlPanel -match 'function Apply-GpuLimits[\s\S]+?Start-Schedul
 Assert-True ($controlPanel -notmatch '& \$powerShellPath -NoProfile -ExecutionPolicy Bypass -File \$gpuApplyScript') 'The control panel must not invoke the parameterized privileged helper without its approved task arguments.'
 Assert-True ($controlPanel -match "'ApplyGpu' \{ Apply-GpuLimits; return \}") 'The user-facing Apply action must use the readable/runnable task without a second UAC path.'
 Assert-True ($controlPanel -match 'Get-ScheduledTask -TaskName \$presenceTaskName -ErrorAction SilentlyContinue') 'HUD-only installs must tolerate an absent optional camera task.'
+Assert-True ($controlPanel -notmatch 'foreach \(\$index in 0, 1\)' -and $controlPanel -match '\$profilesProperty\.Value' -and $controlPanel -match '\$target = \$uuid') 'Reset must use the applied profile and prefer stable UUIDs instead of hard-coded GPU indices.'
+Assert-True ($controlPanel -notmatch '\$parts\[1\] - 280\.0' -and $controlPanel -match '\$expectedByUuid' -and $controlPanel -match 'limits-active=\$profileStatus') 'Status must compare against the applied profile instead of a maintainer-specific 280 W constant.'
 
 $blockedWithoutRisk = $false
 try {
@@ -69,6 +75,7 @@ Assert-True $blockedWithoutRisk 'The installer must fail before elevation or har
     ExplicitTargets     = $true
     PreflightBeforeWrite = $true
     BestEffortRollback  = $true
+    StableUuidTargets   = $true
     ProtectedTaskSource = $true
     ControlPanelUsesTask = $true
     CombinedDefaultsSafe = $true

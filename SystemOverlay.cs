@@ -552,6 +552,7 @@ namespace CA.SystemOverlay
         private sealed class ExpectedGpuLimit
         {
             public int Index;
+            public string Uuid;
             public int MaxClockMHz;
             public double PowerLimitWatts;
         }
@@ -575,6 +576,9 @@ namespace CA.SystemOverlay
             [DataMember(Name = "index")]
             public int Index { get; set; }
 
+            [DataMember(Name = "uuid")]
+            public string Uuid { get; set; }
+
             [DataMember(Name = "maxGraphicsClockMHz")]
             public int MaxGraphicsClockMHz { get; set; }
 
@@ -595,7 +599,19 @@ namespace CA.SystemOverlay
 
             foreach (ExpectedGpuLimit target in expected)
             {
-                GpuMetric actual = snapshot.Gpus.Find(delegate(GpuMetric gpu) { return gpu.Index == target.Index; });
+                GpuMetric actual;
+                if (!String.IsNullOrEmpty(target.Uuid))
+                {
+                    actual = snapshot.Gpus.Find(delegate(GpuMetric gpu)
+                    {
+                        return String.Equals(gpu.Uuid, target.Uuid, StringComparison.OrdinalIgnoreCase);
+                    });
+                }
+                else
+                {
+                    // Backward compatibility for state files produced before UUID pinning.
+                    actual = snapshot.Gpus.Find(delegate(GpuMetric gpu) { return gpu.Index == target.Index; });
+                }
                 if (actual == null)
                 {
                     snapshot.GpuLimitsHealthy = false;
@@ -676,12 +692,35 @@ namespace CA.SystemOverlay
                     reason = "LIMIT PROFILE IS EMPTY";
                     return false;
                 }
+                HashSet<string> identities = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 foreach (GpuLimitStateResult result in state.Results)
                 {
                     if (result == null)
-                        continue;
-                    if (result.Index >= 0 && result.MaxGraphicsClockMHz > 0 && result.PowerLimitWatts > 0)
-                        expected.Add(new ExpectedGpuLimit { Index = result.Index, MaxClockMHz = result.MaxGraphicsClockMHz, PowerLimitWatts = result.PowerLimitWatts });
+                    {
+                        reason = "LIMIT PROFILE IS INVALID";
+                        return false;
+                    }
+                    string uuid = (result.Uuid ?? String.Empty).Trim();
+                    bool hasUuid = uuid.StartsWith("GPU-", StringComparison.OrdinalIgnoreCase) && uuid.Length > 8;
+                    bool hasLegacyIndex = String.IsNullOrEmpty(uuid) && result.Index >= 0;
+                    if ((!hasUuid && !hasLegacyIndex) || result.MaxGraphicsClockMHz <= 0 || result.PowerLimitWatts <= 0)
+                    {
+                        reason = "LIMIT PROFILE IS INVALID";
+                        return false;
+                    }
+                    string identity = hasUuid ? "uuid:" + uuid : "index:" + result.Index.ToString(CultureInfo.InvariantCulture);
+                    if (!identities.Add(identity))
+                    {
+                        reason = "LIMIT PROFILE IS INVALID";
+                        return false;
+                    }
+                    expected.Add(new ExpectedGpuLimit
+                    {
+                        Index = result.Index,
+                        Uuid = hasUuid ? uuid : String.Empty,
+                        MaxClockMHz = result.MaxGraphicsClockMHz,
+                        PowerLimitWatts = result.PowerLimitWatts
+                    });
                 }
                 if (expected.Count == 0)
                 {

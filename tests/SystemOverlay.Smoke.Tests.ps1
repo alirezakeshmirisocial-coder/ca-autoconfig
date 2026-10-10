@@ -140,15 +140,15 @@ try {
         timestampUtc = [DateTime]::UtcNow.ToString('o')
         status = 'applied'
         results = @(
-            @{ index = 0; maxGraphicsClockMHz = 1700; powerLimitWatts = 280.0 },
-            @{ index = 1; maxGraphicsClockMHz = 1700; powerLimitWatts = 280.0 }
+            @{ index = 0; uuid = 'GPU-00000000-0000-0000-0000-000000000000'; maxGraphicsClockMHz = 1700; powerLimitWatts = 280.0 },
+            @{ index = 1; uuid = 'GPU-11111111-1111-1111-1111-111111111111'; maxGraphicsClockMHz = 1700; powerLimitWatts = 280.0 }
         )
     } | ConvertTo-Json -Depth 5
     [IO.File]::WriteAllText($statePath, $stateJson, (New-Object Text.UTF8Encoding($false)))
 
     $validOutput = @(
-        '0, GPU-0, NVIDIA GeForce RTX 3090, 100, 40, 20000, 24576, 250, 280, 350, 100, 370, 60, 1695',
-        '1, GPU-1, NVIDIA GeForce RTX 3090, 98, 35, 19800, 24576, 240, 280, 350, 100, 370, 61, 1680'
+        '0, GPU-00000000-0000-0000-0000-000000000000, NVIDIA GeForce RTX 3090, 100, 40, 20000, 24576, 250, 280, 350, 100, 370, 60, 1695',
+        '1, GPU-11111111-1111-1111-1111-111111111111, NVIDIA GeForce RTX 3090, 98, 35, 19800, 24576, 240, 280, 350, 100, 370, 61, 1680'
     ) -join "`n"
     $validSnapshot = Invoke-RecordedGpuSnapshot $true $true $false $validOutput $statePath
     Assert-True ([bool](Get-FieldValue $validSnapshot $snapshotType 'GpuLimitsHealthy')) 'Valid recorded telemetry did not verify the current-boot profile.'
@@ -157,6 +157,51 @@ try {
     $validGpus = Get-FieldValue $validSnapshot $snapshotType 'Gpus'
     Assert-True ($validGpus.Count -eq 2) 'Valid recorded telemetry did not return two GPUs.'
     Assert-True ([string](Get-FieldValue $validGpus[0] $gpuMetricType 'Name') -eq 'RTX 3090') 'GPU name normalization failed.'
+
+    $reorderedOutput = @(
+        '7, GPU-00000000-0000-0000-0000-000000000000, NVIDIA GeForce RTX 3090, 100, 40, 20000, 24576, 250, 280, 350, 100, 370, 60, 1695',
+        '4, GPU-11111111-1111-1111-1111-111111111111, NVIDIA GeForce RTX 3090, 98, 35, 19800, 24576, 240, 280, 350, 100, 370, 61, 1680'
+    ) -join "`n"
+    $reorderedSnapshot = Invoke-RecordedGpuSnapshot $true $true $false $reorderedOutput $statePath
+    Assert-True ([bool](Get-FieldValue $reorderedSnapshot $snapshotType 'GpuLimitsHealthy')) 'UUID-pinned profile failed after simulated GPU index reordering.'
+
+    $wrongIdentityOutput = $validOutput.Replace('GPU-00000000-0000-0000-0000-000000000000', 'GPU-22222222-2222-2222-2222-222222222222')
+    $wrongIdentitySnapshot = Invoke-RecordedGpuSnapshot $true $true $false $wrongIdentityOutput $statePath
+    Assert-True (-not [bool](Get-FieldValue $wrongIdentitySnapshot $snapshotType 'GpuLimitsHealthy')) 'A different GPU at the old numeric index was accepted for a UUID-pinned profile.'
+    Assert-True ([string](Get-FieldValue $wrongIdentitySnapshot $snapshotType 'GpuLimitDetail') -eq 'PROFILE GPU IS MISSING') 'UUID identity mismatch did not fail closed.'
+
+    $legacyStateJson = @{
+        timestampUtc = [DateTime]::UtcNow.ToString('o')
+        status = 'applied'
+        results = @(
+            @{ index = 0; maxGraphicsClockMHz = 1700; powerLimitWatts = 280.0 },
+            @{ index = 1; maxGraphicsClockMHz = 1700; powerLimitWatts = 280.0 }
+        )
+    } | ConvertTo-Json -Depth 5
+    [IO.File]::WriteAllText($statePath, $legacyStateJson, (New-Object Text.UTF8Encoding($false)))
+    $legacySnapshot = Invoke-RecordedGpuSnapshot $true $true $false $validOutput $statePath
+    Assert-True ([bool](Get-FieldValue $legacySnapshot $snapshotType 'GpuLimitsHealthy')) 'Legacy index-only state compatibility failed.'
+
+    $invalidIdentityStateJson = @{
+        timestampUtc = [DateTime]::UtcNow.ToString('o')
+        status = 'applied'
+        results = @(@{ index = 0; uuid = 'not-a-gpu-uuid'; maxGraphicsClockMHz = 1700; powerLimitWatts = 280.0 })
+    } | ConvertTo-Json -Depth 5
+    [IO.File]::WriteAllText($statePath, $invalidIdentityStateJson, (New-Object Text.UTF8Encoding($false)))
+    $invalidIdentityStateSnapshot = Invoke-RecordedGpuSnapshot $true $true $false $validOutput $statePath
+    Assert-True ([string](Get-FieldValue $invalidIdentityStateSnapshot $snapshotType 'GpuLimitDetail') -eq 'LIMIT PROFILE IS INVALID') 'Malformed UUID state did not fail closed.'
+
+    $duplicateIdentityStateJson = @{
+        timestampUtc = [DateTime]::UtcNow.ToString('o')
+        status = 'applied'
+        results = @(
+            @{ index = 0; uuid = 'GPU-00000000-0000-0000-0000-000000000000'; maxGraphicsClockMHz = 1700; powerLimitWatts = 280.0 },
+            @{ index = 1; uuid = 'GPU-00000000-0000-0000-0000-000000000000'; maxGraphicsClockMHz = 1700; powerLimitWatts = 280.0 }
+        )
+    } | ConvertTo-Json -Depth 5
+    [IO.File]::WriteAllText($statePath, $duplicateIdentityStateJson, (New-Object Text.UTF8Encoding($false)))
+    $duplicateIdentityStateSnapshot = Invoke-RecordedGpuSnapshot $true $true $false $validOutput $statePath
+    Assert-True ([string](Get-FieldValue $duplicateIdentityStateSnapshot $snapshotType 'GpuLimitDetail') -eq 'LIMIT PROFILE IS INVALID') 'Duplicate UUID state did not fail closed.'
 
     $missingSnapshot = Invoke-RecordedGpuSnapshot $false $false $false '' $statePath
     Assert-True ([string](Get-FieldValue $missingSnapshot $snapshotType 'GpuLimitDetail') -eq 'NVIDIA-SMI MISSING') 'Missing NVIDIA source did not fail closed.'
@@ -209,6 +254,6 @@ if (Test-Path -LiteralPath $nvidiaSmi -PathType Leaf) {
     Status              = 'Passed'
     Compile             = $true
     SettingsRoundTrip   = $true
-    SimulatedNvidiaCases = 8
+    SimulatedNvidiaCases = 13
     NvidiaTelemetryRows = if (Test-Path -LiteralPath $nvidiaSmi) { $rows.Count } else { 0 }
 }

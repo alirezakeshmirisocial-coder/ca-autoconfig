@@ -4,6 +4,13 @@ This project follows semantic versioning after `v1.0.0`. Pre-1.0 releases may ch
 
 ## Unreleased
 
+## v0.2.1-alpha.3 — Stable GPU identity and control-path repair
+
+- Resolved user-selected GPU indices to stable NVIDIA UUIDs before elevation and pinned the protected scheduled task to those identities.
+- Added UUIDs to applied state and made the HUD verify live cards by UUID, while retaining a tested fallback for state produced by older releases.
+- Made Reset read the applied profile, preflight every recorded target, and prefer UUIDs instead of assuming hard-coded GPU indices `0,1`.
+- Made control-panel status compare live values with each applied profile instead of a maintainer-specific `280 W` constant.
+- Added deterministic index-reordering, wrong-card-at-old-index, legacy-state, malformed-identity, and duplicate-identity cases; the NVIDIA simulation suite now covers 13 cases.
 - Fixed the control panel's GPU Apply action to run the already-reviewed protected task and wait for a fresh state result, without rebuilding or omitting privileged-helper arguments.
 - Made Start all and auto-start controls tolerate the intentionally absent camera task in the default HUD-only installation.
 

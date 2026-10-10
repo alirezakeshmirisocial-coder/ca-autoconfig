@@ -1,13 +1,13 @@
 # CA AutoConfig
 
-[![Latest release](https://img.shields.io/github/v/release/alirezakeshmirisocial-coder/ca-autoconfig?include_prereleases&label=alpha)](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/releases/tag/v0.2.1-alpha.2)
+[![Latest release](https://img.shields.io/github/v/release/alirezakeshmirisocial-coder/ca-autoconfig?include_prereleases&label=alpha)](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/releases/tag/v0.2.1-alpha.3)
 [![License](https://img.shields.io/github/license/alirezakeshmirisocial-coder/ca-autoconfig)](LICENSE)
 [![GitHub stars](https://img.shields.io/github/stars/alirezakeshmirisocial-coder/ca-autoconfig?style=flat)](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/stargazers)
 [![Discussions](https://img.shields.io/github/discussions/alirezakeshmirisocial-coder/ca-autoconfig)](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/discussions)
 
 CA AutoConfig is a lightweight Windows HUD and conservative GPU power companion for local-AI and multi-GPU workstations. It keeps essential CPU, memory, storage, CUDA/SM, VRAM, temperature, and board-power information visible without stealing focus from the applications underneath it.
 
-[Latest alpha](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/releases/tag/v0.2.1-alpha.2) · [Desktop preview](docs/DESKTOP_PREVIEW.md) · [Power-curve lab](benchmark/POWER_CURVE_METHOD.md) · [Architecture](docs/ARCHITECTURE.md) · [Roadmap](ROADMAP.md) · [Contributor issues](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/milestone/1) · [Discussions](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/discussions) · [Growth scorecard](docs/launch/GROWTH_SCORECARD.md)
+[Latest alpha](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/releases/tag/v0.2.1-alpha.3) · [Desktop preview](docs/DESKTOP_PREVIEW.md) · [Power-curve lab](benchmark/POWER_CURVE_METHOD.md) · [Architecture](docs/ARCHITECTURE.md) · [Roadmap](ROADMAP.md) · [Contributor issues](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/milestone/1) · [Discussions](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/discussions) · [Growth scorecard](docs/launch/GROWTH_SCORECARD.md)
 
 ![Three-step CA AutoConfig demo showing the locked HUD, edit mode, and monitor and shortcut settings](docs/assets/hud-demo.gif)
 
@@ -23,7 +23,7 @@ CA AutoConfig is a lightweight Windows HUD and conservative GPU power companion 
 - Live NVIDIA telemetry includes GPU identity, CUDA/SM load, VRAM, power draw/cap, temperature, and graphics clock.
 - The read-only power advisor proposes a conservative benchmark starting point inside NVIDIA's reported minimum/default range. It never raises an existing lower cap and does not apply changes automatically.
 - An isolated adaptive-cooling policy now simulates fan and power advice from ambient temperature, inlet temperature, card heat, neighboring-system heat, fan telemetry, and a matched clean baseline. It is deliberately advice-only until physical tach validation and a crash-safe vendor-auto restore path exist.
-- The configured startup profile is verified from the current-boot state file and live GPU data. A failed or mismatched limit remains clearly red.
+- The configured startup profile is pinned to stable NVIDIA GPU UUIDs and verified against current-boot state plus live data. A reordered, missing, replaced, failed, or mismatched target remains clearly red.
 
 The preferred release is a self-contained .NET 8 app: it does not require a separate runtime or PowerShell source compilation. Download and extract the desktop-preview ZIP, verify its checksum, then run:
 
@@ -40,7 +40,7 @@ Contributors can build and smoke-test the same app from source:
 
 The original `Install-SystemOverlay.ps1` PowerShell-hosted path remains available as a compatibility fallback.
 
-The elevated GPU helper is deliberately separate and opt-in. It requires explicit GPU indices, clock, power, and risk acknowledgement; it preflights every target before changing one. The `280 W / 1700 MHz` values used on the maintainer's workstation are not universal recommendations. Treat advisor values as benchmark candidates for your exact board and workload.
+The elevated GPU helper is deliberately separate and opt-in. It requires explicit GPU indices, clock, power, and risk acknowledgement. Indices are used only to select cards during installation; the installed task resolves and pins their stable NVIDIA UUIDs, then preflights every target before changing one. The `280 W / 1700 MHz` values used on the maintainer's workstation are not universal recommendations. Treat advisor values as benchmark candidates for your exact board and workload.
 
 If you run local AI on Windows, the most useful contribution right now is a privacy-safe [hardware or monitor report](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/issues/new/choose). A star helps discovery, but reproducible results and focused pull requests are more valuable to the project.
 
@@ -236,13 +236,13 @@ HUD در حالت عادی نیمه‌شفاف، بدون Focus و click-through
 .\Install-GpuLimits.ps1 -GpuIndexList '0,1' -MaxGraphicsClockMHz 1700 -PowerLimitWatts 280 -AcceptHardwareRisk
 ```
 
-نصاب یک UAC درخواست می‌کند و Task با نام `CA GPU Limits` را تحت حساب `SYSTEM` ثبت می‌کند. قبل از هر تغییر، وجود تمام GPUها و بازهٔ توان آن‌ها بررسی می‌شود. اگر مرحلهٔ اعمال شکست بخورد، اسکریپت به‌صورت best-effort قفل کلاک خودش را reset و Power Limit قبلی را restore می‌کند و نتیجهٔ rollback را در state ثبت می‌کند. Task پانزده ثانیه بعد از Logon اجرا می‌شود و در این نمونه معادل چهار فرمان زیر است:
+نصاب indexهای انتخاب‌شده را یک‌بار به UUID پایدار NVIDIA تبدیل می‌کند، سپس UAC درخواست می‌کند و Task با نام `CA GPU Limits` را تحت حساب `SYSTEM` ثبت می‌کند. Task بعد از نصب دیگر به ترتیب متغیر indexها وابسته نیست. قبل از هر تغییر، هویت تمام GPUها و بازهٔ توان آن‌ها بررسی می‌شود. اگر مرحلهٔ اعمال شکست بخورد، اسکریپت به‌صورت best-effort قفل کلاک خودش را reset و Power Limit قبلی را restore می‌کند و نتیجهٔ rollback را در state ثبت می‌کند. Task پانزده ثانیه بعد از Logon اجرا می‌شود و از نظر عملکرد معادل چهار فرمان زیر با UUID واقعی کارت‌ها است:
 
 ```powershell
-nvidia-smi -i 0 -pl 280
-nvidia-smi -i 0 -lgc 0,1700
-nvidia-smi -i 1 -pl 280
-nvidia-smi -i 1 -lgc 0,1700
+nvidia-smi -i GPU-<uuid-of-selected-card-0> -pl 280
+nvidia-smi -i GPU-<uuid-of-selected-card-0> -lgc 0,1700
+nvidia-smi -i GPU-<uuid-of-selected-card-1> -pl 280
+nvidia-smi -i GPU-<uuid-of-selected-card-1> -lgc 0,1700
 ```
 
 وضعیت آخر در `C:\ProgramData\CAGpuLimits\gpu-limits-state.json` و خروجی جزئی در `C:\ProgramData\CAGpuLimits\gpu-limits.log` ذخیره می‌شود. حذف Task:
