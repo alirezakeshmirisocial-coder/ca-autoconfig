@@ -12,6 +12,14 @@ CA AutoConfig is being built for people running local LLMs, diffusion models, an
 
 ## Local checks
 
+Run the complete fail-closed suite on a Windows machine with PowerShell 7 and the .NET 8 SDK:
+
+```powershell
+.\Invoke-RepositoryChecks.ps1 -Suite Full
+```
+
+If the .NET SDK is unavailable, `-Suite PowerShell` runs only the 14 SDK-independent checks and reports `PASSED_POWERSHELL_SUITE_ONLY`; it is never labeled complete repository validation. The runner starts each test in a fresh process and does not apply GPU settings, initiate sleep, or post externally.
+
 ```powershell
 .\tests\SystemOverlay.Smoke.Tests.ps1
 .\tests\Guard.Smoke.Tests.ps1
@@ -24,6 +32,7 @@ CA AutoConfig is being built for people running local LLMs, diffusion models, an
 .\tests\WindowsGpuSleepResumeValidation.Tests.ps1
 .\tests\WindowsGpuEvidenceBundle.Tests.ps1
 .\tests\DisplayDiagnostics.Tests.ps1
+.\tests\RepositoryChecks.Tests.ps1
 dotnet run --project .\src\CAAutoConfig.Telemetry.Tests\CAAutoConfig.Telemetry.Tests.csproj -c Release
 .\tests\GpuLimits.Safety.Tests.ps1
 .\tests\GpuLimitPlan.Tests.ps1

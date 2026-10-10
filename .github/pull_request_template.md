@@ -8,9 +8,8 @@ Does it read or change system state, require elevation, access a camera, or use 
 
 ## Verification
 
-- [ ] `tests/Guard.Smoke.Tests.ps1`
-- [ ] `tests/SystemOverlay.Smoke.Tests.ps1`
-- [ ] `fan-control/Run-Tests.ps1`
+- [ ] `Invoke-RepositoryChecks.ps1 -Suite Full`
+- [ ] If Full was unavailable, the exact partial suite/status and missing prerequisite are disclosed below; a partial pass is not labeled complete.
 - [ ] UI changes include an updated screenshot.
 - [ ] Logs and screenshots contain no personal identifiers or GPU UUIDs.
 

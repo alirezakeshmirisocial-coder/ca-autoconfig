@@ -47,7 +47,10 @@ Contributors can build and smoke-test the same app from source:
 ```powershell
 .\Build-DesktopApp.ps1 -SelfContained
 .\tests\DesktopApp.Smoke.Tests.ps1 -SelfContained
+.\Invoke-RepositoryChecks.ps1 -Suite Full
 ```
+
+The full repository runner requires PowerShell 7 and the .NET 8 SDK and fails closed if either is missing. `-Suite PowerShell` is an explicitly incomplete 14-check fallback for machines without the SDK; its summary cannot claim complete validation.
 
 Maintainers can prepare an offline, disposable install/task/uninstall check with the [Windows Sandbox harness](docs/CLEAN_MACHINE_SANDBOX.md). The generator does not enable Sandbox or claim a pass until a real result JSON exists.
 

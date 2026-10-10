@@ -19,51 +19,6 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
-      - name: Guard smoke tests
+      - name: Full repository checks
         shell: pwsh
-        run: .\tests\Guard.Smoke.Tests.ps1
-      - name: HUD compile and policy tests
-        shell: pwsh
-        run: .\tests\SystemOverlay.Smoke.Tests.ps1
-      - name: Compiled desktop smoke test
-        shell: pwsh
-        run: .\tests\DesktopApp.Smoke.Tests.ps1
-      - name: Desktop package verifier tests
-        shell: pwsh
-        run: .\tests\DesktopPackageVerifier.Tests.ps1
-      - name: Clean-machine sandbox preparation tests
-        shell: pwsh
-        run: .\tests\CleanMachineSandbox.Tests.ps1
-      - name: Windows GPU capability probe tests
-        shell: pwsh
-        run: .\tests\WindowsGpuCapability.Tests.ps1
-      - name: Windows GPU churn harness policy tests
-        shell: pwsh
-        run: .\tests\WindowsGpuChurnHarness.Tests.ps1
-      - name: Windows GPU loaded-evidence linker tests
-        shell: pwsh
-        run: .\tests\WindowsGpuLoadedValidation.Tests.ps1
-      - name: Windows GPU sleep-resume validation tests
-        shell: pwsh
-        run: .\tests\WindowsGpuSleepResumeValidation.Tests.ps1
-      - name: Windows GPU evidence preflight tests
-        shell: pwsh
-        run: .\tests\WindowsGpuEvidenceBundle.Tests.ps1
-      - name: Display diagnostics preflight tests
-        shell: pwsh
-        run: .\tests\DisplayDiagnostics.Tests.ps1
-      - name: Windows GPU counter mapping tests
-        shell: pwsh
-        run: dotnet run --project .\src\CAAutoConfig.Telemetry.Tests\CAAutoConfig.Telemetry.Tests.csproj -c Release
-      - name: Privileged helper safety tests
-        shell: pwsh
-        run: .\tests\GpuLimits.Safety.Tests.ps1
-      - name: Read-only GPU limit plan tests
-        shell: pwsh
-        run: .\tests\GpuLimitPlan.Tests.ps1
-      - name: Power-curve calculation and privacy tests
-        shell: pwsh
-        run: .\benchmark\Run-Tests.ps1
-      - name: Adaptive fan policy tests
-        shell: pwsh
-        run: .\fan-control\Run-Tests.ps1
+        run: .\Invoke-RepositoryChecks.ps1 -Suite Full
