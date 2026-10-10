@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [ValidatePattern('^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$')]
-    [string]$Version = '0.2.6-alpha.2',
+    [string]$Version = '0.2.6-alpha.3',
 
     [ValidateSet('win-x64')]
     [string]$Runtime = 'win-x64'
@@ -14,6 +14,7 @@ $packageName = "CA-AutoConfig-Desktop-v$Version-$Runtime"
 $stagePath = [IO.Path]::GetFullPath((Join-Path $distRoot $packageName))
 $zipPath = [IO.Path]::GetFullPath((Join-Path $distRoot ($packageName + '.zip')))
 $checksumPath = [IO.Path]::GetFullPath((Join-Path $distRoot ($packageName + '.sha256')))
+$verifierAssetPath = [IO.Path]::GetFullPath((Join-Path $distRoot 'Verify-DesktopPackage.ps1'))
 $distPrefix = $distRoot.TrimEnd([IO.Path]::DirectorySeparatorChar) + [IO.Path]::DirectorySeparatorChar
 if (-not $stagePath.StartsWith($distPrefix, [StringComparison]::OrdinalIgnoreCase)) {
     throw "Refusing to package outside the dist directory: $stagePath"
@@ -34,6 +35,7 @@ Copy-Item -LiteralPath $build.Executable -Destination (Join-Path $stagePath 'CAA
 Copy-Item -LiteralPath $helperBuild.Executable -Destination (Join-Path $stagePath 'CAGpuHelper.exe')
 foreach ($relativePath in @(
     'Install-DesktopApp.ps1',
+    'Verify-DesktopPackage.ps1',
     'Install-SystemOverlay.ps1',
     'Uninstall-SystemOverlay.ps1',
     'Install-GpuLimits.ps1',
@@ -57,6 +59,7 @@ if (Test-Path -LiteralPath $zipPath) { Remove-Item -LiteralPath $zipPath -Force 
 Compress-Archive -Path (Join-Path $stagePath '*') -DestinationPath $zipPath -CompressionLevel Optimal
 $hash = (Get-FileHash -LiteralPath $zipPath -Algorithm SHA256).Hash.ToLowerInvariant()
 Set-Content -LiteralPath $checksumPath -Encoding ascii -NoNewline -Value "$hash *$(Split-Path -Leaf $zipPath)`n"
+Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'Verify-DesktopPackage.ps1') -Destination $verifierAssetPath -Force
 
 [pscustomobject]@{
     Status       = 'Packaged'
@@ -65,6 +68,8 @@ Set-Content -LiteralPath $checksumPath -Encoding ascii -NoNewline -Value "$hash 
     Zip          = $zipPath
     SizeBytes    = (Get-Item -LiteralPath $zipPath).Length
     Sha256       = $hash
+    Verifier     = $verifierAssetPath
+    VerifierSha256 = (Get-FileHash -LiteralPath $verifierAssetPath -Algorithm SHA256).Hash.ToLowerInvariant()
     ExecutableSha256 = $build.Sha256
     GpuHelperSha256  = $helperBuild.Sha256
 }

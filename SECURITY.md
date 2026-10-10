@@ -22,6 +22,7 @@ We aim to acknowledge a complete report within three business days. A fix and di
 - Apply writes an atomic protected record of exact pre-change values before mutation. Reset consumes that record; it never guesses targets or rollback power limits.
 - Power recommendations are read-only candidates until the user explicitly starts a benchmark and confirms an apply operation.
 - Recommendations must remain inside vendor-reported limits and must not exceed the vendor default.
+- Release consumers can run `Verify-DesktopPackage.ps1` before extraction; it validates the separately published SHA-256, rejects unsafe/duplicate archive paths and oversized expansion, and checks the declared version and required install files without executing package content.
 - The Ollama adapter is loopback-only by default, never pulls a model, and has no GPU-write or elevation path; remote prompt transmission requires an explicit flag.
 - The llama.cpp adapter accepts only explicit local executable/model paths, has no network/download/elevation path, uses query-only NVIDIA telemetry, and never exports the child command, model path, stdout, or stderr.
 - The ComfyUI adapter is loopback-only by default with redirects disabled, requires an empty queue and exact terminal image count, never calls global interrupt/free/history-delete routes, and exports neither the submitted workflow nor server history/output metadata; remote workflow transmission requires an explicit flag.

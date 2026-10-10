@@ -4,6 +4,11 @@ This project follows semantic versioning after `v1.0.0`. Pre-1.0 releases may ch
 
 ## Unreleased
 
+## v0.2.6-alpha.3 — Offline package verification
+
+- Added an offline desktop-package verifier that checks the published SHA-256 filename and digest, rejects unsafe or duplicate ZIP paths and oversized expansion, requires the install-critical files, and validates the declared package version without extracting or executing the bundle.
+- Added nine deterministic verifier tests and included the verifier in future desktop preview packages.
+
 ## v0.2.6-alpha.2 — Read-only preflight plan
 
 - Added a privacy-safe, query-only GPU limit plan that shows selected cards, current/default/vendor power ranges, live/vendor-maximum clocks, a shared no-raise power starting point, and migration readiness before UAC.

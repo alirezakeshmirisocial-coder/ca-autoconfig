@@ -13,9 +13,9 @@
     <PublishSingleFile>true</PublishSingleFile>
     <PublishTrimmed>false</PublishTrimmed>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
-    <Version>0.2.6-alpha.2</Version>
+    <Version>0.2.6-alpha.3</Version>
     <AssemblyVersion>0.2.6.0</AssemblyVersion>
-    <FileVersion>0.2.6.2</FileVersion>
+    <FileVersion>0.2.6.3</FileVersion>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <RepositoryUrl>https://github.com/alirezakeshmirisocial-coder/ca-autoconfig</RepositoryUrl>
   </PropertyGroup>

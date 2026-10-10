@@ -28,6 +28,9 @@ jobs:
       - name: Compiled desktop smoke test
         shell: pwsh
         run: .\tests\DesktopApp.Smoke.Tests.ps1
+      - name: Desktop package verifier tests
+        shell: pwsh
+        run: .\tests\DesktopPackageVerifier.Tests.ps1
       - name: Privileged helper safety tests
         shell: pwsh
         run: .\tests\GpuLimits.Safety.Tests.ps1

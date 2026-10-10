@@ -22,6 +22,7 @@ The product direction is a tiny, trustworthy Windows HUD and safe power optimize
 - [x] Add a deterministic simulated NVIDIA source and fail-closed tests for missing, timed-out, empty, partial, malformed, and explicit-`N/A` telemetry.
 - [ ] Add a WDDM provider/fallback with the same capability and failure contract.
 - [x] Package a reproducible self-contained `win-x64` ZIP with a least-privilege installer and checksum.
+- [x] Add an offline, no-extraction package verifier for checksum, ZIP-path, size, required-file, and version integrity.
 - [ ] Add CI-built artifacts, signing, clean-machine install/uninstall coverage, and an MSIX or equivalent upgrade path.
 - [x] Separate the optional camera/presence experiment and GPU mutation from the default HUD installation.
 - [x] Add an English screenshot and public privacy statement.

@@ -4,8 +4,16 @@ The compiled preview packages the tested HUD as a self-contained .NET 8 Windows 
 
 ## Install
 
-1. Download the `win-x64` preview ZIP and its `.sha256` file from Releases.
-2. Verify the checksum, extract the ZIP, and run:
+1. Download the `win-x64` preview ZIP, its `.sha256` file, and the standalone `Verify-DesktopPackage.ps1` from Releases.
+2. Before extraction, run the offline verifier from the same directory:
+
+```powershell
+.\Verify-DesktopPackage.ps1 -PackagePath .\CA-AutoConfig-Desktop-v0.2.6-alpha.3-win-x64.zip -ExpectedVersion 0.2.6-alpha.3
+```
+
+It checks the checksum filename and digest, archive paths, case-insensitive duplicates, expansion size, required install files, and the declared version without extracting or executing package content.
+
+3. Extract the ZIP and run:
 
 ```powershell
 .\Install-DesktopApp.ps1
@@ -45,6 +53,7 @@ From a source checkout, use the .NET 8 SDK:
 .\Build-DesktopApp.ps1 -SelfContained
 .\Build-GpuHelper.ps1 -SelfContained
 .\tests\DesktopApp.Smoke.Tests.ps1 -SelfContained
+.\tests\DesktopPackageVerifier.Tests.ps1
 .\tests\GpuLimits.Safety.Tests.ps1
 .\tests\GpuLimitPlan.Tests.ps1
 ```
