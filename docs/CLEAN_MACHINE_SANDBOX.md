@@ -10,8 +10,8 @@ From a source checkout, point the generator at the downloaded ZIP and checksum:
 
 ```powershell
 .\tools\New-CleanMachineSandbox.ps1 `
-  -PackagePath .\dist\CA-AutoConfig-Desktop-v0.2.6-alpha.3-win-x64.zip `
-  -ExpectedVersion 0.2.6-alpha.3
+  -PackagePath .\dist\CA-AutoConfig-Desktop-v0.2.6-alpha.4-win-x64.zip `
+  -ExpectedVersion 0.2.6-alpha.4
 ```
 
 The command first runs the offline package verifier, then creates a unique directory under `artifacts`. Its `.wsb` configuration maps package inputs read-only, maps only a dedicated result directory as writable, and disables networking, vGPU, audio/video input, printers, and clipboard sharing.

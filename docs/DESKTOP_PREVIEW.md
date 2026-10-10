@@ -8,7 +8,7 @@ The compiled preview packages the tested HUD as a self-contained .NET 8 Windows 
 2. Before extraction, run the offline verifier from the same directory:
 
 ```powershell
-.\Verify-DesktopPackage.ps1 -PackagePath .\CA-AutoConfig-Desktop-v0.2.6-alpha.3-win-x64.zip -ExpectedVersion 0.2.6-alpha.3
+.\Verify-DesktopPackage.ps1 -PackagePath .\CA-AutoConfig-Desktop-v0.2.6-alpha.4-win-x64.zip -ExpectedVersion 0.2.6-alpha.4
 ```
 
 It checks the checksum filename and digest, archive paths, case-insensitive duplicates, expansion size, required install files, and the declared version without extracting or executing package content.

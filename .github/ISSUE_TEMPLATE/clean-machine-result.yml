@@ -13,7 +13,7 @@ body:
     id: release
     attributes:
       label: Release tag and package SHA-256
-      placeholder: v0.2.6-alpha.3; 64-character ZIP SHA-256
+      placeholder: v0.2.6-alpha.4; 64-character ZIP SHA-256
     validations:
       required: true
   - type: input

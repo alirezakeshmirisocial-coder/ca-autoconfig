@@ -4,6 +4,8 @@ This project follows semantic versioning after `v1.0.0`. Pre-1.0 releases may ch
 
 ## Unreleased
 
+## v0.2.6-alpha.4 — Windows GPU research probe
+
 - Added a deterministic Windows Sandbox clean-machine harness that verifies a release, maps package inputs read-only, disables network/vGPU/clipboard/device redirection, checks least-privilege Logon/SessionUnlock installation, uninstalls, and emits a privacy-safe result JSON to one narrow writable folder.
 - Added five preparation-policy tests in both PowerShell runtimes. A real Sandbox result is still required before claiming clean-machine coverage.
 - Added a dedicated clean-machine result issue form that requires exact release/build context, retained failures, the sanitized result JSON, and explicit privacy/evidence-boundary confirmations.

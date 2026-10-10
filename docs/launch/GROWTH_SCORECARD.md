@@ -9,8 +9,8 @@ The public objective is 5,000 genuine GitHub stars. That is an outcome to work t
 | GitHub stars | 0 |
 | Forks | 0 |
 | Watchers | 0 |
-| Open issues | 4 |
-| Releases | 18 |
+| Open issues | 5 |
+| Releases | 19 |
 | 14-day unique visitors | 0 |
 | 14-day unique cloners | 0 |
 | Latest release ZIP downloads | 0 |
@@ -73,5 +73,6 @@ No tracking is added to the desktop app. GitHub's aggregate repository/release c
 | 2026-10-10 | GitHub release + project Discussion | `v0.2.6-alpha.2` read-only GPU limit plan | 0 | 0 | 0 | 0 | Pre-UAC board/migration checks and independent helper enforcement released; live query-only migration block verified, with no reset, GPU mutation, external post, or vote solicitation. |
 | 2026-10-10 | GitHub release + packaging issue | `v0.2.6-alpha.3` offline package verifier | 0 | 0 | 0 | 0 | Standalone pre-extraction checksum/archive verifier released and GitHub digests matched; signing, active CI, clean-machine evidence, and external launch remain open. |
 | 2026-10-10 | Project Discussion + issue #10 | Offline Windows Sandbox clean-machine test | 0 | 0 | 0 | 0 | Read-only-input, network-disabled install/task/uninstall harness opened to existing Sandbox users; no live result, external post, feature enablement request, or vote solicitation. |
+| 2026-10-10 | GitHub release + telemetry issue | `v0.2.6-alpha.4` Windows GPU research probe | 0 | 0 | 0 | 0 | Query-only DXGI/WDDM mapping and sanitized JSON report prepared for cross-hardware validation; HUD integration, external reproduction, external post, and vote solicitation remain absent. |
 
 Add a row after a legitimate launch or collaboration. Never use referral tags to track people inside the application, buy traffic, solicit votes, or attribute normal organic traffic to a campaign without evidence.
