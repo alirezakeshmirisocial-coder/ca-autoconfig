@@ -27,6 +27,8 @@ Pull requests should explain the user problem, safety boundary, test evidence, a
 
 Include GPU model, driver version, Windows version, supported minimum/default/maximum power limits, workload, observed watts, temperature, throughput, and whether the test produced a driver reset or workload error. Remove usernames, machine names, UUIDs, and personal paths before posting. Prefer the versioned, privacy-checked export and protocol in [benchmark/POWER_CURVE_METHOD.md](benchmark/POWER_CURVE_METHOD.md).
 
+Generated Power Curve cards must link the exact raw anonymized JSON and method used to create them. Do not crop or cover the fixture, draft, repetition, failure, or non-universal-limit labels.
+
 Accepted evidence is summarized in the public [hardware matrix](docs/HARDWARE_MATRIX.md). The desktop Settings window can copy a sanitized starting block; inspect it before posting, then add workload method and failures manually. A report must include failures and incomplete runs, not only the best repetition. You never need to star the repository to participate.
 
 ## Community conduct

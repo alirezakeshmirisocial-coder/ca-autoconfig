@@ -14,7 +14,7 @@ I run a two-GPU Windows workstation and wanted a better answer than “280 W fee
 
 The useful result: `[one-sentence finding with throughput, watts, and temperature]`.
 
-Method and sanitized raw results: `[benchmark link]`
+Method, sanitized raw results, and uncropped evidence-gated Power Curve card: `[benchmark link]`
 
 I also released the small HUD I used to verify that the current-boot cap was really active and to keep power/temperature visible without stealing clicks: `[repository link]`. The advisor is deliberately read-only; it calls values “starting points” until a real workload has been measured.
 

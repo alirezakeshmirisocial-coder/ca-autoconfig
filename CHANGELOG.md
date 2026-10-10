@@ -4,6 +4,13 @@ This project follows semantic versioning after `v1.0.0`. Pre-1.0 releases may ch
 
 ## Unreleased
 
+## v0.2.4-alpha.1 — Evidence-gated Power Curve cards
+
+- Added a deterministic Power Curve SVG generator with strict workload/source matching, schema-v1/v2 units, repetition gates, retained failure counts, and permanent fixture/draft evidence labels.
+- Added a permanent provenance footer and accessible SVG metadata with run, failure, axis, profile, and evidence-boundary details.
+- Added a fixture preview that cannot be mistaken for measured hardware evidence; real cards require exact anonymized raw JSON and the method beside them.
+- Fixed packaged installation under Windows PowerShell 5.1 by resolving the bundled executable after script initialization, and preserved/validated the selected display across upgrades.
+
 ## v0.2.3-alpha.2 — Privacy-safe diagnostics and test intake
 
 - Added one-click privacy-safe diagnostics in Settings with inline copied feedback, display/DPI topology, profile state, telemetry and advisor values, and defensive UUID/path redaction.

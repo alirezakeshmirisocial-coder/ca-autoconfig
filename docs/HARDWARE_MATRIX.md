@@ -12,7 +12,7 @@ This matrix separates live maintainer checks, deterministic fixtures, and extern
 
 ## Maintainer workstation
 
-Last checked: 2026-10-10 with `v0.2.3-alpha.2`.
+Last checked: 2026-10-10 with `v0.2.4-alpha.1`.
 
 | Surface | Environment | Evidence | Result and boundary |
 | --- | --- | --- | --- |

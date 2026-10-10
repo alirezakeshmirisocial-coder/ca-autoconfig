@@ -20,7 +20,7 @@ The repository can remain public while these gates control broader promotion:
 - **Alpha gate — complete:** tagged source and self-contained releases, checksum, clean secret scan, license, privacy/security documents, Discussions, architecture map, and repeatable tests.
 - **Design-partner gate — open:** at least 10 external Windows/NVIDIA users, three distinct GPU families, five sanitized hardware reports, and no unresolved destructive or privilege-boundary bug.
 - **Technical-preview gate — partial:** compiled .NET application, versioned settings migration, and a privacy-safe demo are complete. Simulated telemetry providers, clean-machine install/uninstall, signing, and the hardened apply/reset helper remain open.
-- **Launch gate — blocked on evidence:** measured Ollama/llama.cpp or ComfyUI power curve, public methodology and raw results, active CI, tagged signed binaries, and issue-response coverage for launch week.
+- **Launch gate — blocked on evidence:** the deterministic share-card generator is ready, but launch still requires a measured Ollama/llama.cpp or ComfyUI power curve, public methodology and raw results, active CI, tagged signed binaries, and issue-response coverage for launch week.
 
 ## What current communities reward
 

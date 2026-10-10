@@ -5,10 +5,20 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 $buildScript = Join-Path $root 'Build-DesktopApp.ps1'
+$desktopInstaller = Join-Path $root 'Install-DesktopApp.ps1'
+$overlayInstaller = Join-Path $root 'Install-SystemOverlay.ps1'
 $resultRoot = Join-Path ([IO.Path]::GetTempPath()) ('ca-desktop-app-test-' + [Guid]::NewGuid().ToString('N'))
 $resultPath = Join-Path $resultRoot 'result.json'
 
 try {
+    $desktopInstallerSource = Get-Content -Raw -LiteralPath $desktopInstaller
+    $overlayInstallerSource = Get-Content -Raw -LiteralPath $overlayInstaller
+    if ($desktopInstallerSource -notmatch 'IsNullOrWhiteSpace\(\$ExecutablePath\)' -or $desktopInstallerSource -notmatch 'TargetDeviceName') {
+        throw 'The packaged installer does not resolve its default executable after initialization or forward an explicit display target.'
+    }
+    if ($overlayInstallerSource -notmatch 'existingTargetDeviceName' -or $overlayInstallerSource -notmatch 'requested display is not currently attached') {
+        throw 'The overlay installer does not preserve and validate the selected display across upgrades.'
+    }
     $build = & $buildScript -Configuration Release -SelfContained:$SelfContained
     if ([string]$build.Status -ne 'Built') { throw 'Compiled desktop app build did not report success.' }
     if (-not (Test-Path -LiteralPath $build.Executable -PathType Leaf)) { throw 'Compiled desktop executable is missing.' }
@@ -37,6 +47,7 @@ try {
         SizeBytes     = $build.SizeBytes
         Sha256        = $build.Sha256
         SettingsSchema = [int]$result.schemaVersion
+        InstallerPreservesDisplay = $true
         HardwareWrites = [bool]$result.hardwareWrites
     }
 }

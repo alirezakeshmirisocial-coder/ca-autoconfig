@@ -10,7 +10,7 @@ The public objective is 5,000 genuine GitHub stars. That is an outcome to work t
 | Forks | 0 |
 | Watchers | 0 |
 | Open issues | 4 |
-| Releases | 11 |
+| Releases | 12 |
 | 14-day unique visitors | 0 |
 | 14-day unique cloners | 0 |
 | Latest release ZIP downloads | 0 |
@@ -25,7 +25,7 @@ This zero baseline is useful: it means future attribution is not mixed with an e
 | Stage | Exit condition | Current status |
 | --- | --- | --- |
 | Product proof | Compiled demo, architecture, repeatable tests, checksum release | Complete |
-| Measurement proof | One real, repeated, raw-data power curve | Ollama, llama-bench, and ComfyUI adapters shipped; blocked on real model/workflow inputs and repeated runs |
+| Measurement proof | One real, repeated, raw-data power curve | Ollama, llama-bench, ComfyUI, and evidence-gated share cards shipped; blocked on real model/workflow inputs and repeated runs |
 | Design partners | 10 external Windows/NVIDIA testers, 5 reports, 3 GPU families | [Focused intake open](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/discussions/9); 0 confirmed |
 | Community launch | Human-authored, rules-compliant benchmark post; active response coverage | Not ready |
 | Repeatable distribution | Workload adapters, compatibility matrix, creator reproductions | Planned |
@@ -64,5 +64,6 @@ No tracking is added to the desktop app. GitHub's aggregate repository/release c
 | 2026-10-10 | GitHub release + project Discussion | `v0.2.3-alpha.1` ComfyUI image adapter | 0 | 0 | 0 | 0 | Schema-v2 image/J and privacy-safe local workflow adapter released; no real diffusion result, external post, or vote solicitation. |
 | 2026-10-10 | Project Discussion | 20-seat focused alpha intake | 0 | 0 | 0 | 0 | Three narrowly defined cohorts opened; no participant, report, external post, or vote solicitation yet. |
 | 2026-10-10 | GitHub release + project intake | `v0.2.3-alpha.2` privacy-safe diagnostics | 0 | 0 | 0 | 0 | One-click sanitized reporting and evidence-tiered matrix released; no external reproduction or vote solicitation. |
+| 2026-10-10 | GitHub release + project Discussion | `v0.2.4-alpha.1` evidence-gated share cards | 0 | 0 | 0 | 0 | Deterministic SVG cards released with fixture/draft/measured gates and raw-evidence provenance; no real curve, external post, or vote solicitation. |
 
 Add a row after a legitimate launch or collaboration. Never use referral tags to track people inside the application, buy traffic, solicit votes, or attribute normal organic traffic to a campaign without evidence.

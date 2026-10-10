@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param(
-    [string]$CompiledExecutablePath = ''
+    [string]$CompiledExecutablePath = '',
+    [string]$TargetDeviceName = ''
 )
 
 Set-StrictMode -Version Latest
@@ -24,6 +25,39 @@ foreach ($path in $requiredPaths) {
 }
 
 $existing = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
+$existingTargetDeviceName = ''
+if ($null -ne $existing) {
+    $existingArguments = [string]$existing.Actions[0].Arguments
+    $targetMatch = [regex]::Match($existingArguments, '(?:--display|-TargetDeviceName)\s+(?:"(?<quoted>[^"]+)"|(?<plain>\S+))', [Text.RegularExpressions.RegexOptions]::IgnoreCase)
+    if ($targetMatch.Success) {
+        $existingTargetDeviceName = if ($targetMatch.Groups['quoted'].Success) {
+            $targetMatch.Groups['quoted'].Value
+        }
+        else {
+            $targetMatch.Groups['plain'].Value
+        }
+    }
+}
+$screens = @([System.Windows.Forms.Screen]::AllScreens)
+$attachedDeviceNames = @($screens | ForEach-Object { [string]$_.DeviceName })
+if (-not [string]::IsNullOrWhiteSpace($TargetDeviceName)) {
+    if ($TargetDeviceName -notin $attachedDeviceNames) {
+        throw "The requested display is not currently attached: $TargetDeviceName"
+    }
+    $targetDeviceName = $TargetDeviceName
+}
+elseif (-not [string]::IsNullOrWhiteSpace($existingTargetDeviceName) -and $existingTargetDeviceName -in $attachedDeviceNames) {
+    $targetDeviceName = $existingTargetDeviceName
+}
+elseif ($screens.Count -ge 3) {
+    $targetDeviceName = [string]$screens[2].DeviceName
+}
+elseif ($null -ne [System.Windows.Forms.Screen]::PrimaryScreen) {
+    $targetDeviceName = [string][System.Windows.Forms.Screen]::PrimaryScreen.DeviceName
+}
+else {
+    throw 'Windows did not report an attached display.'
+}
 if ($null -ne $existing) {
     if ([string]$existing.State -eq 'Running') {
         Stop-ScheduledTask -TaskName $taskName
@@ -39,17 +73,6 @@ if ($compiledMode) {
 else {
     Copy-Item -Force -LiteralPath $sourceOverlay -Destination $installedOverlay
     Copy-Item -Force -LiteralPath $sourceRunner -Destination $installedRunner
-}
-
-$screens = [System.Windows.Forms.Screen]::AllScreens
-$targetDeviceName = if ($screens.Count -ge 3) {
-    [string]$screens[2].DeviceName
-}
-elseif ($null -ne [System.Windows.Forms.Screen]::PrimaryScreen) {
-    [string][System.Windows.Forms.Screen]::PrimaryScreen.DeviceName
-}
-else {
-    throw 'Windows did not report an attached display.'
 }
 $userName = [Security.Principal.WindowsIdentity]::GetCurrent().Name
 $escapedUser = [Security.SecurityElement]::Escape($userName)

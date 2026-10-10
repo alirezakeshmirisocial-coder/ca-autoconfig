@@ -187,4 +187,83 @@ Test-Case 'analysis leaves fixture bytes unchanged' {
     }
 }
 
+Test-Case 'share card is deterministic and labels fixtures as non-evidence' {
+    $first = New-CAPowerCurveCardSvg -Runs $runs
+    $second = New-CAPowerCurveCardSvg -Runs $runs
+    Assert-True ($first -ceq $second) 'Power-curve SVG is not deterministic.'
+    Assert-True ($first -match 'FIXTURE / NOT HARDWARE EVIDENCE') 'Fixture card is missing its evidence warning.'
+    Assert-True ($first -match 'GPU0 280 W \+ GPU1 280 W') 'Expected efficiency candidate is missing from the card.'
+    Assert-True ($first -match 'Synthetic fixture leader, not a hardware result') 'Fixture-safe candidate boundary is missing from the card.'
+    Assert-True ($first -match 'exact anonymized raw JSON \+ method') 'Raw evidence and method requirement is missing from the card.'
+    Assert-True ($first -notmatch 'most efficient measured candidate|Measured leader') 'Fixture card uses measured-hardware language.'
+}
+
+Test-Case 'share card rejects unlike workloads and mixed sources' {
+    $unlike = $fixtureTextBefore[1] | ConvertFrom-Json
+    $unlike.workload.name = 'different workload'
+    Assert-Throws { New-CAPowerCurveCardSvg -Runs @($runs[0], $unlike) | Out-Null } 'one exact workload' 'Unlike workloads were accepted by the card.'
+    $live = $fixtureTextBefore[1] | ConvertFrom-Json
+    $live.source = 'live'
+    Assert-Throws { New-CAPowerCurveCardSvg -Runs @($runs[0], $live) | Out-Null } 'mix live and fixture' 'Mixed evidence sources were accepted by the card.'
+}
+
+Test-Case 'share card requires two comparable profiles' {
+    Assert-Throws { New-CAPowerCurveCardSvg -Runs @($runs[0], $runs[0]) | Out-Null } 'two comparable power profiles' 'A repeated single profile was presented as a curve.'
+}
+
+Test-Case 'share card supports schema-v2 work units' {
+    $first = ConvertTo-SchemaV2WorkRun -Run $runs[0] -Rate 0.25
+    $second = ConvertTo-SchemaV2WorkRun -Run $runs[1] -Rate 0.30
+    $card = New-CAPowerCurveCardSvg -Runs @($first, $second)
+    Assert-True ($card -match 'image/s') 'Work-unit rate is missing from the card.'
+    Assert-True ($card -match 'image/J') 'Work-unit efficiency is missing from the card.'
+}
+
+Test-Case 'share card gates live evidence on repetitions and retains failures' {
+    $singleLiveA = $fixtureTextBefore[0] | ConvertFrom-Json
+    $singleLiveB = $fixtureTextBefore[1] | ConvertFrom-Json
+    $singleLiveA.source = 'live'
+    $singleLiveB.source = 'live'
+    $draft = New-CAPowerCurveCardSvg -Runs @($singleLiveA, $singleLiveB)
+    Assert-True ($draft -match 'DRAFT / INSUFFICIENT REPETITIONS') 'Under-repeated live data was presented as measured evidence.'
+
+    $liveRuns = New-Object Collections.Generic.List[object]
+    foreach ($templateText in $fixtureTextBefore) {
+        for ($repetition = 1; $repetition -le 3; $repetition++) {
+            $copy = $templateText | ConvertFrom-Json
+            $copy.source = 'live'
+            $copy.runId = $copy.runId + "-live-$repetition"
+            $copy.protocol.repetition = $repetition
+            $liveRuns.Add($copy)
+        }
+    }
+    $measured = New-CAPowerCurveCardSvg -Runs $liveRuns.ToArray()
+    Assert-True ($measured -match 'MEASURED / LOCAL HARDWARE') 'Three live repetitions per profile did not clear the evidence gate.'
+
+    $failed = $fixtureTextBefore[0] | ConvertFrom-Json
+    $failed.source = 'live'
+    $failed.runId = 'failed-retained-run'
+    $failed.protocol.repetition = 4
+    $failed.result.status = 'failed'
+    $failed.result.throughput.promptTokensPerSecond = $null
+    $failed.result.throughput.generationTokensPerSecond = $null
+    $failed.result.error = 'fixture failure'
+    $withFailure = New-CAPowerCurveCardSvg -Runs @($singleLiveA, $singleLiveB, $failed)
+    Assert-True ($withFailure -match '1 failed or incomplete') 'Failed-run count is missing from the card.'
+    Assert-True ($withFailure -match '1/2 passed') 'Failed repetition disappeared from its profile evidence count.'
+}
+
+Test-Case 'dry-run writes a privacy-safe share card without hardware access' {
+    $temporary = Join-Path ([IO.Path]::GetTempPath()) ('ca-power-card-' + [Guid]::NewGuid().ToString('N') + '.svg')
+    try {
+        $result = & (Join-Path $PSScriptRoot 'New-PowerCurveCard.ps1') -DryRun -OutputPath $temporary
+        $content = Get-Content -Raw -LiteralPath $temporary
+        Assert-True ($result.Status -eq 'CardCreated' -and [int]$result.Runs -eq 2) 'Dry-run card result is wrong.'
+        Assert-True ($content -match '<svg' -and $content -match 'Synthetic data exercises the pipeline only') 'Dry-run SVG content is incomplete.'
+        Assert-True ($content -notmatch '(?i)GPU-[0-9a-f-]{12,}|[a-z]:\\users\\') 'Dry-run card leaked a protected identifier.'
+        Assert-True (-not [bool]$result.HardwareWrites) 'Dry-run card reported a hardware write.'
+    }
+    finally { Remove-Item -Force -ErrorAction SilentlyContinue -LiteralPath $temporary }
+}
+
 Write-Host "$passed benchmark tests passed. No GPU settings were read or changed by the fixture suite." -ForegroundColor Cyan

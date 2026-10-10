@@ -268,7 +268,7 @@ function New-CAPowerCurveMarkdown {
     $lines.Add('')
     $lines.Add('A measured efficiency leader is not a universal recommendation. Board limits, cooling, drivers, model shape, quantization, context, batching, and workload phase can change the result.')
     $lines.Add('')
-    $lines.Add('| Run | Power profile | Status | Prompt tok/s | Generation tok/s | Work rate | Unit | Mean board W | Peak °C | Generation tok/J | Work/J | Missing power samples |')
+    $lines.Add('| Run | Power profile | Status | Prompt tok/s | Generation tok/s | Work rate | Unit | Mean board W | Peak C | Generation tok/J | Work/J | Missing power samples |')
     $lines.Add('| --- | --- | --- | ---: | ---: | ---: | --- | ---: | ---: | ---: | ---: | ---: |')
     foreach ($row in $rows) {
         $lines.Add(('| {0} | {1} | {2} | {3} | {4} | {5} | {6} | {7} | {8} | {9} | {10} | {11} |' -f
@@ -323,9 +323,209 @@ function New-CAPowerCurveMarkdown {
     return $lines -join "`n"
 }
 
+function ConvertTo-CASvgText {
+    param($Value, [int]$MaximumLength = 120)
+
+    $text = if ($null -eq $Value) { 'unknown' } else { [string]$Value }
+    $text = $text.Replace("`r", ' ').Replace("`n", ' ').Trim()
+    if ($text.Length -gt $MaximumLength) { $text = $text.Substring(0, $MaximumLength - 3) + '...' }
+    return [Security.SecurityElement]::Escape($text)
+}
+
+function Format-CASvgNumber {
+    param([double]$Value, [string]$Format = '0.###')
+    return $Value.ToString($Format, [Globalization.CultureInfo]::InvariantCulture)
+}
+
+function New-CAPowerCurveCardSvg {
+    [CmdletBinding()]
+    param([Parameter(Mandatory = $true)][object[]]$Runs)
+
+    $runsArray = @($Runs)
+    if ($runsArray.Count -lt 2) { throw 'A power-curve card requires at least two run exports.' }
+    $rows = @(ConvertTo-CAPowerCurveRows -Runs $runsArray)
+    $workloadKeys = @($rows | Select-Object -ExpandProperty WorkloadKey -Unique)
+    if ($workloadKeys.Count -ne 1) { throw 'A power-curve card can contain only one exact workload fingerprint.' }
+    $sources = @($runsArray | ForEach-Object { [string]$_.source } | Select-Object -Unique)
+    if ($sources.Count -ne 1) { throw 'A power-curve card cannot mix live and fixture sources.' }
+
+    $tokenRows = @($rows | Where-Object { $null -ne $_.GenerationTokensPerSecond })
+    $workRows = @($rows | Where-Object { $null -ne $_.WorkUnitsPerSecond })
+    if ($tokenRows.Count -gt 0 -and $workRows.Count -gt 0) { throw 'A power-curve card cannot mix token and work-unit throughput.' }
+    if ($tokenRows.Count -eq 0 -and $workRows.Count -eq 0) { throw 'A power-curve card requires passed throughput evidence.' }
+
+    $isToken = $tokenRows.Count -gt 0
+    $workUnits = @($workRows | Select-Object -ExpandProperty WorkUnit -Unique)
+    if (-not $isToken -and $workUnits.Count -ne 1) { throw 'A power-curve card requires one exact work unit.' }
+    $rateLabel = if ($isToken) { 'generation tok/s' } else { ([string]$workUnits[0]) + '/s' }
+    $efficiencyLabel = if ($isToken) { 'tokens/J' } else { ([string]$workUnits[0]) + '/J' }
+
+    $profiles = New-Object Collections.Generic.List[object]
+    foreach ($group in @($rows | Group-Object Profile | Sort-Object Name)) {
+        $comparable = @($group.Group | Where-Object {
+            $_.Status -eq 'passed' -and $null -ne $_.MeanBoardPowerWatts -and
+            (($isToken -and $null -ne $_.GenerationTokensPerSecond) -or (-not $isToken -and $null -ne $_.WorkUnitsPerSecond))
+        })
+        if ($comparable.Count -eq 0) { continue }
+        $meanPower = Get-CAAverage -Values @($comparable | ForEach-Object { $_.MeanBoardPowerWatts })
+        $meanRate = Get-CAAverage -Values @($comparable | ForEach-Object { if ($isToken) { $_.GenerationTokensPerSecond } else { $_.WorkUnitsPerSecond } })
+        $peakValues = @($comparable | ForEach-Object { $_.PeakTemperatureC } | Where-Object { $null -ne $_ })
+        $peak = if ($peakValues.Count) { [double](($peakValues | Measure-Object -Maximum).Maximum) } else { $null }
+        $profiles.Add([pscustomobject][ordered]@{
+            Name = [string]$group.Name
+            MeanPower = [double]$meanPower
+            MeanRate = [double]$meanRate
+            Efficiency = [double]$meanRate / [double]$meanPower
+            PeakTemperature = $peak
+            TotalRuns = @($group.Group).Count
+            PassedRuns = @($group.Group | Where-Object Status -eq 'passed').Count
+            FailedRuns = @($group.Group | Where-Object Status -ne 'passed').Count
+        })
+    }
+    if ($profiles.Count -lt 2) { throw 'A power-curve card requires at least two comparable power profiles.' }
+
+    $profileArray = @($profiles | Sort-Object MeanPower)
+    $leader = @($profileArray | Sort-Object Efficiency -Descending)[0]
+    $source = [string]$sources[0]
+    $minimumRepetitions = [int](($profileArray | Measure-Object -Property TotalRuns -Minimum).Minimum)
+    $publishable = $source -eq 'live' -and $minimumRepetitions -ge 3
+    $evidenceLabel = if ($source -eq 'fixture') {
+        'FIXTURE / NOT HARDWARE EVIDENCE'
+    }
+    elseif ($publishable) {
+        'MEASURED / LOCAL HARDWARE'
+    }
+    else {
+        'DRAFT / INSUFFICIENT REPETITIONS'
+    }
+    $evidenceDetail = if ($source -eq 'fixture') {
+        'Synthetic data exercises the pipeline only'
+    }
+    elseif ($publishable) {
+        'Scoped to this exact local workload and protocol'
+    }
+    else {
+        'Live export, but fewer than 3 runs exist for at least one profile'
+    }
+
+    $workload = $runsArray[0].workload
+    $title = ConvertTo-CASvgText $workload.name 56
+    $subtitle = ConvertTo-CASvgText (('{0} / {1} / {2}' -f $workload.model, $workload.quantization, $workload.backend)) 88
+    $totalFailed = [int](($profileArray | Measure-Object -Property FailedRuns -Sum).Sum)
+    $runCount = $rows.Count
+    $candidateHeading = if ($source -eq 'fixture') { 'SYNTHETIC EFFICIENCY EXAMPLE' } elseif ($publishable) { 'EFFICIENCY CANDIDATE' } else { 'PROVISIONAL CANDIDATE' }
+    $candidateAction = if ($source -eq 'fixture') { 'PIPELINE EXAMPLE ONLY' } elseif ($publishable) { 'REPEAT BEFORE APPLYING' } else { 'COLLECT MORE REPETITIONS' }
+    $candidateBoundary = if ($source -eq 'fixture') {
+        'Synthetic fixture leader, not a hardware result.'
+    }
+    elseif ($publishable) {
+        'Measured leader, not a universal limit.'
+    }
+    else {
+        'Live draft leader, not a hardware recommendation.'
+    }
+
+    $profileDescriptions = foreach ($profile in $profileArray) {
+        '{0}: {1} W mean combined board power, {2} {3}, {4} of {5} runs passed' -f
+            $profile.Name,
+            (Format-CASvgNumber $profile.MeanPower '0.###'),
+            (Format-CASvgNumber $profile.MeanRate '0.###'),
+            $rateLabel,
+            $profile.PassedRuns,
+            $profile.TotalRuns
+    }
+    $accessibleDescription = '{0}. {1}. {2} runs, {3} profiles, {4} failed or incomplete. Axes compare {5} against mean combined board power in watts. {6}. {7} Selected profile: {8}. Exact anonymized raw JSON and method are required; this is not a universal recommendation.' -f
+        $evidenceLabel,
+        $evidenceDetail,
+        $runCount,
+        $profileArray.Count,
+        $totalFailed,
+        $rateLabel,
+        ($profileDescriptions -join '; '),
+        $candidateBoundary,
+        $leader.Name
+
+    $minimumPower = [double](($profileArray | Measure-Object -Property MeanPower -Minimum).Minimum)
+    $maximumPower = [double](($profileArray | Measure-Object -Property MeanPower -Maximum).Maximum)
+    $minimumRate = [double](($profileArray | Measure-Object -Property MeanRate -Minimum).Minimum)
+    $maximumRate = [double](($profileArray | Measure-Object -Property MeanRate -Maximum).Maximum)
+    $powerSpan = [Math]::Max(1.0, $maximumPower - $minimumPower)
+    $rateSpan = [Math]::Max(0.001, $maximumRate - $minimumRate)
+    $axisPowerMin = [Math]::Max(0.0, $minimumPower - $powerSpan * 0.18)
+    $axisPowerMax = $maximumPower + $powerSpan * 0.18
+    $axisRateMin = [Math]::Max(0.0, $minimumRate - $rateSpan * 0.35)
+    $axisRateMax = $maximumRate + $rateSpan * 0.35
+    $plotLeft = 72.0; $plotRight = 790.0; $plotTop = 218.0; $plotBottom = 520.0
+    $plotWidth = $plotRight - $plotLeft; $plotHeight = $plotBottom - $plotTop
+
+    $svg = New-Object Text.StringBuilder
+    $null = $svg.AppendLine('<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="675" viewBox="0 0 1200 675" role="img" aria-labelledby="title description">')
+    $null = $svg.AppendLine(('  <title id="title">CA AutoConfig power curve - {0}</title>' -f $title))
+    $null = $svg.AppendLine(('  <desc id="description">{0}</desc>' -f (ConvertTo-CASvgText $accessibleDescription 1200)))
+    $null = $svg.AppendLine('  <rect width="1200" height="675" fill="#0A0F14"/>')
+    $accent = if ($source -eq 'fixture') { '#F6C177' } elseif ($publishable) { '#5CE0A7' } else { '#E8A65D' }
+    $null = $svg.AppendLine(('  <rect width="1200" height="7" fill="{0}"/>' -f $accent))
+    $null = $svg.AppendLine(('  <rect x="850" y="28" width="286" height="42" rx="8" fill="#171D25" stroke="{0}"/>' -f $accent))
+    $null = $svg.AppendLine(('  <text x="993" y="55" text-anchor="middle" fill="{0}" font-family="Segoe UI,Arial,sans-serif" font-size="14" font-weight="700">{1}</text>' -f $accent, (ConvertTo-CASvgText $evidenceLabel)))
+    $null = $svg.AppendLine(('  <text x="64" y="92" fill="#F2F5F8" font-family="Segoe UI,Arial,sans-serif" font-size="40" font-weight="700">{0}</text>' -f $title))
+    $null = $svg.AppendLine(('  <text x="64" y="132" fill="#A6B1BE" font-family="Segoe UI,Arial,sans-serif" font-size="17">{0}</text>' -f $subtitle))
+    $null = $svg.AppendLine(('  <text x="64" y="169" fill="#7F8C9C" font-family="Segoe UI,Arial,sans-serif" font-size="13">{0} runs / {1} profiles / {2} failed or incomplete</text>' -f $runCount, $profileArray.Count, $totalFailed))
+
+    for ($index = 0; $index -le 4; $index++) {
+        $ratio = $index / 4.0
+        $x = $plotLeft + $plotWidth * $ratio
+        $y = $plotBottom - $plotHeight * $ratio
+        $powerValue = $axisPowerMin + ($axisPowerMax - $axisPowerMin) * $ratio
+        $rateValue = $axisRateMin + ($axisRateMax - $axisRateMin) * $ratio
+        $null = $svg.AppendLine(('  <line x1="{0}" y1="{1}" x2="{0}" y2="{2}" stroke="#26303B" stroke-width="1"/>' -f (Format-CASvgNumber $x), (Format-CASvgNumber $plotTop), (Format-CASvgNumber $plotBottom)))
+        $null = $svg.AppendLine(('  <line x1="{0}" y1="{1}" x2="{2}" y2="{1}" stroke="#26303B" stroke-width="1"/>' -f (Format-CASvgNumber $plotLeft), (Format-CASvgNumber $y), (Format-CASvgNumber $plotRight)))
+        $null = $svg.AppendLine(('  <text x="{0}" y="548" text-anchor="middle" fill="#7F8C9C" font-family="Segoe UI,Arial,sans-serif" font-size="12">{1}</text>' -f (Format-CASvgNumber $x), (Format-CASvgNumber $powerValue '0')))
+        $null = $svg.AppendLine(('  <text x="58" y="{0}" text-anchor="end" dominant-baseline="middle" fill="#7F8C9C" font-family="Segoe UI,Arial,sans-serif" font-size="12">{1}</text>' -f (Format-CASvgNumber $y), (Format-CASvgNumber $rateValue '0.###')))
+    }
+    $null = $svg.AppendLine('  <text x="431" y="580" text-anchor="middle" fill="#A6B1BE" font-family="Segoe UI,Arial,sans-serif" font-size="14">Mean combined board power (W)</text>')
+    $null = $svg.AppendLine(('  <text x="18" y="370" text-anchor="middle" transform="rotate(-90 18 370)" fill="#A6B1BE" font-family="Segoe UI,Arial,sans-serif" font-size="14">{0}</text>' -f (ConvertTo-CASvgText $rateLabel)))
+
+    $pointCoordinates = New-Object Collections.Generic.List[string]
+    foreach ($profile in $profileArray) {
+        $x = $plotLeft + (($profile.MeanPower - $axisPowerMin) / ($axisPowerMax - $axisPowerMin)) * $plotWidth
+        $y = $plotBottom - (($profile.MeanRate - $axisRateMin) / ($axisRateMax - $axisRateMin)) * $plotHeight
+        $pointCoordinates.Add(('{0},{1}' -f (Format-CASvgNumber $x), (Format-CASvgNumber $y)))
+    }
+    $null = $svg.AppendLine(('  <polyline points="{0}" fill="none" stroke="#64B8E0" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>' -f ($pointCoordinates -join ' ')))
+    foreach ($profile in $profileArray) {
+        $x = $plotLeft + (($profile.MeanPower - $axisPowerMin) / ($axisPowerMax - $axisPowerMin)) * $plotWidth
+        $y = $plotBottom - (($profile.MeanRate - $axisRateMin) / ($axisRateMax - $axisRateMin)) * $plotHeight
+        $isLeader = [Object]::ReferenceEquals($profile, $leader) -or $profile.Name -eq $leader.Name
+        $fill = if ($isLeader) { '#5CE0A7' } else { '#64B8E0' }
+        $null = $svg.AppendLine(('  <circle cx="{0}" cy="{1}" r="9" fill="{2}" stroke="#0A0F14" stroke-width="4"/>' -f (Format-CASvgNumber $x), (Format-CASvgNumber $y), $fill))
+        $labelY = $y + 30
+        $null = $svg.AppendLine(('  <text x="{0}" y="{1}" text-anchor="middle" fill="#DCE4EC" font-family="Segoe UI,Arial,sans-serif" font-size="12" font-weight="600">{2}</text>' -f (Format-CASvgNumber $x), (Format-CASvgNumber $labelY), (ConvertTo-CASvgText $profile.Name 44)))
+        $null = $svg.AppendLine(('  <text x="{0}" y="{1}" text-anchor="middle" fill="#7F8C9C" font-family="Segoe UI,Arial,sans-serif" font-size="11">{2}/{3} passed</text>' -f (Format-CASvgNumber $x), (Format-CASvgNumber ($labelY + 17)), $profile.PassedRuns, $profile.TotalRuns))
+    }
+
+    $null = $svg.AppendLine('  <line x1="830" y1="205" x2="830" y2="572" stroke="#33404D"/>')
+    $null = $svg.AppendLine(('  <text x="864" y="234" fill="#A6B1BE" font-family="Segoe UI,Arial,sans-serif" font-size="13" font-weight="700">{0}</text>' -f (ConvertTo-CASvgText $candidateHeading)))
+    $null = $svg.AppendLine(('  <text x="864" y="277" fill="#F2F5F8" font-family="Segoe UI,Arial,sans-serif" font-size="21" font-weight="700">{0}</text>' -f (ConvertTo-CASvgText $leader.Name 32)))
+    $null = $svg.AppendLine(('  <text x="864" y="327" fill="#5CE0A7" font-family="Segoe UI,Arial,sans-serif" font-size="36" font-weight="700">{0}</text>' -f (Format-CASvgNumber $leader.Efficiency '0.000000')))
+    $null = $svg.AppendLine(('  <text x="864" y="351" fill="#A6B1BE" font-family="Segoe UI,Arial,sans-serif" font-size="14">{0}</text>' -f (ConvertTo-CASvgText $efficiencyLabel)))
+    $null = $svg.AppendLine(('  <text x="864" y="402" fill="#DCE4EC" font-family="Segoe UI,Arial,sans-serif" font-size="17">{0} {1}</text>' -f (Format-CASvgNumber $leader.MeanRate '0.###'), (ConvertTo-CASvgText $rateLabel)))
+    $null = $svg.AppendLine(('  <text x="864" y="433" fill="#DCE4EC" font-family="Segoe UI,Arial,sans-serif" font-size="17">{0} W mean board power</text>' -f (Format-CASvgNumber $leader.MeanPower '0.###')))
+    $temperatureText = if ($null -eq $leader.PeakTemperature) { 'N/A peak temperature' } else { (Format-CASvgNumber ([double]$leader.PeakTemperature) '0.#') + ' C peak temperature' }
+    $null = $svg.AppendLine(('  <text x="864" y="464" fill="#DCE4EC" font-family="Segoe UI,Arial,sans-serif" font-size="17">{0}</text>' -f (ConvertTo-CASvgText $temperatureText)))
+    $null = $svg.AppendLine(('  <text x="864" y="510" fill="#F6C177" font-family="Segoe UI,Arial,sans-serif" font-size="14" font-weight="700">{0}</text>' -f (ConvertTo-CASvgText $candidateAction)))
+    $null = $svg.AppendLine(('  <text x="864" y="535" fill="#A6B1BE" font-family="Segoe UI,Arial,sans-serif" font-size="13">{0}</text>' -f (ConvertTo-CASvgText $candidateBoundary)))
+    $null = $svg.AppendLine(('  <text x="864" y="558" fill="#7F8C9C" font-family="Segoe UI,Arial,sans-serif" font-size="12">{0}</text>' -f (ConvertTo-CASvgText $evidenceDetail 56)))
+    $null = $svg.AppendLine('  <line x1="64" y1="612" x2="1136" y2="612" stroke="#33404D"/>')
+    $null = $svg.AppendLine('  <text x="64" y="644" fill="#7F8C9C" font-family="Segoe UI,Arial,sans-serif" font-size="13">Share with exact anonymized raw JSON + method / failures retained / N/A stays missing</text>')
+    $null = $svg.AppendLine('  <text x="1136" y="644" text-anchor="end" fill="#A6B1BE" font-family="Segoe UI,Arial,sans-serif" font-size="13">CA AutoConfig / github.com/alirezakeshmirisocial-coder/ca-autoconfig</text>')
+    $null = $svg.AppendLine('</svg>')
+    return $svg.ToString()
+}
+
 Export-ModuleMember -Function @(
     'Assert-CAPowerCurvePrivacy',
     'Assert-CAPowerCurveRun',
     'ConvertTo-CAPowerCurveRows',
-    'New-CAPowerCurveMarkdown'
+    'New-CAPowerCurveMarkdown',
+    'New-CAPowerCurveCardSvg'
 )

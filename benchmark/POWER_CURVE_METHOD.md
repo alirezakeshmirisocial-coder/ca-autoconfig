@@ -24,7 +24,10 @@ The dry run analyzes two synthetic dual-3090 fixtures and writes a Markdown repo
 
 ```powershell
 .\benchmark\New-PowerCurveReport.ps1 -DryRun -OutputPath .\artifacts\fixture-power-curve.md
+.\benchmark\New-PowerCurveCard.ps1 -DryRun -OutputPath .\artifacts\fixture-power-curve.svg
 ```
+
+The SVG card is generated deterministically from the same validated rows. It labels fixture data as **NOT HARDWARE EVIDENCE**, labels live curves with fewer than three runs per profile as **DRAFT / INSUFFICIENT REPETITIONS**, and counts failed or incomplete runs instead of silently dropping them.
 
 Run the deterministic privacy and calculation tests in either supported PowerShell runtime:
 
@@ -155,6 +158,16 @@ $runs = Get-ChildItem .\artifacts\runs\*.json | ForEach-Object FullName
 ```
 
 The report compares only identical workload fingerprints (`class`, `name`, `model`, `quantization`, and `backend`). The adapters put their performance-affecting protocol settings in `name`, so unlike token counts, batches, or prompts are not ranked together. It may identify the most efficient measured profile inside a matching group, but it always labels the result as a candidate for repetition—not a universal best limit.
+
+Create a share card only from the exact run set used for the report:
+
+```powershell
+.\benchmark\New-PowerCurveCard.ps1 `
+  -InputPath $runs `
+  -OutputPath .\artifacts\power-curve.svg
+```
+
+Publish the card only beside the raw anonymized JSON and method. The card refuses mixed workload fingerprints, mixed live/fixture sources, mixed token/work-unit rates, and datasets with fewer than two comparable power profiles.
 
 ## Export schema and privacy
 

@@ -37,7 +37,7 @@ The product direction is a tiny, trustworthy Windows HUD and safe power optimize
 - [ ] Offer Balanced, Eco, Quiet, and Default profiles only when evidence is sufficient.
 - [ ] Reject a candidate after driver reset, workload error, unstable clock behavior, or incomplete data.
 - [ ] Require explicit confirmation, administrator elevation, and a tested one-click rollback.
-- [ ] Turn the anonymized JSON benchmark into a shareable AI Power Curve card.
+- [x] Turn the anonymized JSON benchmark into a deterministic, evidence-gated AI Power Curve SVG card.
 
 ## Milestone 3.5 — Adaptive cooling, simulation first
 
