@@ -4,6 +4,7 @@ This project follows semantic versioning after `v1.0.0`. Pre-1.0 releases may ch
 
 ## Unreleased
 
+- Granted only the configured user read/run access to the protected SYSTEM GPU task, so the control panel can inspect and trigger it without permission to rewrite its action.
 - Replaced the public observation-only thermal recommendation with a calibration-first predictive simulation that refuses flat/confounded data and out-of-domain extrapolation.
 - Added chronological held-out prediction checks, empirical per-junction margins, bounded fan interpolation, finite-grid fan/power optimization, and sustained-drift invalidation.
 - Expanded the isolated policy suite from 35 to 52 scenarios across both Windows PowerShell and PowerShell 7; the module still exposes no hardware-write path.

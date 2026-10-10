@@ -14,6 +14,10 @@ param(
 
     [switch]$AcceptHardwareRisk,
 
+    [string]$TargetUserName = '',
+
+    [string]$TargetUserSid = '',
+
     [switch]$Elevated
 )
 
@@ -30,6 +34,19 @@ $powerShellPath = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\pow
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(
     [Security.Principal.WindowsBuiltInRole]::Administrator
 )
+$currentIdentity = [Security.Principal.WindowsIdentity]::GetCurrent()
+if ([string]::IsNullOrWhiteSpace($TargetUserName)) { $TargetUserName = $currentIdentity.Name }
+if ([string]::IsNullOrWhiteSpace($TargetUserSid)) { $TargetUserSid = $currentIdentity.User.Value }
+if ($TargetUserName.Contains('"')) { throw 'The target user name contains an unsupported quote character.' }
+try {
+    $resolvedTargetSid = ([Security.Principal.NTAccount]$TargetUserName).Translate([Security.Principal.SecurityIdentifier]).Value
+}
+catch {
+    throw "Could not resolve target user '$TargetUserName': $($_.Exception.Message)"
+}
+if (-not [string]::Equals($resolvedTargetSid, $TargetUserSid, [StringComparison]::OrdinalIgnoreCase)) {
+    throw 'The target user name and SID do not identify the same Windows account.'
+}
 
 function Set-ProtectedInstallDirectory {
     param([Parameter(Mandatory = $true)][string]$Path)
@@ -100,6 +117,8 @@ if (-not $isAdmin) {
         '-MaxGraphicsClockMHz', [string]$MaxGraphicsClockMHz,
         '-PowerLimitWatts', [string]$PowerLimitWatts,
         '-AcceptHardwareRisk',
+        '-TargetUserName', ('"{0}"' -f $TargetUserName),
+        '-TargetUserSid', $TargetUserSid,
         '-Elevated'
     ) -join ' '
     try {
@@ -139,8 +158,11 @@ try {
     Remove-Item -Force -ErrorAction SilentlyContinue -LiteralPath $installedApply
     Copy-Item -Force -LiteralPath $sourceApply -Destination $installedApply
 
-    $userName = [Security.Principal.WindowsIdentity]::GetCurrent().Name
+    $userName = $TargetUserName
+    $userSid = $TargetUserSid
     $escapedUser = [Security.SecurityElement]::Escape($userName)
+    $taskSecurityDescriptor = "D:P(A;;FA;;;SY)(A;;FA;;;BA)(A;;GRGX;;;$userSid)"
+    $escapedTaskSecurityDescriptor = [Security.SecurityElement]::Escape($taskSecurityDescriptor)
     $escapedPowerShell = [Security.SecurityElement]::Escape($powerShellPath)
     $escapedScript = [Security.SecurityElement]::Escape($installedApply)
     $escapedLog = [Security.SecurityElement]::Escape($logPath)
@@ -154,6 +176,7 @@ try {
 <Task version="1.4" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
   <RegistrationInfo>
     <Description>Apply explicitly approved NVIDIA limits to GPU indices $gpuIndexArgument after the configured user logs on: max graphics clock ${MaxGraphicsClockMHz}MHz, power limit ${PowerLimitWatts}W.</Description>
+    <SecurityDescriptor>$escapedTaskSecurityDescriptor</SecurityDescriptor>
   </RegistrationInfo>
   <Triggers>
     <LogonTrigger>
@@ -206,6 +229,18 @@ try {
         if ($taskCreateExitCode -ne 0) {
             throw "Task Scheduler returned exit code ${taskCreateExitCode}: $taskCreateOutput"
         }
+
+        # schtasks may apply a creator-only descriptor when the task principal is
+        # SYSTEM. Re-apply the reviewed descriptor through the supported Task
+        # Scheduler API, then read it back before reporting installation success.
+        $taskService = New-Object -ComObject 'Schedule.Service'
+        $taskService.Connect()
+        $registeredTask = $taskService.GetFolder('\').GetTask($taskName)
+        $registeredTask.SetSecurityDescriptor($taskSecurityDescriptor, 0)
+        $actualTaskSecurityDescriptor = [string]$registeredTask.GetSecurityDescriptor(4)
+        if ($actualTaskSecurityDescriptor -notmatch [regex]::Escape($userSid)) {
+            throw 'Task Scheduler did not retain the configured user read/run access rule.'
+        }
     }
     finally {
         Remove-Item -Force -ErrorAction SilentlyContinue -LiteralPath $tempXml
@@ -236,6 +271,7 @@ try {
         powerLimitWatts       = $PowerLimitWatts
         appliedNow            = $true
         statePath             = $statePath
+        taskSecurityVerified  = $true
     }
     $result | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $installResultPath -Encoding UTF8
     $result | ConvertTo-Json -Depth 5

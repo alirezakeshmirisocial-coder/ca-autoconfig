@@ -42,6 +42,10 @@ Assert-True ($install -match 'if \(-not \$AcceptHardwareRisk\)') 'GPU installati
 Assert-True ($install.Contains("'-GpuIndexList', `$gpuIndexArgument")) 'The elevated installer must preserve the explicit GPU list.'
 Assert-True ($install -match 'SetAccessRuleProtection\(\$true, \$false\)' -and $install -match 'S-1-5-32-545' -and $install -match 'ReadAndExecute') 'The SYSTEM task script directory must be protected from user writes.'
 Assert-True ($install -match 'FileAttributes\]::ReparsePoint') 'The privileged installer must reject a reparse-point install directory.'
+Assert-True ($install -match '<SecurityDescriptor>\$escapedTaskSecurityDescriptor</SecurityDescriptor>' -and $install -match 'GRGX') 'The configured user must receive read/run task access without task-write access.'
+Assert-True ($install -match 'SetSecurityDescriptor\(\$taskSecurityDescriptor, 0\)' -and $install -match 'GetSecurityDescriptor\(4\)') 'The installer must apply and read back the task security descriptor through the supported API.'
+Assert-True ($install.Contains("'-TargetUserName', ('`"{0}`"' -f `$TargetUserName)")) 'Elevation must preserve the requesting Windows user name.'
+Assert-True ($install.Contains("'-TargetUserSid', `$TargetUserSid")) 'Elevation must preserve the requesting Windows user SID.'
 Assert-True ($combined -match 'if \(\$InstallPresenceMonitor\)') 'Presence monitoring must be opt-in in the combined installer.'
 Assert-True ($combined -match 'if \(\$InstallGpuLimits -or \$ReinstallGpuTask\)') 'GPU mutation must be opt-in in the combined installer.'
 
