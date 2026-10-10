@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [ValidatePattern('^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$')]
-    [string]$Version = '0.2.0-alpha.1',
+    [string]$Version = '0.2.1-alpha.1',
 
     [ValidateSet('win-x64')]
     [string]$Runtime = 'win-x64'
@@ -38,6 +38,10 @@ foreach ($relativePath in @(
     Copy-Item -LiteralPath (Join-Path $PSScriptRoot $relativePath) -Destination (Join-Path $stagePath (Split-Path -Leaf $relativePath))
 }
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'docs\DESKTOP_PREVIEW.md') -Destination (Join-Path $stagePath 'README.md')
+$packagedReadme = Join-Path $stagePath 'README.md'
+$packagedReadmeText = (Get-Content -Raw -LiteralPath $packagedReadme).Replace('../benchmark/', 'benchmark/')
+Set-Content -LiteralPath $packagedReadme -Encoding UTF8 -Value $packagedReadmeText
+Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'benchmark') -Destination (Join-Path $stagePath 'benchmark') -Recurse
 Set-Content -LiteralPath (Join-Path $stagePath 'VERSION') -Encoding ascii -Value $Version
 
 if (Test-Path -LiteralPath $zipPath) { Remove-Item -LiteralPath $zipPath -Force }
