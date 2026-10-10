@@ -11,7 +11,7 @@ internal static class WindowsGpuPdhTests
             ("PDH source accepts only valid counter statuses", ValidSamplesAreTranslated),
             ("PDH source isolates an invalid engine status", InvalidStatusFailsClosed),
             ("PDH source distinguishes an invalid memory status", InvalidMemoryStatusIsDistinguished),
-            ("PDH source fails when every metric family is invalid", EveryFamilyInvalidFails),
+            ("PDH source retains invalid markers for adapter mapping", EveryFamilyInvalidIsRetained),
             ("PDH source identifies a disappeared engine instance", DisappearedInstanceIsDistinguished),
             ("PDH source retains a native failure reason", NativeFailureIsRetained),
             ("PDH source rejects an empty successful collection", EmptyCollectionFailsClosed),
@@ -45,8 +45,9 @@ internal static class WindowsGpuPdhTests
         PdhWindowsGpuCounterSource source = new PdhWindowsGpuCounterSource(new FakeReader(true, String.Empty, samples));
         List<WindowsGpuCounterObservation> observations;
         string reason;
-        Assert(source.TryRead(out observations, out reason), "Healthy memory evidence was discarded with an invalid engine family.");
-        Assert(reason == "pdh-engine-data-invalid" && observations.Count == 1 && observations[0].Kind == WindowsGpuCounterKind.DedicatedMemoryBytes, "Invalid engine status did not isolate the failed family.");
+        Assert(source.TryRead(out observations, out reason), "Invalid engine status discarded the collection.");
+        Assert(reason == String.Empty && observations.Count == 2, "Invalid engine status was not retained for adapter-scoped mapping.");
+        Assert(observations[0].FailureReasonCode == "pdh-engine-data-invalid" && Double.IsNaN(observations[0].Value), "Invalid engine marker changed.");
     }
 
     private static void NativeFailureIsRetained()
@@ -66,11 +67,12 @@ internal static class WindowsGpuPdhTests
         PdhWindowsGpuCounterSource source = new PdhWindowsGpuCounterSource(new FakeReader(true, String.Empty, samples));
         List<WindowsGpuCounterObservation> observations;
         string reason;
-        Assert(source.TryRead(out observations, out reason), "Healthy engine evidence was discarded with an invalid memory family.");
-        Assert(reason == "pdh-memory-data-invalid" && observations.Count == 1 && observations[0].Kind == WindowsGpuCounterKind.EngineUtilizationPercent, "Memory status failure was not isolated.");
+        Assert(source.TryRead(out observations, out reason), "Invalid memory status discarded the collection.");
+        Assert(reason == String.Empty && observations.Count == 2, "Invalid memory status was not retained for adapter-scoped mapping.");
+        Assert(observations[1].FailureReasonCode == "pdh-memory-data-invalid" && Double.IsNaN(observations[1].Value), "Invalid memory marker changed.");
     }
 
-    private static void EveryFamilyInvalidFails()
+    private static void EveryFamilyInvalidIsRetained()
     {
         List<PdhGpuCounterSample> samples = Samples();
         samples[0].CounterStatus = NativePdhGpuCounterReader.InvalidData;
@@ -78,8 +80,10 @@ internal static class WindowsGpuPdhTests
         PdhWindowsGpuCounterSource source = new PdhWindowsGpuCounterSource(new FakeReader(true, String.Empty, samples));
         List<WindowsGpuCounterObservation> observations;
         string reason;
-        Assert(!source.TryRead(out observations, out reason), "A sample with no valid metric family was accepted.");
-        Assert(reason == "pdh-engine-data-invalid" && observations.Count == 0, "All-invalid sample did not fail with deterministic evidence.");
+        Assert(source.TryRead(out observations, out reason), "All-invalid items were discarded before adapter mapping.");
+        Assert(reason == String.Empty && observations.Count == 2 &&
+            observations[0].FailureReasonCode == "pdh-engine-data-invalid" &&
+            observations[1].FailureReasonCode == "pdh-memory-data-invalid", "All-invalid markers did not remain deterministic.");
     }
 
     private static void DisappearedInstanceIsDistinguished()
@@ -89,8 +93,8 @@ internal static class WindowsGpuPdhTests
         PdhWindowsGpuCounterSource source = new PdhWindowsGpuCounterSource(new FakeReader(true, String.Empty, samples));
         List<WindowsGpuCounterObservation> observations;
         string reason;
-        Assert(source.TryRead(out observations, out reason), "Disappeared engine instance discarded healthy memory evidence.");
-        Assert(reason == "pdh-engine-instance-disappeared" && observations.Count == 1 && observations[0].Kind == WindowsGpuCounterKind.DedicatedMemoryBytes, "Disappeared instance was not isolated safely.");
+        Assert(source.TryRead(out observations, out reason), "Disappeared engine instance discarded the collection.");
+        Assert(reason == String.Empty && observations.Count == 2 && observations[0].FailureReasonCode == "pdh-engine-instance-disappeared", "Disappeared instance was not retained safely.");
     }
 
     private static void EmptyCollectionFailsClosed()
@@ -110,8 +114,8 @@ internal static class WindowsGpuPdhTests
         PdhWindowsGpuCounterSource source = new PdhWindowsGpuCounterSource(new FakeReader(true, String.Empty, samples));
         List<WindowsGpuCounterObservation> observations;
         string reason;
-        Assert(source.TryRead(out observations, out reason), "Blank engine instance discarded the healthy memory family.");
-        Assert(reason == "pdh-engine-instance-invalid" && observations.Count == 1 && observations[0].Kind == WindowsGpuCounterKind.DedicatedMemoryBytes, "Blank instance was not isolated to its family.");
+        Assert(source.TryRead(out observations, out reason), "Blank engine instance discarded the collection.");
+        Assert(reason == "pdh-engine-instance-invalid" && observations.Count == 2 && observations[0].FailureReasonCode == "pdh-engine-instance-invalid", "Blank instance did not retain a safe global reason.");
     }
 
     private static void SourceDisposesReader()

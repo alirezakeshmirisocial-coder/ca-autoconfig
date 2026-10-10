@@ -102,13 +102,23 @@ namespace CA.SystemOverlay
             result.MappingChecksPass = mapping.MappingChecksPass &&
                 result.EngineLoadMappingChecksPass && result.DedicatedMemoryMappingChecksPass;
             result.Adapters = mapping.Adapters;
+            if (!sourceEnginePass || !sourceSharedPass)
+            {
+                foreach (WindowsGpuMappedMetric adapter in result.Adapters)
+                    adapter.EngineLoadPercent = -1;
+            }
+            if (!sourceMemoryPass || !sourceSharedPass)
+            {
+                foreach (WindowsGpuMappedMetric adapter in result.Adapters)
+                    adapter.DedicatedMemoryBytes = -1;
+            }
             if (!String.IsNullOrWhiteSpace(reason))
                 AddReason(result.ReasonCodes, reason);
             foreach (string mappingReason in mapping.ReasonCodes)
                 AddReason(result.ReasonCodes, mappingReason);
             result.ProbeStatus = result.MappingChecksPass
                 ? "MAPPING_AVAILABLE"
-                : (result.EngineLoadMappingChecksPass || result.DedicatedMemoryMappingChecksPass
+                : (HasAnyAvailableAdapterField(result.Adapters)
                     ? "PARTIAL_MAPPING_AVAILABLE"
                     : "BLOCKED");
             result.InternalTopologyFingerprint = mapping.InternalTopologyFingerprint;
@@ -118,6 +128,19 @@ namespace CA.SystemOverlay
             result.ElevationRequested = false;
             result.RawAdapterIdentifiersIncluded = false;
             return result;
+        }
+
+        internal static bool HasAnyAvailableAdapterField(IEnumerable<WindowsGpuMappedMetric> adapters)
+        {
+            if (adapters == null)
+                return false;
+            foreach (WindowsGpuMappedMetric adapter in adapters)
+            {
+                if (adapter != null && (adapter.EngineLoadPercent >= 0 ||
+                    (adapter.DedicatedMemoryBytes >= 0 && adapter.DedicatedMemoryCapacityBytes > 0)))
+                    return true;
+            }
+            return false;
         }
 
         private static void AddReason(List<string> reasons, string reason)
@@ -196,8 +219,8 @@ namespace CA.SystemOverlay
             List<WindowsGpuPublicAdapter> adapters = new List<WindowsGpuPublicAdapter>();
             foreach (WindowsGpuMappedMetric adapter in result.Adapters)
             {
-                int engineLoadPercent = result.EngineLoadMappingChecksPass ? adapter.EngineLoadPercent : -1;
-                long dedicatedMemoryBytes = result.DedicatedMemoryMappingChecksPass ? adapter.DedicatedMemoryBytes : -1;
+                int engineLoadPercent = adapter.EngineLoadPercent;
+                long dedicatedMemoryBytes = adapter.DedicatedMemoryBytes;
                 int vramPercent = -1;
                 if (dedicatedMemoryBytes >= 0 && adapter.DedicatedMemoryCapacityBytes > 0)
                 {

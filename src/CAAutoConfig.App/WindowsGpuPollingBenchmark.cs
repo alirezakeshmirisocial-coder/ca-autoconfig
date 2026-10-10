@@ -169,8 +169,8 @@ namespace CA.SystemOverlay
             List<WindowsGpuPollingReasonCount> failureReasons = new List<WindowsGpuPollingReasonCount>();
             foreach (WindowsGpuMappedMetric adapter in snapshot.Adapters)
             {
-                int engineLoadPercent = snapshot.EngineLoadMappingChecksPass ? adapter.EngineLoadPercent : -1;
-                long dedicatedMemoryBytes = snapshot.DedicatedMemoryMappingChecksPass ? adapter.DedicatedMemoryBytes : -1;
+                int engineLoadPercent = adapter.EngineLoadPercent;
+                long dedicatedMemoryBytes = adapter.DedicatedMemoryBytes;
                 int vramPercent = -1;
                 if (dedicatedMemoryBytes >= 0 && adapter.DedicatedMemoryCapacityBytes > 0)
                 {

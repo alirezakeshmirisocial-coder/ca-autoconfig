@@ -16,6 +16,7 @@ internal static class WindowsGpuPollingTests
             ("collector failure clears published rows", CollectorFailureClearsRows),
             ("mapping failure retains reason and clears rows", MappingFailureClearsRows),
             ("partial mapping retains only the healthy field family", PartialMappingRetainsHealthyFamily),
+            ("partial polling report preserves a healthy adapter row", PartialPollingReportPreservesHealthyAdapter),
             ("expired snapshot becomes stale", ExpiredSnapshotBecomesStale),
             ("overlapping collection is suppressed", OverlappingCollectionIsSuppressed),
             ("polling output remains non-authorizing", OutputRemainsNonAuthorizing),
@@ -137,6 +138,25 @@ internal static class WindowsGpuPollingTests
             Assert(snapshot.SuccessfulMappingCollectionCount == 0 && snapshot.SuccessfulEngineLoadCollectionCount == 0 && snapshot.SuccessfulDedicatedMemoryCollectionCount == 2 && snapshot.PartialMappingCollectionCount == 2 && snapshot.UnavailableCollectionCount == 0, "Partial collection counters are wrong.");
             Assert(snapshot.FailureReasonCounts.ContainsKey("pdh-engine-data-invalid") && snapshot.FailureReasonCounts["pdh-engine-data-invalid"] == 2, "Partial failure histogram is wrong.");
             Assert(!snapshot.CanUseInHud, "Partial polling evidence authorized HUD use.");
+        }
+    }
+
+    private static void PartialPollingReportPreservesHealthyAdapter()
+    {
+        DateTime now = DateTime.UtcNow;
+        using (WindowsGpuPollingProvider provider = Provider(delegate { return PartialAdapterEngine("topology-a"); }, delegate { return now; }))
+        {
+            provider.CollectOnce();
+            provider.CollectOnce();
+            WindowsGpuPollingSnapshot snapshot = provider.GetSnapshot();
+            WindowsGpuPollingReportDocument report = WindowsGpuPollingBenchmark.Create(snapshot, now, 60, 2000, 4000, 0.1);
+            Assert(report.FinalStatus == "PARTIAL_READY_FOR_VALIDATION" && report.Adapters.Length == 2, "Adapter-scoped partial result became unavailable.");
+            Assert(!report.Adapters[0].EngineLoadAvailable && !report.Adapters[0].DedicatedMemoryAvailable, "Failed adapter exposed a field.");
+            Assert(report.Adapters[1].EngineLoadAvailable && report.Adapters[1].DedicatedMemoryAvailable, "Polling report erased the healthy adapter.");
+            Assert(report.Adapters[0].EngineLoadPercent == -1 && report.Adapters[0].DedicatedMemoryBytes == -1 &&
+                report.Adapters[1].EngineLoadPercent == 20 && report.Adapters[1].DedicatedMemoryBytes == 20, "Polling report changed adapter-scoped values.");
+            Assert(!report.EngineLoadReadyForValidation && !report.DedicatedMemoryReadyForValidation && !report.MappingReadyForValidation && !report.CanUseInHud, "Adapter-scoped partial report weakened a gate.");
+            Assert(report.PartialMappingCollections == 2 && report.UnavailableCollections == 0, "Healthy sibling adapter was counted as fully unavailable.");
         }
     }
 
@@ -286,6 +306,30 @@ internal static class WindowsGpuPollingTests
             {
                 new WindowsGpuMappedMetric { DisplayIndex = 0, Name = "GPU A", EngineLoadPercent = -1, DedicatedMemoryBytes = 10, DedicatedMemoryCapacityBytes = 100 },
                 new WindowsGpuMappedMetric { DisplayIndex = 1, Name = "GPU B", EngineLoadPercent = -1, DedicatedMemoryBytes = 20, DedicatedMemoryCapacityBytes = 100 }
+            }
+        };
+    }
+
+    private static WindowsGpuLiveProbeResult PartialAdapterEngine(string fingerprint)
+    {
+        return new WindowsGpuLiveProbeResult
+        {
+            ProbeStatus = "PARTIAL_MAPPING_AVAILABLE",
+            MappingChecksPass = false,
+            EngineLoadMappingChecksPass = false,
+            DedicatedMemoryMappingChecksPass = false,
+            InternalTopologyFingerprint = fingerprint,
+            ReasonCodes = new List<string>
+            {
+                "pdh-engine-data-invalid",
+                "pdh-engine-data-invalid-adapter-0",
+                "pdh-memory-data-invalid",
+                "pdh-memory-data-invalid-adapter-0"
+            },
+            Adapters = new List<WindowsGpuMappedMetric>
+            {
+                new WindowsGpuMappedMetric { DisplayIndex = 0, Name = "GPU A", EngineLoadPercent = -1, DedicatedMemoryBytes = -1, DedicatedMemoryCapacityBytes = 100 },
+                new WindowsGpuMappedMetric { DisplayIndex = 1, Name = "GPU B", EngineLoadPercent = 20, DedicatedMemoryBytes = 20, DedicatedMemoryCapacityBytes = 100 }
             }
         };
     }

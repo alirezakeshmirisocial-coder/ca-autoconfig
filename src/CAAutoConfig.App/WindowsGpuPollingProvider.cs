@@ -125,10 +125,11 @@ namespace CA.SystemOverlay
                         _successfulEngineLoadCollectionCount++;
                     if (probe != null && probe.DedicatedMemoryMappingChecksPass)
                         _successfulDedicatedMemoryCollectionCount++;
-                    if (probe != null && !probe.MappingChecksPass &&
-                        (probe.EngineLoadMappingChecksPass || probe.DedicatedMemoryMappingChecksPass))
+                    bool hasAnyAdapterField = probe != null &&
+                        WindowsGpuLiveProbe.HasAnyAvailableAdapterField(probe.Adapters);
+                    if (probe != null && !probe.MappingChecksPass && hasAnyAdapterField)
                         _partialMappingCollectionCount++;
-                    if (probe == null || (!probe.EngineLoadMappingChecksPass && !probe.DedicatedMemoryMappingChecksPass))
+                    if (probe == null || !hasAnyAdapterField)
                         _unavailableCollectionCount++;
                     if (probe == null)
                     {
@@ -188,7 +189,8 @@ namespace CA.SystemOverlay
             }
             bool hasEngine = probe.EngineLoadMappingChecksPass;
             bool hasMemory = probe.DedicatedMemoryMappingChecksPass;
-            if ((!hasEngine && !hasMemory) || String.IsNullOrWhiteSpace(probe.InternalTopologyFingerprint))
+            bool hasAnyAdapterField = WindowsGpuLiveProbe.HasAnyAvailableAdapterField(probe.Adapters);
+            if (!hasAnyAdapterField || String.IsNullOrWhiteSpace(probe.InternalTopologyFingerprint))
             {
                 _stableSamples = 0;
                 next.Status = "UNAVAILABLE";

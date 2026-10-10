@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using CA.SystemOverlay;
 
 internal static class Program
@@ -21,6 +22,7 @@ internal static class Program
             ("unknown counter adapter fails closed", UnknownCounterAdapterFailsClosed),
             ("missing memory counter fails closed", MissingMemoryFailsClosed),
             ("missing dedicated capacity preserves only engine capability", MissingCapacityPreservesEngine),
+            ("invalid engine item affects only its mapped adapter", InvalidEngineAffectsOnlyMappedAdapter),
             ("malformed identity fails closed", MalformedIdentityFailsClosed),
             ("duplicate adapter identity fails closed", DuplicateAdapterIdentityFailsClosed),
             ("public result omits raw adapter identity", PublicResultOmitsRawIdentity),
@@ -30,6 +32,7 @@ internal static class Program
             ("counter source failure is retained", CounterSourceFailureIsRetained),
             ("partial source retains healthy memory mapping", PartialSourceRetainsHealthyMemory),
             ("partial public report marks only healthy fields available", PartialPublicReportMarksAvailability),
+            ("adapter-scoped public report preserves the healthy card", AdapterScopedPublicReportPreservesHealthyCard),
             ("DXGI software adapter counters are explicitly ignored", SoftwareAdapterCountersAreIgnored),
             ("public live report is sanitized and non-authorizing", PublicLiveReportIsSanitized)
         };
@@ -119,6 +122,23 @@ internal static class Program
         Assert(result.Adapters.Count == 2 && result.Adapters[0].EngineLoadPercent >= 0, "Engine evidence was discarded with unavailable memory capacity.");
     }
 
+    private static void InvalidEngineAffectsOnlyMappedAdapter()
+    {
+        List<WindowsGpuCounterObservation> observations = Observations();
+        observations[0].Value = Double.NaN;
+        observations[0].FailureReasonCode = "pdh-engine-data-invalid";
+        WindowsGpuCounterMapResult result = WindowsGpuCounterMapper.Map(Inventory(), observations);
+        Assert(!result.MappingChecksPass && !result.EngineLoadMappingChecksPass && result.DedicatedMemoryMappingChecksPass, "Adapter-scoped engine failure passed the global gate.");
+        Assert(result.Adapters[0].EngineLoadPercent == -1 && result.Adapters[1].EngineLoadPercent == 41, "Engine failure erased the healthy adapter or exposed the failed adapter.");
+        Assert(result.ReasonCodes.Contains("pdh-engine-data-invalid") && result.ReasonCodes.Contains("pdh-engine-data-invalid-adapter-0"), "Sanitized adapter-scoped reason was not retained.");
+
+        observations = Observations();
+        observations[0].Value = Double.NaN;
+        observations[0].FailureReasonCode = "pdh-engine-pid-1234";
+        result = WindowsGpuCounterMapper.Map(Inventory(), observations);
+        Assert(result.ReasonCodes.Contains("counter-value-invalid") && !result.ReasonCodes.Any(reason => reason.Contains("pid", StringComparison.OrdinalIgnoreCase)), "Untrusted failure reason escaped the fixed allowlist.");
+    }
+
     private static void MalformedIdentityFailsClosed()
     {
         List<WindowsGpuCounterObservation> observations = Observations();
@@ -200,6 +220,20 @@ internal static class Program
         Assert(!document.Adapters[0].EngineLoadAvailable && document.Adapters[0].EngineLoadPercent == -1, "Invalid engine data appeared available.");
         Assert(document.Adapters[0].DedicatedMemoryAvailable && document.Adapters[0].DedicatedMemoryBytes >= 0 && document.Adapters[0].VramPercent >= 0, "Healthy memory data was hidden.");
         Assert(!document.CanUseInHud, "Partial report authorized HUD use.");
+    }
+
+    private static void AdapterScopedPublicReportPreservesHealthyCard()
+    {
+        WindowsGpuLiveProbeResult result = WindowsGpuLiveProbe.Run(
+            new FakeAdapterSource(true, String.Empty),
+            new AdapterAInvalidEngineSource());
+        WindowsGpuLiveReportDocument document = WindowsGpuLiveReport.Create(result, DateTime.UtcNow);
+        string json = WindowsGpuLiveReport.Serialize(document);
+        Assert(result.ProbeStatus == "PARTIAL_MAPPING_AVAILABLE" && document.Adapters.Length == 2, "Adapter-scoped partial result changed status or shape.");
+        Assert(!document.Adapters[0].EngineLoadAvailable && document.Adapters[0].EngineLoadPercent == -1, "Failed adapter appeared available.");
+        Assert(document.Adapters[1].EngineLoadAvailable && document.Adapters[1].EngineLoadPercent == 41, "Healthy adapter was erased by another adapter's failure.");
+        Assert(json.Contains("pdh-engine-data-invalid-adapter-0", StringComparison.Ordinal) && !json.Contains("luid_", StringComparison.OrdinalIgnoreCase) && !json.Contains("pid_", StringComparison.OrdinalIgnoreCase), "Adapter-scoped report lost its reason or exposed a raw identity.");
+        Assert(!document.CanUseInHud, "Adapter-scoped partial report authorized HUD use.");
     }
 
     private static void SoftwareAdapterCountersAreIgnored()
@@ -337,6 +371,18 @@ internal static class Program
                 return value.Kind == WindowsGpuCounterKind.EngineUtilizationPercent;
             });
             reasonCode = "pdh-engine-data-invalid";
+            return true;
+        }
+    }
+
+    private sealed class AdapterAInvalidEngineSource : IWindowsGpuCounterSource
+    {
+        public bool TryRead(out List<WindowsGpuCounterObservation> observations, out string reasonCode)
+        {
+            observations = Observations();
+            observations[0].Value = Double.NaN;
+            observations[0].FailureReasonCode = "pdh-engine-data-invalid";
+            reasonCode = String.Empty;
             return true;
         }
     }

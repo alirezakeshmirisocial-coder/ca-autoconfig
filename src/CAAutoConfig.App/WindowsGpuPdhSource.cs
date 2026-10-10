@@ -60,8 +60,6 @@ namespace CA.SystemOverlay
                 return false;
             }
 
-            bool engineFamilyInvalid = false;
-            bool memoryFamilyInvalid = false;
             foreach (PdhGpuCounterSample sample in samples)
             {
                 if (sample == null)
@@ -72,15 +70,26 @@ namespace CA.SystemOverlay
                 }
                 if (String.IsNullOrWhiteSpace(sample.InstanceName))
                 {
-                    MarkFamilyInvalid(sample.Kind, ref engineFamilyInvalid, ref memoryFamilyInvalid);
                     SetFirstReason(ref reasonCode, GetFamilyReason(sample.Kind, "instance-invalid"));
+                    observations.Add(new WindowsGpuCounterObservation
+                    {
+                        InstanceName = sample.InstanceName ?? String.Empty,
+                        Kind = sample.Kind,
+                        Value = Double.NaN,
+                        FailureReasonCode = GetFamilyReason(sample.Kind, "instance-invalid")
+                    });
                     continue;
                 }
                 if (sample.CounterStatus != NativePdhGpuCounterReader.ValidData &&
                     sample.CounterStatus != NativePdhGpuCounterReader.NewData)
                 {
-                    MarkFamilyInvalid(sample.Kind, ref engineFamilyInvalid, ref memoryFamilyInvalid);
-                    SetFirstReason(ref reasonCode, GetInvalidStatusReason(sample.Kind, sample.CounterStatus));
+                    observations.Add(new WindowsGpuCounterObservation
+                    {
+                        InstanceName = sample.InstanceName,
+                        Kind = sample.Kind,
+                        Value = Double.NaN,
+                        FailureReasonCode = GetInvalidStatusReason(sample.Kind, sample.CounterStatus)
+                    });
                     continue;
                 }
                 observations.Add(new WindowsGpuCounterObservation
@@ -91,33 +100,10 @@ namespace CA.SystemOverlay
                 });
             }
 
-            if (engineFamilyInvalid)
-                observations.RemoveAll(delegate(WindowsGpuCounterObservation value)
-                {
-                    return value.Kind == WindowsGpuCounterKind.EngineUtilizationPercent;
-                });
-            if (memoryFamilyInvalid)
-                observations.RemoveAll(delegate(WindowsGpuCounterObservation value)
-                {
-                    return value.Kind == WindowsGpuCounterKind.DedicatedMemoryBytes;
-                });
-
-            // A bad status invalidates that whole metric family for this sample,
-            // but a healthy sibling family remains useful as explicit partial
-            // evidence. The caller preserves reasonCode even when this returns
-            // true, and neither partial nor complete data is authorized for HUD use.
+            // Invalid items remain internal observations so the mapper can
+            // invalidate only the matching adapter field. Public reports retain
+            // sanitized adapter-index reason codes and never expose instance names.
             return observations.Count > 0;
-        }
-
-        private static void MarkFamilyInvalid(
-            WindowsGpuCounterKind kind,
-            ref bool engineFamilyInvalid,
-            ref bool memoryFamilyInvalid)
-        {
-            if (kind == WindowsGpuCounterKind.EngineUtilizationPercent)
-                engineFamilyInvalid = true;
-            else
-                memoryFamilyInvalid = true;
         }
 
         private static void SetFirstReason(ref string destination, string reason)
@@ -207,12 +193,33 @@ namespace CA.SystemOverlay
                     if (status != ErrorSuccess)
                         return ResetAndFail(samples, out reasonCode, "pdh-next-collection-failed");
 
-                    if (!TryReadArray(_engineCounter, WindowsGpuCounterKind.EngineUtilizationPercent, samples, out reasonCode))
+                    bool engineContainsInvalidStatus;
+                    if (!TryReadArray(
+                        _engineCounter,
+                        WindowsGpuCounterKind.EngineUtilizationPercent,
+                        samples,
+                        out engineContainsInvalidStatus,
+                        out reasonCode))
                         return ResetAndFail(samples, out reasonCode, reasonCode);
-                    if (!TryReadArray(_memoryCounter, WindowsGpuCounterKind.DedicatedMemoryBytes, samples, out reasonCode))
+                    bool memoryContainsInvalidStatus;
+                    if (!TryReadArray(
+                        _memoryCounter,
+                        WindowsGpuCounterKind.DedicatedMemoryBytes,
+                        samples,
+                        out memoryContainsInvalidStatus,
+                        out reasonCode))
                         return ResetAndFail(samples, out reasonCode, reasonCode);
                     if (samples.Count == 0)
                         return ResetAndFail(samples, out reasonCode, "pdh-counter-query-empty");
+
+                    // An invalid formatted item means PDH could not safely compare
+                    // its current and previous raw values. Return the item so this
+                    // collection fails closed for the mapped adapter, then discard
+                    // the query state. The next collection must establish a fresh
+                    // baseline instead of remaining stuck behind a regressed or
+                    // disappeared process-scoped GPU Engine instance.
+                    if (engineContainsInvalidStatus || memoryContainsInvalidStatus)
+                        ResetQueryLocked();
                     return true;
                 }
                 catch (DllNotFoundException)
@@ -293,8 +300,10 @@ namespace CA.SystemOverlay
             IntPtr counter,
             WindowsGpuCounterKind kind,
             List<PdhGpuCounterSample> destination,
+            out bool containsInvalidStatus,
             out string reasonCode)
         {
+            containsInvalidStatus = false;
             reasonCode = String.Empty;
             for (int attempt = 0; attempt < 3; attempt++)
             {
@@ -335,6 +344,8 @@ namespace CA.SystemOverlay
                             Value = item.Value.Value.DoubleValue,
                             CounterStatus = item.Value.CounterStatus
                         });
+                        if (item.Value.CounterStatus != ValidData && item.Value.CounterStatus != NewData)
+                            containsInvalidStatus = true;
                     }
                     return true;
                 }
