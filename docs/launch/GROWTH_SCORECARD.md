@@ -1,0 +1,62 @@
+# CA AutoConfig growth scorecard
+
+The public objective is 5,000 genuine GitHub stars. That is an outcome to work toward, not a result the repository can guarantee or manufacture. The operating rule is to increase useful evidence and qualified adoption first, then let stars measure distribution.
+
+## Baseline — 2026-10-10
+
+| Signal | Value |
+| --- | ---: |
+| GitHub stars | 0 |
+| Forks | 0 |
+| Watchers | 0 |
+| Open issues | 4 |
+| Releases | 5 |
+| 14-day unique visitors | 0 |
+| 14-day unique cloners | 0 |
+| Latest release ZIP downloads | 0 |
+| External design partners | 0 confirmed |
+| Sanitized hardware reports | 0 |
+| Real workload power curves | 0 |
+
+This zero baseline is useful: it means future attribution is not mixed with an earlier launch.
+
+## Current funnel
+
+| Stage | Exit condition | Current status |
+| --- | --- | --- |
+| Product proof | Compiled demo, architecture, repeatable tests, checksum release | Complete |
+| Measurement proof | One real, repeated, raw-data power curve | Blocked on an installed workload/model and repeated runs |
+| Design partners | 10 external Windows/NVIDIA testers, 5 reports, 3 GPU families | Not started |
+| Community launch | Human-authored, rules-compliant benchmark post; active response coverage | Not ready |
+| Repeatable distribution | Workload adapters, compatibility matrix, creator reproductions | Planned |
+
+## Weekly leading indicators
+
+Record these once per week, not as vanity updates:
+
+- completed installs and clean uninstalls;
+- accepted hardware reports and GPU families represented;
+- benchmark repetitions, failures retained, and workloads covered;
+- unique cloners and release downloads;
+- contributors and merged pull requests;
+- median first response and time-to-fix;
+- stars, forks, and watchers;
+- the human-declared source of each design-partner cohort.
+
+No tracking is added to the desktop app. GitHub's aggregate repository/release counters and voluntarily supplied issue/Discussion context are sufficient.
+
+## Milestone decisions
+
+- **0 → 50 stars:** do not launch broadly. Finish one real curve, active CI, five external reports, and a clean-machine install record.
+- **50 → 250:** publish a hardware matrix and the raw methodology; add the first workload adapter requested by actual users.
+- **250 → 1,000:** make installation and rollback boring, add signed artifacts, and recruit reproducible creator tests rather than endorsements.
+- **1,000 → 2,500:** aggregate cross-hardware curves, show uncertainty, and add shareable result cards that always link to raw evidence.
+- **2,500 → 5,000:** expand supported workloads/providers only where maintainers and test coverage exist; keep issue response and correction quality ahead of promotion volume.
+
+## Attribution ledger
+
+| Date | Source | Asset | Visitors | Cloners/downloads | Stars | Reports | Notes |
+| --- | --- | --- | ---: | ---: | ---: | ---: | --- |
+| 2026-10-10 | Baseline | `v0.2.1-alpha.1` | 0 | 0 | 0 | 0 | Pre-distribution baseline; no external launch posted. |
+
+Add a row after a legitimate launch or collaboration. Never use referral tags to track people inside the application, buy traffic, solicit votes, or attribute normal organic traffic to a campaign without evidence.

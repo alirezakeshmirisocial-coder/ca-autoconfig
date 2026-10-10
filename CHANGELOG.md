@@ -4,6 +4,8 @@ This project follows semantic versioning after `v1.0.0`. Pre-1.0 releases may ch
 
 ## Unreleased
 
+- Added a zero-baseline growth scorecard that separates product health, design-partner evidence, distribution, and genuine stars without application tracking.
+
 ## v0.2.1-alpha.1 — Read-only power-curve lab
 
 - Added a read-only power-curve lab with a versioned anonymized JSON schema, live NVIDIA telemetry recorder, synthetic dry run, deterministic calculations, privacy rejection, and Markdown comparison report.
