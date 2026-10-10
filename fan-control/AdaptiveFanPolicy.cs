@@ -84,6 +84,7 @@ namespace CA.FanControl
     {
         public ControlState State { get; internal set; }
         public bool CalibrationComplete { get; internal set; }
+        public bool ObservationComplete { get; internal set; }
         public double ObservedSeconds { get; internal set; }
         public double StableSeconds { get; internal set; }
         internal string Key;
@@ -98,6 +99,11 @@ namespace CA.FanControl
         internal bool FanFaultLatched, EmergencyLatched;
         internal Plateau Anchor;
         internal List<Plateau> Plateaus = new List<Plateau>();
+        internal List<ThermalSample> Samples = new List<ThermalSample>();
+        internal ThermalModel ThermalModel;
+        internal CalibrationReport FitReport;
+        internal double LastFitTime = double.NegativeInfinity, DriftAnchorTime, ModelBadSeconds;
+        internal double[] DriftPrediction;
         public Memory() { State = ControlState.Observing; }
         internal Memory Copy()
         {
@@ -105,6 +111,8 @@ namespace CA.FanControl
             n.Anchor = Anchor == null ? null : Anchor.Copy();
             n.Plateaus = new List<Plateau>();
             foreach (Plateau p in Plateaus) n.Plateaus.Add(p.Copy());
+            n.Samples = new List<ThermalSample>(Samples);
+            n.DriftPrediction = DriftPrediction == null ? null : (double[])DriftPrediction.Clone();
             return n;
         }
     }
@@ -134,6 +142,11 @@ namespace CA.FanControl
         public double HotspotEmergencyC { get; internal set; }
         public double MemoryEmergencyC { get; internal set; }
         public string[] Reasons { get; internal set; }
+        public CalibrationReport Calibration { get; internal set; }
+        public double? ForecastCoreUpperC { get; internal set; }
+        public double? ForecastHotspotUpperC { get; internal set; }
+        public double? ForecastMemoryUpperC { get; internal set; }
+        public double? OptimizationCost { get; internal set; }
     }
 
     public static class AdaptiveFanPolicy
@@ -180,10 +193,13 @@ namespace CA.FanControl
             m.CalibrationComplete = false; m.ObservedSeconds = 0; m.StableSeconds = 0; m.ValidSamples = 0;
             m.Anchor = null; m.Plateaus.Clear(); m.VirtualFan = double.NaN;
             m.LastPlateauAt = double.NegativeInfinity; m.CoolSeconds = 0; m.DegradedSeconds = 0;
+            m.ObservationComplete = false; m.Samples.Clear(); m.ThermalModel = null; m.FitReport = null;
+            m.LastFitTime = double.NegativeInfinity; m.DriftPrediction = null; m.ModelBadSeconds = 0;
         }
         private static Recommendation Finish(Recommendation r, List<string> reasons, ControlState state)
         {
-            r.Next.State = state; r.Reasons = reasons.ToArray(); return r;
+            r.Next.State = state; r.Next.ObservationComplete = r.Next.CalibrationComplete;
+            r.Reasons = reasons.ToArray(); return r;
         }
         private static bool Similar(double a, double b, double abs, double relative)
         {
@@ -205,9 +221,16 @@ namespace CA.FanControl
 
         public static Recommendation Evaluate(DeviceProfile profile, Snapshot s, Memory previous)
         {
+            return CalibratedFanController.Evaluate(profile, s, previous);
+        }
+
+        // Safety/observation reference branch; internal so callers cannot bypass predictive calibration.
+        internal static Recommendation EvaluateGuard(DeviceProfile profile, Snapshot s, Memory previous)
+        {
             if (s == null) throw new ArgumentNullException("s");
             if (profile == null) throw new ArgumentNullException("profile");
             Memory m = previous == null ? new Memory() : previous.Copy();
+            m.CalibrationComplete = m.ObservationComplete;
             Recommendation r = new Recommendation { Next = m };
             List<string> reasons = new List<string>();
             bool keyChanged = m.Key != null && m.Key != profile.EvidenceKey;

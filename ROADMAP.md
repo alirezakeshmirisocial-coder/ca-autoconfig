@@ -39,6 +39,7 @@ The product direction is a tiny, trustworthy Windows HUD and safe power optimize
 - [x] Specify a deterministic ambient-aware fan/power policy with explicit safety precedence.
 - [x] Cover 40°C ambient, poor ventilation, multi-GPU heat soak, sensor loss, fan stalls, maintenance drift, hysteresis, dwell, and slew limits with synthetic tests.
 - [x] Keep the prototype isolated and advice-only: no device writes, no hidden actuator, and `CanApply` always false.
+- [x] Gate predictive simulation behind identifiable input variation, chronological held-out validation, bounded interpolation, and drift invalidation.
 - [ ] Add a read-only telemetry adapter with per-reading timestamp, units, provenance, and capability discovery.
 - [ ] Build verified per-board profiles keyed by GPU UUID, board/VBIOS/driver, fan topology, and cooling configuration.
 - [ ] Validate physical tachometry; intended fan speed alone must never clear a fan-fault latch.

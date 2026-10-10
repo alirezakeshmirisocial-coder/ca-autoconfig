@@ -34,7 +34,7 @@ namespace CA.FanControlTests
             Memory m = initial; Recommendation r = null;
             for (double t = start; t <= end; t += 2)
             {
-                r = AdaptiveFanPolicy.Evaluate(p, sample(t), m); m = r.Next;
+                r = AdaptiveFanPolicy.EvaluateGuard(p, sample(t), m); m = r.Next;
                 Assert(!r.CanApply && r.VendorAutoRecommended, "Simulation may never authorize an application.");
                 if (r.FanPercent.HasValue) Assert(r.FanPercent >= p.FanMinPercent && r.FanPercent <= p.FanMaxPercent, "Vendor fan bounds.");
                 if (r.PowerLimitW.HasValue) Assert(r.PowerLimitW >= p.PowerMinW && r.PowerLimitW <= p.PowerMaxW, "Vendor power bounds.");
@@ -50,7 +50,7 @@ namespace CA.FanControlTests
                 DeviceProfile p = Profile();
                 Recommendation early = Run(p, Normal, 298, null, 0);
                 Assert(!early.Next.CalibrationComplete && !early.FanPercent.HasValue, "No numeric fan before 300 seconds.");
-                Recommendation r = AdaptiveFanPolicy.Evaluate(p, Normal(300), early.Next);
+                Recommendation r = AdaptiveFanPolicy.EvaluateGuard(p, Normal(300), early.Next);
                 Assert(r.Next.CalibrationComplete && r.State == ControlState.Tracking, "Stable warm observation should calibrate.");
                 Near(r.FanPercent.Value, 60, 0.001, "Dead band holds fan.");
                 Near(r.CaseResistanceCPerW.Value, 0.02, 0.0001, "Case estimate uses inlet and total power.");
@@ -90,7 +90,7 @@ namespace CA.FanControlTests
             });
             Case("sensor loss: fallback and full re-observation", delegate {
                 DeviceProfile p = Profile(); Recommendation ready = Ready(p); Snapshot broken = Normal(322); broken.CoreC = null;
-                Recommendation r = AdaptiveFanPolicy.Evaluate(p, broken, ready.Next);
+                Recommendation r = AdaptiveFanPolicy.EvaluateGuard(p, broken, ready.Next);
                 Assert(r.State == ControlState.SensorFault && !r.FanPercent.HasValue && !r.Next.CalibrationComplete, "Missing core fails closed.");
                 r = Run(p, Normal, 440, r.Next, 324);
                 Assert(r.State == ControlState.SensorFault, "Recovery requires a healthy cooldown.");
@@ -99,7 +99,7 @@ namespace CA.FanControlTests
             });
             Case("stale optional junction telemetry is not silently ignored", delegate {
                 DeviceProfile p = Profile(); Recommendation ready = Ready(p); Snapshot s = Normal(322); s.MemoryC.AtSeconds = 310;
-                Recommendation r = AdaptiveFanPolicy.Evaluate(p, s, ready.Next);
+                Recommendation r = AdaptiveFanPolicy.EvaluateGuard(p, s, ready.Next);
                 Assert(r.State == ControlState.SensorFault && !r.FanPercent.HasValue, "Stale VRAM must cause fallback.");
             });
             Case("physical fan stall: latch, stop load, no useless fan command", delegate {
@@ -109,7 +109,7 @@ namespace CA.FanControlTests
                 r = Run(p, Normal, 480, r.Next, 336);
                 Assert(r.State == ControlState.FanFault, "A fault requires acknowledgement even after tach recovery.");
                 Snapshot good = Normal(482); good.AcknowledgeFault = true;
-                r = AdaptiveFanPolicy.Evaluate(p, good, r.Next);
+                r = AdaptiveFanPolicy.EvaluateGuard(p, good, r.Next);
                 Assert(r.State == ControlState.Observing && !r.Next.CalibrationComplete, "Acknowledgement restarts calibration.");
             });
             Case("zero-RPM idle is not a stall", delegate {
@@ -126,26 +126,26 @@ namespace CA.FanControlTests
             });
             Case("core emergency overrides dwell and ramp, respects vendor maximum", delegate {
                 DeviceProfile p = Profile(); Recommendation ready = Ready(p); Snapshot s = Normal(322); s.CoreC.Value = 86; s.HotspotC.Value = 95;
-                Recommendation r = AdaptiveFanPolicy.Evaluate(p, s, ready.Next);
+                Recommendation r = AdaptiveFanPolicy.EvaluateGuard(p, s, ready.Next);
                 Assert(r.State == ControlState.Emergency && r.StopWorkload, "Core emergency immediate.");
                 Near(r.FanPercent.Value, p.FanMaxPercent, 0, "Emergency simulated fan bypasses ramp.");
-                s = Normal(324); s.CoreC = null; r = AdaptiveFanPolicy.Evaluate(p, s, r.Next);
+                s = Normal(324); s.CoreC = null; r = AdaptiveFanPolicy.EvaluateGuard(p, s, r.Next);
                 Assert(r.State == ControlState.Emergency && r.StopWorkload && !r.FanPercent.HasValue, "Sensor loss cannot dismiss emergency.");
             });
             Case("hotspot and VRAM each independently trigger emergency", delegate {
                 DeviceProfile p = Profile(); Recommendation ready = Ready(p); Snapshot s = Normal(322); s.HotspotC.Value = 100;
-                Assert(AdaptiveFanPolicy.Evaluate(p, s, ready.Next).State == ControlState.Emergency, "Hotspot independent of core.");
+                Assert(AdaptiveFanPolicy.EvaluateGuard(p, s, ready.Next).State == ControlState.Emergency, "Hotspot independent of core.");
                 s = Normal(322); s.MemoryC.Value = 96;
-                Assert(AdaptiveFanPolicy.Evaluate(p, s, ready.Next).State == ControlState.Emergency, "VRAM independent of core.");
+                Assert(AdaptiveFanPolicy.EvaluateGuard(p, s, ready.Next).State == ControlState.Emergency, "VRAM independent of core.");
             });
             Case("emergency alarms do not wait for calibration", delegate {
                 DeviceProfile p = Profile(); Snapshot s = Normal(0); s.CoreC.Value = 87;
-                Recommendation r = AdaptiveFanPolicy.Evaluate(p, s, null);
+                Recommendation r = AdaptiveFanPolicy.EvaluateGuard(p, s, null);
                 Assert(r.State == ControlState.Emergency && r.StopWorkload && !r.FanPercent.HasValue, "Alert immediately, withhold uncalibrated numeric advice.");
             });
             Case("vendor thermal threshold always tightens application guard", delegate {
                 DeviceProfile p = Profile(); p.CoreLimitC = 78; Snapshot s = Normal(0); s.CoreC.Value = 75;
-                Recommendation r = AdaptiveFanPolicy.Evaluate(p, s, null);
+                Recommendation r = AdaptiveFanPolicy.EvaluateGuard(p, s, null);
                 Near(r.CoreEmergencyC, 75, 0, "Vendor limit minus margin.");
                 Assert(r.State == ControlState.Emergency, "Lower vendor ceiling has priority.");
             });
@@ -156,7 +156,7 @@ namespace CA.FanControlTests
             });
             Case("temperature rise guard uses raw sensors", delegate {
                 DeviceProfile p = Profile(); Recommendation ready = Ready(p); Snapshot s = Normal(322); s.CoreC.Value = 73;
-                Recommendation r = AdaptiveFanPolicy.Evaluate(p, s, ready.Next);
+                Recommendation r = AdaptiveFanPolicy.EvaluateGuard(p, s, ready.Next);
                 Assert(r.CoreRiseCPerSecond > 0.5 && r.State == ControlState.HeatLimited && r.ReduceWorkload, "Rapid heating must bypass comfort filtering.");
             });
             Case("fan hysteresis, dwell and slew boundaries", delegate {
@@ -164,21 +164,21 @@ namespace CA.FanControlTests
                 for (double t = 322; t <= 420; t += 2)
                 {
                     Snapshot s = Normal(t); s.CoreC.Value = t % 4 == 0 ? 71 : 72;
-                    Recommendation next = AdaptiveFanPolicy.Evaluate(p, s, r.Next);
+                    Recommendation next = AdaptiveFanPolicy.EvaluateGuard(p, s, r.Next);
                     Near(next.FanPercent.Value, lastFan, 0, "Noise within hysteresis must not chatter."); r = next;
                 }
-                r = AdaptiveFanPolicy.Evaluate(p, Sample(422, 76, 25, 30, 0, 60), r.Next);
+                r = AdaptiveFanPolicy.EvaluateGuard(p, Sample(422, 76, 25, 30, 0, 60), r.Next);
                 Assert(r.FanPercent.Value - lastFan <= 2, "Two seconds permits at most two percentage points upward.");
                 lastFan = r.FanPercent.Value;
-                r = AdaptiveFanPolicy.Evaluate(p, Sample(424, 76, 25, 30, 0, 60), r.Next);
+                r = AdaptiveFanPolicy.EvaluateGuard(p, Sample(424, 76, 25, 30, 0, 60), r.Next);
                 Near(r.FanPercent.Value, lastFan, 0, "30-second upward dwell.");
             });
             Case("ambient sensor conflict and manual expiry", delegate {
                 DeviceProfile p = Profile(); Recommendation ready = Ready(p); Snapshot s = Normal(322); s.AmbientSensorC = R(40, 322); s.InletC.Value = 42;
-                Recommendation r = AdaptiveFanPolicy.Evaluate(p, s, ready.Next);
+                Recommendation r = AdaptiveFanPolicy.EvaluateGuard(p, s, ready.Next);
                 Assert(r.AmbientC == 40 && !r.FanPercent.HasValue && r.Confidence < 0.75, "Disagreeing ambient sources block numeric advice.");
                 s = Normal(4000); s.ManualAmbientC.AtSeconds = 0;
-                r = AdaptiveFanPolicy.Evaluate(p, s, null);
+                r = AdaptiveFanPolicy.EvaluateGuard(p, s, null);
                 Assert(r.State == ControlState.SensorFault, "Manual room reading expires instead of becoming an evergreen fact.");
             });
             Case("missing inlet cannot fabricate a case resistance", delegate {
@@ -196,49 +196,49 @@ namespace CA.FanControlTests
                 foreach (double value in bad)
                 {
                     Snapshot s = Normal(322); s.CoreC.Value = value;
-                    Recommendation r = AdaptiveFanPolicy.Evaluate(p, s, ready.Next);
+                    Recommendation r = AdaptiveFanPolicy.EvaluateGuard(p, s, ready.Next);
                     Assert(r.State == ControlState.SensorFault && !r.FanPercent.HasValue, "Invalid temperature rejected.");
                 }
                 Snapshot future = Normal(322); future.CoreC.AtSeconds = 323;
-                Assert(AdaptiveFanPolicy.Evaluate(p, future, ready.Next).State == ControlState.SensorFault, "Future sensor timestamp rejected.");
+                Assert(AdaptiveFanPolicy.EvaluateGuard(p, future, ready.Next).State == ControlState.SensorFault, "Future sensor timestamp rejected.");
             });
             Case("clock gaps and cached samples invalidate calibration", delegate {
                 DeviceProfile p = Profile(); Recommendation ready = Ready(p);
-                Recommendation r = AdaptiveFanPolicy.Evaluate(p, Normal(340), ready.Next);
+                Recommendation r = AdaptiveFanPolicy.EvaluateGuard(p, Normal(340), ready.Next);
                 Assert(r.State == ControlState.SensorFault && !r.Next.CalibrationComplete, "Long polling gap invalidates model.");
                 Snapshot s = Normal(322); s.CoreC.AtSeconds = 320;
-                r = AdaptiveFanPolicy.Evaluate(p, s, ready.Next);
+                r = AdaptiveFanPolicy.EvaluateGuard(p, s, ready.Next);
                 Assert(r.State == ControlState.SensorFault, "Replayed sample cannot count as observation.");
-                r = AdaptiveFanPolicy.Evaluate(p, Normal(318), ready.Next);
+                r = AdaptiveFanPolicy.EvaluateGuard(p, Normal(318), ready.Next);
                 Assert(r.State == ControlState.SensorFault, "Clock cannot run backward.");
             });
             Case("power advice never increases an existing low cap", delegate {
                 DeviceProfile p = Profile(); Recommendation ready = Ready(p);
                 Snapshot s = Sample(322, 79, 40, 45, 0, 65); s.CurrentPowerLimitW.Value = 120;
-                Recommendation r = AdaptiveFanPolicy.Evaluate(p, s, ready.Next);
+                Recommendation r = AdaptiveFanPolicy.EvaluateGuard(p, s, ready.Next);
                 Assert(r.PowerLimitW.HasValue && r.PowerLimitW <= 120 && r.PowerLimitW >= 100, "Existing lower cap must be respected.");
             });
             Case("thermal throttle is an immediate emergency", delegate {
                 DeviceProfile p = Profile(); Snapshot s = Normal(0); s.ThermalThrottle = true;
-                Recommendation r = AdaptiveFanPolicy.Evaluate(p, s, null);
+                Recommendation r = AdaptiveFanPolicy.EvaluateGuard(p, s, null);
                 Assert(r.State == ControlState.Emergency && r.StopWorkload, "Throttle is independent safety evidence.");
             });
             Case("deterministic replay leaves input memory unchanged", delegate {
                 DeviceProfile p = Profile(); Recommendation ready = Ready(p); double before = ready.Next.ObservedSeconds;
                 Snapshot s = Normal(322);
-                Recommendation a = AdaptiveFanPolicy.Evaluate(p, s, ready.Next), b = AdaptiveFanPolicy.Evaluate(p, s, ready.Next);
+                Recommendation a = AdaptiveFanPolicy.EvaluateGuard(p, s, ready.Next), b = AdaptiveFanPolicy.EvaluateGuard(p, s, ready.Next);
                 Assert(a.State == b.State && a.FanPercent == b.FanPercent && a.Confidence == b.Confidence, "Identical inputs produce identical advice.");
                 Near(ready.Next.ObservedSeconds, before, 0, "Evaluation must not mutate caller memory.");
                 Assert(!object.ReferenceEquals(a.Next, ready.Next), "Next state is separate from prior state.");
             });
             Case("device revision changes restart observation", delegate {
                 DeviceProfile p = Profile(); Recommendation ready = Ready(p); p.EvidenceKey = "synthetic-revision-2";
-                Recommendation r = AdaptiveFanPolicy.Evaluate(p, Normal(322), ready.Next);
+                Recommendation r = AdaptiveFanPolicy.EvaluateGuard(p, Normal(322), ready.Next);
                 Assert(!r.Next.CalibrationComplete && !r.FanPercent.HasValue, "Profile revision cannot reuse calibration.");
             });
             Case("confidence loss discards earlier calibration", delegate {
                 DeviceProfile p = Profile(); Recommendation r = Ready(p); Snapshot s = Normal(322); s.BoardPowerW.Confidence = 0.6;
-                r = AdaptiveFanPolicy.Evaluate(p, s, r.Next);
+                r = AdaptiveFanPolicy.EvaluateGuard(p, s, r.Next);
                 Assert(!r.Next.CalibrationComplete && !r.FanPercent.HasValue, "Low confidence revokes numeric advice.");
                 r = Run(p, Normal, 600, r.Next, 324);
                 Assert(!r.Next.CalibrationComplete && !r.FanPercent.HasValue, "Good samples must accumulate a new full observation period.");
@@ -275,19 +275,19 @@ namespace CA.FanControlTests
             });
             Case("emergency recovery requires cool dwell plus acknowledgement", delegate {
                 DeviceProfile p = Profile(); Recommendation r = Ready(p); Snapshot s = Normal(322); s.MemoryC.Value = 96;
-                r = AdaptiveFanPolicy.Evaluate(p, s, r.Next);
+                r = AdaptiveFanPolicy.EvaluateGuard(p, s, r.Next);
                 r = Run(p, Normal, 450, r.Next, 324);
                 Assert(r.State == ControlState.Emergency, "Cooling alone cannot dismiss an emergency.");
                 p.EvidenceKey = "changed-during-incident";
-                r = AdaptiveFanPolicy.Evaluate(p, Normal(452), r.Next);
+                r = AdaptiveFanPolicy.EvaluateGuard(p, Normal(452), r.Next);
                 Assert(r.State == ControlState.Emergency, "A new configuration cannot dismiss an emergency.");
                 r = Run(p, Normal, 580, r.Next, 454);
-                s = Normal(582); s.AcknowledgeFault = true; r = AdaptiveFanPolicy.Evaluate(p, s, r.Next);
+                s = Normal(582); s.AcknowledgeFault = true; r = AdaptiveFanPolicy.EvaluateGuard(p, s, r.Next);
                 Assert(r.State == ControlState.Observing && !r.Next.CalibrationComplete, "Acknowledged recovery restarts observation.");
             });
             Case("new ambient sensor can replace expired manual input", delegate {
                 DeviceProfile p = Profile(); Snapshot s = Normal(4000); s.ManualAmbientC.AtSeconds = 0; s.AmbientSensorC = R(25, 4000);
-                Recommendation r = AdaptiveFanPolicy.Evaluate(p, s, null);
+                Recommendation r = AdaptiveFanPolicy.EvaluateGuard(p, s, null);
                 Assert(r.State == ControlState.Observing && r.AmbientC == 25, "A fresh ambient sensor provides an explicit fallback.");
             });
             Case("zero-RPM cannot clear a latched physical fan fault", delegate {

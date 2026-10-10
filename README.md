@@ -46,9 +46,9 @@ If you run local AI on Windows, the most useful contribution right now is a priv
 
 The first cooling-system slice is a deterministic, hardware-independent simulation in [`fan-control`](fan-control/ADAPTIVE_FAN_SYSTEM.md). It models the useful quantity as temperature rise above measured room air, rather than chasing one fixed GPU temperature in every environment. A 40°C room therefore reduces the available thermal budget instead of forcing an impossible target or blindly selecting 100% fan.
 
-Its safety order is: protect the card, retain thermal headroom, avoid rapid fan/temperature cycling, then optimize noise and power. The policy includes separate core, hotspot, and VRAM limits; a five-minute observation gate; two-minute stable-load soak; hysteresis, dwell, and fan slew limits; multi-GPU heat input; maintenance-baseline comparison; sensor/fan fault latches; and bounded power-reduction advice. Numeric recommendations remain hidden when evidence is incomplete.
+Its safety order is: protect the card, retain thermal headroom, avoid rapid fan/temperature cycling, then optimize noise and power. The policy includes separate core, hotspot, and VRAM limits; a five-minute basic observation gate; a ten-minute/300-sample predictive-identification gate; chronological held-out validation; hysteresis, dwell, and fan slew limits; multi-GPU heat input; maintenance-baseline comparison; sensor/fan fault latches; and bounded power-reduction advice. Numeric recommendations remain hidden when evidence is incomplete or outside the measured domain.
 
-Nothing in this lab changes GPU settings. `CanApply` is always `false`, vendor automatic fan control remains recommended, and emergencies advise stopping heavy work. Run the 35 synthetic safety scenarios in either supported PowerShell runtime:
+Nothing in this lab changes GPU settings. `CanApply` is always `false`, vendor automatic fan control remains recommended, and emergencies advise stopping heavy work. Read the [calibration and prediction design](fan-control/CALIBRATION_AND_PREDICTION.md), then run all 52 synthetic safety and predictive scenarios in either supported PowerShell runtime:
 
 ```powershell
 .\fan-control\Run-Tests.ps1
