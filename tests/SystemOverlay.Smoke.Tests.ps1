@@ -39,6 +39,8 @@ foreach ($requiredFragment in @(
     'power.default_limit',
     'power.min_limit',
     'power.max_limit',
+    'RecordedNvidiaTelemetrySource',
+    'GPU TELEMETRY PARTIAL',
     'CalculateSafeStartingPoint',
     'Starting points stay inside NVIDIA''s reported range'
 )) {
@@ -100,6 +102,94 @@ finally {
     }
 }
 
+$sourceInterface = $assembly.GetType('CA.SystemOverlay.INvidiaTelemetrySource', $true)
+$recordedSourceType = $assembly.GetType('CA.SystemOverlay.RecordedNvidiaTelemetrySource', $true)
+$providerType = $assembly.GetType('CA.SystemOverlay.MetricsProvider', $true)
+$snapshotType = $assembly.GetType('CA.SystemOverlay.MetricSnapshot', $true)
+$gpuMetricType = $assembly.GetType('CA.SystemOverlay.GpuMetric', $true)
+$recordedConstructor = $recordedSourceType.GetConstructor($constructorFlags, $null, [Type[]]@([bool], [bool], [bool], [string]), $null)
+$providerConstructor = $providerType.GetConstructor($constructorFlags, $null, [Type[]]@($sourceInterface, [string], [DateTime]), $null)
+$collectGpu = $providerType.GetMethod('CollectGpuSnapshotOnce', $constructorFlags)
+Assert-True ($null -ne $recordedConstructor -and $null -ne $providerConstructor -and $null -ne $collectGpu) 'Simulated NVIDIA provider test surface is missing.'
+
+function Get-FieldValue {
+    param($Object, [Type]$Type, [string]$Name)
+    $value = $Type.GetField($Name, $constructorFlags).GetValue($Object)
+    Write-Output -NoEnumerate $value
+}
+
+function Invoke-RecordedGpuSnapshot {
+    param(
+        [bool]$Available,
+        [bool]$Success,
+        [bool]$TimedOut,
+        [string]$Output,
+        [string]$StatePath
+    )
+    $sourceInstance = $recordedConstructor.Invoke([object[]]@($Available, $Success, $TimedOut, $Output))
+    $provider = $providerConstructor.Invoke([object[]]@($sourceInstance, [string]$StatePath, [DateTime]::UtcNow.AddMinutes(-10)))
+    try { return $collectGpu.Invoke($provider, $null) }
+    finally { $providerType.GetMethod('Dispose').Invoke($provider, $null) | Out-Null }
+}
+
+$providerRoot = Join-Path ([IO.Path]::GetTempPath()) ('ca-overlay-provider-test-' + [Guid]::NewGuid().ToString('N'))
+$statePath = Join-Path $providerRoot 'gpu-limits-state.json'
+try {
+    New-Item -ItemType Directory -Force -Path $providerRoot | Out-Null
+    $stateJson = @{
+        timestampUtc = [DateTime]::UtcNow.ToString('o')
+        status = 'applied'
+        results = @(
+            @{ index = 0; maxGraphicsClockMHz = 1700; powerLimitWatts = 280.0 },
+            @{ index = 1; maxGraphicsClockMHz = 1700; powerLimitWatts = 280.0 }
+        )
+    } | ConvertTo-Json -Depth 5
+    [IO.File]::WriteAllText($statePath, $stateJson, (New-Object Text.UTF8Encoding($false)))
+
+    $validOutput = @(
+        '0, GPU-0, NVIDIA GeForce RTX 3090, 100, 40, 20000, 24576, 250, 280, 350, 100, 370, 60, 1695',
+        '1, GPU-1, NVIDIA GeForce RTX 3090, 98, 35, 19800, 24576, 240, 280, 350, 100, 370, 61, 1680'
+    ) -join "`n"
+    $validSnapshot = Invoke-RecordedGpuSnapshot $true $true $false $validOutput $statePath
+    Assert-True ([bool](Get-FieldValue $validSnapshot $snapshotType 'GpuLimitsHealthy')) 'Valid recorded telemetry did not verify the current-boot profile.'
+    $validDetail = [string](Get-FieldValue $validSnapshot $snapshotType 'GpuLimitDetail')
+    Assert-True ($validDetail -match '^ACTIVE.+1700 MHz / 280 W$') "Valid recorded telemetry produced the wrong profile detail: $validDetail"
+    $validGpus = Get-FieldValue $validSnapshot $snapshotType 'Gpus'
+    Assert-True ($validGpus.Count -eq 2) 'Valid recorded telemetry did not return two GPUs.'
+    Assert-True ([string](Get-FieldValue $validGpus[0] $gpuMetricType 'Name') -eq 'RTX 3090') 'GPU name normalization failed.'
+
+    $missingSnapshot = Invoke-RecordedGpuSnapshot $false $false $false '' $statePath
+    Assert-True ([string](Get-FieldValue $missingSnapshot $snapshotType 'GpuLimitDetail') -eq 'NVIDIA-SMI MISSING') 'Missing NVIDIA source did not fail closed.'
+
+    $timeoutSnapshot = Invoke-RecordedGpuSnapshot $true $false $true '' $statePath
+    Assert-True ([string](Get-FieldValue $timeoutSnapshot $snapshotType 'GpuLimitDetail') -eq 'GPU QUERY TIMEOUT') 'Timed-out NVIDIA source did not fail closed.'
+
+    $failedSnapshot = Invoke-RecordedGpuSnapshot $true $false $false '' $statePath
+    Assert-True ([string](Get-FieldValue $failedSnapshot $snapshotType 'GpuLimitDetail') -eq 'GPU DATA UNAVAILABLE') 'Failed NVIDIA source did not fail closed.'
+
+    $emptySnapshot = Invoke-RecordedGpuSnapshot $true $true $false '' $statePath
+    Assert-True ([string](Get-FieldValue $emptySnapshot $snapshotType 'GpuLimitDetail') -eq 'NO NVIDIA GPUS REPORTED') 'Empty successful NVIDIA output was not distinguished from valid telemetry.'
+
+    $partialSnapshot = Invoke-RecordedGpuSnapshot $true $true $false ($validOutput.Split("`n")[0] + "`n1, broken") $statePath
+    Assert-True ([string](Get-FieldValue $partialSnapshot $snapshotType 'GpuLimitDetail') -eq 'GPU TELEMETRY PARTIAL') 'Partially malformed telemetry did not fail closed.'
+    Assert-True ((Get-FieldValue $partialSnapshot $snapshotType 'Gpus').Count -eq 1) 'The valid row in partial telemetry was not retained for diagnosis.'
+
+    $invalidSnapshot = Invoke-RecordedGpuSnapshot $true $true $false 'not-an-index, GPU-X, broken, nope, nope, nope, nope, nope, nope, nope, nope, nope, nope, nope' $statePath
+    Assert-True ([string](Get-FieldValue $invalidSnapshot $snapshotType 'GpuLimitDetail') -eq 'GPU TELEMETRY INVALID') 'Fully malformed telemetry did not fail closed.'
+
+    $naOutput = '0, GPU-0, NVIDIA GeForce RTX 3090, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A'
+    $naSnapshot = Invoke-RecordedGpuSnapshot $true $true $false $naOutput (Join-Path $providerRoot 'missing-state.json')
+    $naGpus = Get-FieldValue $naSnapshot $snapshotType 'Gpus'
+    Assert-True ($naGpus.Count -eq 1) 'A valid GPU row with explicit N/A fields was discarded.'
+    Assert-True ([int](Get-FieldValue $naGpus[0] $gpuMetricType 'LoadPercent') -eq -1) 'Missing load was converted to a real percentage.'
+    Assert-True ([int](Get-FieldValue $naGpus[0] $gpuMetricType 'TemperatureC') -eq -1) 'Missing temperature was converted to a real reading.'
+    Assert-True ([double](Get-FieldValue $naGpus[0] $gpuMetricType 'SuggestedPowerLimitWatts') -lt 0) 'Missing vendor range produced a power recommendation.'
+}
+finally {
+    if (Test-Path -LiteralPath $statePath -PathType Leaf) { Remove-Item -LiteralPath $statePath -Force }
+    if (Test-Path -LiteralPath $providerRoot -PathType Container) { Remove-Item -LiteralPath $providerRoot -Force }
+}
+
 $nvidiaSmi = Join-Path $env:SystemRoot 'System32\nvidia-smi.exe'
 if (Test-Path -LiteralPath $nvidiaSmi -PathType Leaf) {
     $rows = @(& $nvidiaSmi --query-gpu=index,uuid,power.draw,power.limit,power.default_limit,power.min_limit,power.max_limit,temperature.gpu --format=csv,noheader,nounits)
@@ -119,5 +209,6 @@ if (Test-Path -LiteralPath $nvidiaSmi -PathType Leaf) {
     Status              = 'Passed'
     Compile             = $true
     SettingsRoundTrip   = $true
+    SimulatedNvidiaCases = 8
     NvidiaTelemetryRows = if (Test-Path -LiteralPath $nvidiaSmi) { $rows.Count } else { 0 }
 }

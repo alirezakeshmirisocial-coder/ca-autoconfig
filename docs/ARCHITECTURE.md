@@ -24,7 +24,7 @@ flowchart LR
 
 The desktop process is single-instance per user session through the `Local\CA-SystemOverlay` mutex. A second invocation with `--open-settings` signals `Local\CA-SystemOverlay-OpenSettings` and exits instead of creating another HUD.
 
-The metrics collector runs off the UI thread and suppresses overlapping collections. Its normal interval is two seconds. The app reads Windows CPU, memory, disk, and monitor data plus NVIDIA telemetry; it contains no network client and does not write GPU settings.
+The metrics collector runs off the UI thread and suppresses overlapping collections. Its normal interval is two seconds. NVIDIA access is behind an internal telemetry-source boundary: production uses a process-backed `nvidia-smi` source, while tests inject a deterministic recorded source with no process or hardware access. Missing, timed-out, failed, empty, partial, malformed, and explicit-`N/A` responses have separate fail-closed outcomes. The app reads Windows CPU, memory, disk, and monitor data plus NVIDIA telemetry; it contains no network client and does not write GPU settings.
 
 ## HUD interaction model
 
@@ -138,7 +138,7 @@ See [PRIVACY.md](../PRIVACY.md), [SECURITY.md](../SECURITY.md), and the [adaptiv
 | Surface | Verification |
 | --- | --- |
 | Unlock guard | `tests/Guard.Smoke.Tests.ps1` exercises success, timeout-with-lock-suppressed, and fail-open collision behavior. |
-| HUD core | `tests/SystemOverlay.Smoke.Tests.ps1` compiles the shared source, round-trips settings, and parses multi-GPU telemetry. |
+| HUD core | `tests/SystemOverlay.Smoke.Tests.ps1` compiles the shared source, round-trips settings, validates live multi-GPU telemetry, and exercises eight deterministic NVIDIA success/failure cases. |
 | Compiled app | `tests/DesktopApp.Smoke.Tests.ps1` builds and launches the .NET entry point in a no-hardware-write smoke mode. |
 | Privileged helper | `tests/GpuLimits.Safety.Tests.ps1` checks explicit targets, preflight-before-write, rollback, ACL intent, and safe combined-installer defaults without changing hardware. |
 | Power-curve lab | `benchmark/Run-Tests.ps1` validates calculations, missing values, privacy rejection, fixture dry-run reporting, and the absence of NVIDIA mutation flags. |

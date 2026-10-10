@@ -198,9 +198,99 @@ namespace CA.SystemOverlay
         }
     }
 
+    internal sealed class NvidiaTelemetryResult
+    {
+        public bool Success;
+        public bool TimedOut;
+        public string Output = String.Empty;
+    }
+
+    internal interface INvidiaTelemetrySource
+    {
+        bool IsAvailable { get; }
+        NvidiaTelemetryResult Query();
+    }
+
+    internal sealed class ProcessNvidiaTelemetrySource : INvidiaTelemetrySource
+    {
+        private readonly string _path;
+
+        public ProcessNvidiaTelemetrySource(string path)
+        {
+            _path = path;
+        }
+
+        public bool IsAvailable
+        {
+            get { return File.Exists(_path); }
+        }
+
+        public NvidiaTelemetryResult Query()
+        {
+            ProcessStartInfo startInfo = new ProcessStartInfo();
+            startInfo.FileName = _path;
+            startInfo.Arguments = "--query-gpu=index,uuid,name,utilization.gpu,utilization.memory,memory.used,memory.total,power.draw,power.limit,power.default_limit,power.min_limit,power.max_limit,temperature.gpu,clocks.gr --format=csv,noheader,nounits";
+            startInfo.UseShellExecute = false;
+            startInfo.CreateNoWindow = true;
+            startInfo.RedirectStandardOutput = true;
+            startInfo.RedirectStandardError = true;
+
+            using (Process process = Process.Start(startInfo))
+            {
+                if (!process.WaitForExit(2500))
+                {
+                    try { process.Kill(); }
+                    catch { }
+                    return new NvidiaTelemetryResult { Success = false, TimedOut = true };
+                }
+                string output = process.StandardOutput.ReadToEnd();
+                return new NvidiaTelemetryResult
+                {
+                    Success = process.ExitCode == 0,
+                    TimedOut = false,
+                    Output = output ?? String.Empty
+                };
+            }
+        }
+    }
+
+    // A deterministic source used by smoke tests. It has no process, file,
+    // registry, network, or hardware access and is internal to this assembly.
+    internal sealed class RecordedNvidiaTelemetrySource : INvidiaTelemetrySource
+    {
+        private readonly bool _available;
+        private readonly NvidiaTelemetryResult _result;
+
+        public RecordedNvidiaTelemetrySource(bool available, bool success, bool timedOut, string output)
+        {
+            _available = available;
+            _result = new NvidiaTelemetryResult
+            {
+                Success = success,
+                TimedOut = timedOut,
+                Output = output ?? String.Empty
+            };
+        }
+
+        public bool IsAvailable
+        {
+            get { return _available; }
+        }
+
+        public NvidiaTelemetryResult Query()
+        {
+            return new NvidiaTelemetryResult
+            {
+                Success = _result.Success,
+                TimedOut = _result.TimedOut,
+                Output = _result.Output
+            };
+        }
+    }
+
     internal sealed class MetricsProvider : IDisposable
     {
-        private readonly string _nvidiaSmi;
+        private readonly INvidiaTelemetrySource _nvidiaSource;
         private readonly string _gpuStatePath;
         private readonly DateTime _bootUtc;
         private System.Threading.Timer _timer;
@@ -237,10 +327,17 @@ namespace CA.SystemOverlay
         private static extern bool GlobalMemoryStatusEx([In, Out] MemoryStatusEx status);
 
         public MetricsProvider(string nvidiaSmi, string gpuStatePath)
+            : this(new ProcessNvidiaTelemetrySource(nvidiaSmi), gpuStatePath, ReadBootTimeUtc())
         {
-            _nvidiaSmi = nvidiaSmi;
+        }
+
+        internal MetricsProvider(INvidiaTelemetrySource nvidiaSource, string gpuStatePath, DateTime bootUtc)
+        {
+            if (nvidiaSource == null)
+                throw new ArgumentNullException("nvidiaSource");
+            _nvidiaSource = nvidiaSource;
             _gpuStatePath = gpuStatePath;
-            _bootUtc = ReadBootTimeUtc();
+            _bootUtc = bootUtc.ToUniversalTime();
             PrimeCpuCounter();
         }
 
@@ -253,6 +350,14 @@ namespace CA.SystemOverlay
         {
             int interval = Math.Max(1000, intervalMilliseconds);
             _timer = new System.Threading.Timer(Collect, null, 0, interval);
+        }
+
+        internal MetricSnapshot CollectGpuSnapshotOnce()
+        {
+            MetricSnapshot snapshot = new MetricSnapshot();
+            ReadGpuMetrics(snapshot);
+            snapshot.CapturedUtc = DateTime.UtcNow;
+            return snapshot;
         }
 
         private void Collect(object ignored)
@@ -349,47 +454,38 @@ namespace CA.SystemOverlay
 
         private void ReadGpuMetrics(MetricSnapshot snapshot)
         {
-            if (!File.Exists(_nvidiaSmi))
+            if (!_nvidiaSource.IsAvailable)
             {
                 snapshot.GpuLimitsHealthy = false;
                 snapshot.GpuLimitDetail = "NVIDIA-SMI MISSING";
                 return;
             }
 
-            ProcessStartInfo startInfo = new ProcessStartInfo();
-            startInfo.FileName = _nvidiaSmi;
-            startInfo.Arguments = "--query-gpu=index,uuid,name,utilization.gpu,utilization.memory,memory.used,memory.total,power.draw,power.limit,power.default_limit,power.min_limit,power.max_limit,temperature.gpu,clocks.gr --format=csv,noheader,nounits";
-            startInfo.UseShellExecute = false;
-            startInfo.CreateNoWindow = true;
-            startInfo.RedirectStandardOutput = true;
-            startInfo.RedirectStandardError = true;
-
-            string output;
-            using (Process process = Process.Start(startInfo))
+            NvidiaTelemetryResult query = _nvidiaSource.Query();
+            if (query.TimedOut)
             {
-                if (!process.WaitForExit(2500))
-                {
-                    try { process.Kill(); }
-                    catch { }
-                    snapshot.GpuLimitsHealthy = false;
-                    snapshot.GpuLimitDetail = "GPU QUERY TIMEOUT";
-                    return;
-                }
-                output = process.StandardOutput.ReadToEnd();
-                if (process.ExitCode != 0)
-                {
-                    snapshot.GpuLimitsHealthy = false;
-                    snapshot.GpuLimitDetail = "GPU DATA UNAVAILABLE";
-                    return;
-                }
+                snapshot.GpuLimitsHealthy = false;
+                snapshot.GpuLimitDetail = "GPU QUERY TIMEOUT";
+                return;
+            }
+            if (!query.Success)
+            {
+                snapshot.GpuLimitsHealthy = false;
+                snapshot.GpuLimitDetail = "GPU DATA UNAVAILABLE";
+                return;
             }
 
+            string output = query.Output ?? String.Empty;
             string[] lines = output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+            int invalidRows = 0;
             foreach (string line in lines)
             {
                 string[] parts = line.Split(',');
                 if (parts.Length < 14)
+                {
+                    invalidRows++;
                     continue;
+                }
                 int index;
                 double memoryUsed;
                 double memoryTotal;
@@ -399,21 +495,22 @@ namespace CA.SystemOverlay
                 double minimumPowerLimit;
                 double maximumPowerLimit;
                 if (!Int32.TryParse(parts[0].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out index))
+                {
+                    invalidRows++;
                     continue;
-                if (!Double.TryParse(parts[5].Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out memoryUsed))
-                    memoryUsed = 0;
-                if (!Double.TryParse(parts[6].Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out memoryTotal))
-                    memoryTotal = 0;
-                if (!Double.TryParse(parts[7].Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out powerDraw))
-                    powerDraw = 0;
-                if (!Double.TryParse(parts[8].Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out powerLimit))
-                    powerLimit = 0;
-                if (!Double.TryParse(parts[9].Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out defaultPowerLimit))
-                    defaultPowerLimit = 0;
-                if (!Double.TryParse(parts[10].Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out minimumPowerLimit))
-                    minimumPowerLimit = 0;
-                if (!Double.TryParse(parts[11].Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out maximumPowerLimit))
-                    maximumPowerLimit = 0;
+                }
+                if (String.IsNullOrWhiteSpace(parts[1]) || String.IsNullOrWhiteSpace(parts[2]) ||
+                    !TryParseOptionalDouble(parts[5], out memoryUsed) ||
+                    !TryParseOptionalDouble(parts[6], out memoryTotal) ||
+                    !TryParseOptionalDouble(parts[7], out powerDraw) ||
+                    !TryParseOptionalDouble(parts[8], out powerLimit) ||
+                    !TryParseOptionalDouble(parts[9], out defaultPowerLimit) ||
+                    !TryParseOptionalDouble(parts[10], out minimumPowerLimit) ||
+                    !TryParseOptionalDouble(parts[11], out maximumPowerLimit))
+                {
+                    invalidRows++;
+                    continue;
+                }
 
                 GpuMetric gpu = new GpuMetric();
                 gpu.Index = index;
@@ -435,6 +532,19 @@ namespace CA.SystemOverlay
                 snapshot.Gpus.Add(gpu);
             }
             snapshot.Gpus.Sort(delegate(GpuMetric a, GpuMetric b) { return a.Index.CompareTo(b.Index); });
+
+            if (lines.Length == 0)
+            {
+                snapshot.GpuLimitsHealthy = false;
+                snapshot.GpuLimitDetail = "NO NVIDIA GPUS REPORTED";
+                return;
+            }
+            if (invalidRows > 0)
+            {
+                snapshot.GpuLimitsHealthy = false;
+                snapshot.GpuLimitDetail = snapshot.Gpus.Count == 0 ? "GPU TELEMETRY INVALID" : "GPU TELEMETRY PARTIAL";
+                return;
+            }
 
             VerifyAppliedLimits(snapshot);
         }
@@ -619,12 +729,24 @@ namespace CA.SystemOverlay
             return name;
         }
 
+        private static bool TryParseOptionalDouble(string value, out double parsed)
+        {
+            string text = (value ?? String.Empty).Trim();
+            if (String.IsNullOrEmpty(text) || String.Equals(text, "N/A", StringComparison.OrdinalIgnoreCase) || String.Equals(text, "[N/A]", StringComparison.OrdinalIgnoreCase))
+            {
+                parsed = 0;
+                return true;
+            }
+            return Double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out parsed) &&
+                !Double.IsNaN(parsed) && !Double.IsInfinity(parsed);
+        }
+
         private static int ParsePercent(string value)
         {
             int parsed;
             return Int32.TryParse(value.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out parsed)
                 ? ClampPercent(parsed)
-                : 0;
+                : -1;
         }
 
         private static int ClampPercent(int value)
@@ -1502,7 +1624,7 @@ namespace CA.SystemOverlay
         {
             DrawGpuIcon(g, new Rectangle(16, y + 2, 16, 13), _muted);
             DrawText(g, String.Format(CultureInfo.InvariantCulture, "GPU {0}  ·  {1}", gpu.Index, gpu.Name), _bodyFont, _text, 41, y);
-            string values = String.Format(CultureInfo.InvariantCulture, "CUDA/SM {0}%  ·  VRAM {1}%  ·  {2:0}/{3:0} W  ·  {4}°", gpu.LoadPercent, gpu.VramPercent, gpu.PowerDrawWatts, gpu.PowerLimitWatts, gpu.TemperatureC);
+            string values = String.Format(CultureInfo.InvariantCulture, "CUDA/SM {0}  ·  VRAM {1}  ·  {2}  ·  {3}", FormatPercent(gpu.LoadPercent), FormatPercent(gpu.VramPercent), FormatWatts(gpu.PowerDrawWatts, gpu.PowerLimitWatts), FormatTemperature(gpu.TemperatureC));
             DrawText(g, values, _smallFont, _muted, 41, y + 17);
             DrawBar(g, new Rectangle(41, y + 34, 266, 4), gpu.LoadPercent, _accent);
         }
@@ -1622,13 +1744,25 @@ namespace CA.SystemOverlay
             foreach (DriveMetric drive in snapshot.Drives)
                 parts.Add("Drive " + drive.Name + " used " + FormatPercent(drive.UsedPercent) + ".");
             foreach (GpuMetric gpu in snapshot.Gpus)
-                parts.Add(String.Format(CultureInfo.InvariantCulture, "GPU {0} load {1} percent, VRAM {2} percent, power {3:0} of {4:0} watts, temperature {5} degrees.", gpu.Index, gpu.LoadPercent, gpu.VramPercent, gpu.PowerDrawWatts, gpu.PowerLimitWatts, gpu.TemperatureC));
+                parts.Add(String.Format(CultureInfo.InvariantCulture, "GPU {0} load {1}, VRAM {2}, power {3}, temperature {4}.", gpu.Index, FormatPercent(gpu.LoadPercent), FormatPercent(gpu.VramPercent), FormatWatts(gpu.PowerDrawWatts, gpu.PowerLimitWatts), FormatTemperature(gpu.TemperatureC)));
             return String.Join(" ", parts.ToArray());
         }
 
         private static string FormatPercent(int value)
         {
             return value < 0 ? "--%" : String.Format(CultureInfo.InvariantCulture, "{0}%", value);
+        }
+
+        private static string FormatWatts(double drawWatts, double limitWatts)
+        {
+            if (drawWatts <= 0 || limitWatts <= 0)
+                return "--/-- W";
+            return String.Format(CultureInfo.InvariantCulture, "{0:0}/{1:0} W", drawWatts, limitWatts);
+        }
+
+        private static string FormatTemperature(int temperatureC)
+        {
+            return temperatureC < 0 ? "--°" : String.Format(CultureInfo.InvariantCulture, "{0}°", temperatureC);
         }
 
         private static GraphicsPath RoundedRectangle(Rectangle bounds, int radius)

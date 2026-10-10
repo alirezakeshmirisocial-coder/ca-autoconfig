@@ -4,6 +4,8 @@ This project follows semantic versioning after `v1.0.0`. Pre-1.0 releases may ch
 
 ## Unreleased
 
+- Added an injectable NVIDIA telemetry boundary and eight deterministic fail-closed cases covering missing, timed-out, failed, empty, partial, malformed, and explicit-`N/A` data.
+- Rendered unavailable GPU percentages, watts, and temperature as unknown values instead of plausible zero readings.
 - Added a zero-baseline growth scorecard that separates product health, design-partner evidence, distribution, and genuine stars without application tracking.
 
 ## v0.2.1-alpha.1 — Read-only power-curve lab
