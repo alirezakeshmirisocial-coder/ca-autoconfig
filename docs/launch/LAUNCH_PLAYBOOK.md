@@ -33,6 +33,30 @@ The October 2026 check changes the launch strategy:
 
 The practical conclusion is simple: the first growth asset is a reproducible Windows RTX 3090 power curve, not another promotional screenshot.
 
+## Product signals to convert into evidence
+
+The October 2026 refresh reinforces the existing wedge rather than suggesting a generic dashboard:
+
+- Multi-GPU Windows builders are actively comparing two-card versus three-card scaling, PCIe lane width, split modes, and per-card power caps. The useful addition is a privacy-safe topology/per-card imbalance report tied to a real workload—not another aggregate utilization number. See a recent [three-RTX-3090 Windows investigation](https://www.reddit.com/r/LocalLLM/comments/1wg9cio/optimal_llamacpp_setup_for_3_rtx_3090_on_windows/).
+- Power, heat, and noise are recurring operator problems. A highly visible community experiment reports large power reductions with little throughput loss, while replies explicitly discuss quiet 3090 operation. CA AutoConfig should answer this with repeatable curves, board-specific limits, thermals, and retained failures; it must not turn one user's watts into a universal preset. See [Stop wasting electricity](https://www.reddit.com/r/LocalLLaMA/comments/1tayu5t/stop_wasting_electricity/) and a recent [quiet 24/7 workstation write-up](https://openclawdc.com/blog/quiet-cooling-local-ai-workstation/).
+- VRAM remains the purchase and workload-placement constraint most users recognize. The HUD should keep per-card capacity/pressure legible, and future workload reports should explain imbalance and out-of-memory risk without collecting model names or paths. See the current [VRAM-first local-AI guidance](https://www.windowscentral.com/artificial-intelligence/when-it-comes-to-running-ollama-on-your-pc-for-local-ai-one-thing-matters-more-than-most-heres-why).
+- Persistent clock locks can improve loaded efficiency yet increase idle draw. The existing paired idle regression gate therefore stays mandatory before any Quiet/Eco profile can graduate from an experiment.
+- Community reports warn that standard GPU temperature can miss memory-junction or board-hotspot problems. Until a documented read-only sensor is available for the exact board, the product should say `unknown` instead of inferring safety from core temperature alone.
+
+These signals translate into four immediate proof assets: one real repeated LLM curve, one real repeated ComfyUI curve, an external mixed-board/mixed-DPI matrix, and a clean-machine signed installer. Each asset should be independently useful even if the reader never installs the HUD.
+
+## Execution cadence toward 5,000 genuine stars
+
+The target is managed as a sequence of evidence and distribution gates, not as a guaranteed date:
+
+1. **0 → 50:** resolve the failed ten-minute Windows engine-counter gate, activate Windows CI, obtain one clean-machine result, and help 10 design partners complete one narrowly defined test. Publish corrections and failures; ask for reports, not stars.
+2. **50 → 250:** ship one real interleaved RTX 3090 LLM curve plus raw sanitized data, accept at least 25 hardware reports, and turn the recurring installation/telemetry failures into a compatibility table and two small releases.
+3. **250 → 1,000:** sign the installer, publish a real ComfyUI curve, add creator reproduction kits, and earn coverage through results that creators can rerun. The maintainer personally participates in Reddit discussions before any project post.
+4. **1,000 → 2,500:** publish an anonymized multi-board dataset, contributor-owned adapters, and a stable upgrade path. Measure accepted reproductions and retained users alongside stars.
+5. **2,500 → 5,000:** launch the proven cross-hardware technical preview through distinct community-specific stories, owner-written Show HN text, creator follow-ups, and rapid public issue response. No automated submissions, vote requests, or paid/inauthentic stars.
+
+At every stage, a stalled conversion triggers a product/evidence review—download-to-install, install-to-report, or report-to-contribution—rather than more frequent promotion.
+
 ## Distribution sequence
 
 1. Recruit design partners through GitHub Discussions and direct, individual outreach. Do not ask for stars; ask for one defined install or hardware-report test.
