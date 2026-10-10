@@ -86,6 +86,14 @@ Current source builds can run a bounded cadence benchmark without touching the H
   --windows-gpu-poll-ms 2000
 ```
 
-The schema-v1 report contains normalized process CPU, elapsed time, completed/successful/unavailable collection counts, suppressed overlaps, last/maximum collection latency, final freshness/topology state, and the same sanitized adapter fields. Duration is constrained to 10–3600 seconds and cadence to 1000–60000 milliseconds. The command never adds the provider to the HUD and always writes `canUseInHud=false`.
+The schema-v2 report contains normalized process CPU, elapsed time, completed/successful/unavailable collection counts, suppressed overlaps, last/maximum collection latency, final freshness/topology state, and the same sanitized adapter fields. Duration is constrained to 10–3600 seconds and cadence to 1000–60000 milliseconds. The command never adds the provider to the HUD and always writes `canUseInHud=false`.
+
+Schema v2 also retains a sorted count for every intermediate failure reason. This was added after the first sustained run proved that a final `READY_FOR_VALIDATION` snapshot alone can hide intermittent invalid samples.
+
+### Maintainer sustained-poll observation
+
+A 600-second, 2000-ms-cadence run on the dual-RTX-3090 Windows 10 host completed 299 collections: 283 mapped successfully, 16 were unavailable, and 2 timer ticks were suppressed while a prior query was still running. Maximum collection latency was 3210 ms and normalized process CPU was 0.264%. The final topology had recovered to `READY_FOR_VALIDATION`, but the intermittent failure rate means the gate did **not** pass.
+
+That first schema-v1 run retained the failure count but not each intermediate reason. After adding the schema-v2 histogram, a 60-second reproduction completed 31 collections with 29 successes and 2 `engine-counter-out-of-range` failures. A separate privacy-safe inspection of the formatted WMI class found 6 of 1374 engine instances above 100%, with a maximum above one million percent, while a direct Windows counter query returned no value above 100% in the compared sample. This is a maintainer observation, not a universal Windows claim. CA AutoConfig will not clamp, discard, or silently promote those invalid readings; the formatted WMI engine source remains research-only and blocked from the HUD.
 
 The mapping core first sums process-scoped samples for the same physical engine, then uses the busiest engine percentage for the adapter. It does not sum 3D, copy, video, and compute engines together because parallel or shared-core engines can exceed 100% and misrepresent utilization. This follows the aggregation rationale documented by Microsoft's [DirectX team](https://devblogs.microsoft.com/directx/gpus-in-the-task-manager/). The live provider must prove that the same normalized key is obtained from DXGI and Windows performance counters within one sample before this result can enter the HUD.

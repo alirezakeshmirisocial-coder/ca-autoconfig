@@ -16,6 +16,7 @@ namespace CA.SystemOverlay
         public int UnavailableCollectionCount;
         public long LastCollectionDurationMilliseconds;
         public long MaximumCollectionDurationMilliseconds;
+        public Dictionary<string, int> FailureReasonCounts = new Dictionary<string, int>(StringComparer.Ordinal);
         public bool CanUseInHud;
         public bool HardwareWrites;
         public bool NetworkAccess;
@@ -42,6 +43,7 @@ namespace CA.SystemOverlay
         private int _unavailableCollectionCount;
         private long _lastCollectionDurationMilliseconds;
         private long _maximumCollectionDurationMilliseconds;
+        private readonly Dictionary<string, int> _failureReasonCounts = new Dictionary<string, int>(StringComparer.Ordinal);
         private string _topologyFingerprint = String.Empty;
         private int _stableSamples;
         private WindowsGpuPollingSnapshot _latest = new WindowsGpuPollingSnapshot();
@@ -113,6 +115,12 @@ namespace CA.SystemOverlay
                         _successfulMappingCollectionCount++;
                     else
                         _unavailableCollectionCount++;
+                    if (String.Equals(_latest.Status, "UNAVAILABLE", StringComparison.Ordinal) ||
+                        String.Equals(_latest.Status, "TOPOLOGY_CHANGED", StringComparison.Ordinal))
+                    {
+                        foreach (string reason in _latest.ReasonCodes)
+                            RecordFailureReason(reason);
+                    }
                     _lastCollectionDurationMilliseconds = duration.ElapsedMilliseconds;
                     _maximumCollectionDurationMilliseconds = Math.Max(_maximumCollectionDurationMilliseconds, duration.ElapsedMilliseconds);
                     ApplyCollectionMetrics(_latest);
@@ -225,6 +233,7 @@ namespace CA.SystemOverlay
                 UnavailableCollectionCount = source.UnavailableCollectionCount,
                 LastCollectionDurationMilliseconds = source.LastCollectionDurationMilliseconds,
                 MaximumCollectionDurationMilliseconds = source.MaximumCollectionDurationMilliseconds,
+                FailureReasonCounts = new Dictionary<string, int>(source.FailureReasonCounts, StringComparer.Ordinal),
                 CanUseInHud = false,
                 HardwareWrites = false,
                 NetworkAccess = false,
@@ -271,6 +280,16 @@ namespace CA.SystemOverlay
             snapshot.LastCollectionDurationMilliseconds = _lastCollectionDurationMilliseconds;
             snapshot.MaximumCollectionDurationMilliseconds = _maximumCollectionDurationMilliseconds;
             snapshot.SuppressedOverlapCount = Volatile.Read(ref _suppressedOverlapCount);
+            snapshot.FailureReasonCounts = new Dictionary<string, int>(_failureReasonCounts, StringComparer.Ordinal);
+        }
+
+        private void RecordFailureReason(string reason)
+        {
+            if (String.IsNullOrWhiteSpace(reason))
+                reason = "unknown-failure";
+            int count;
+            _failureReasonCounts.TryGetValue(reason, out count);
+            _failureReasonCounts[reason] = count + 1;
         }
 
         public void Dispose()

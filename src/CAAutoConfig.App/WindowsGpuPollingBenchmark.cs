@@ -11,6 +11,13 @@ using System.Threading;
 namespace CA.SystemOverlay
 {
     [DataContract]
+    internal sealed class WindowsGpuPollingReasonCount
+    {
+        [DataMember(Name = "code", Order = 1)] public string Code;
+        [DataMember(Name = "count", Order = 2)] public int Count;
+    }
+
+    [DataContract]
     internal sealed class WindowsGpuPollingReportDocument
     {
         [DataMember(Name = "schemaVersion", Order = 1)] public int SchemaVersion;
@@ -31,11 +38,12 @@ namespace CA.SystemOverlay
         [DataMember(Name = "lastCollectionDurationMilliseconds", Order = 16)] public long LastCollectionDurationMilliseconds;
         [DataMember(Name = "maximumCollectionDurationMilliseconds", Order = 17)] public long MaximumCollectionDurationMilliseconds;
         [DataMember(Name = "reasonCodes", Order = 18)] public string[] ReasonCodes;
-        [DataMember(Name = "adapters", Order = 19)] public WindowsGpuPublicAdapter[] Adapters;
-        [DataMember(Name = "hardwareWrites", Order = 20)] public bool HardwareWrites;
-        [DataMember(Name = "networkAccess", Order = 21)] public bool NetworkAccess;
-        [DataMember(Name = "elevationRequested", Order = 22)] public bool ElevationRequested;
-        [DataMember(Name = "rawAdapterIdentifiersIncluded", Order = 23)] public bool RawAdapterIdentifiersIncluded;
+        [DataMember(Name = "failureReasonCounts", Order = 19)] public WindowsGpuPollingReasonCount[] FailureReasonCounts;
+        [DataMember(Name = "adapters", Order = 20)] public WindowsGpuPublicAdapter[] Adapters;
+        [DataMember(Name = "hardwareWrites", Order = 21)] public bool HardwareWrites;
+        [DataMember(Name = "networkAccess", Order = 22)] public bool NetworkAccess;
+        [DataMember(Name = "elevationRequested", Order = 23)] public bool ElevationRequested;
+        [DataMember(Name = "rawAdapterIdentifiersIncluded", Order = 24)] public bool RawAdapterIdentifiersIncluded;
     }
 
     internal static class WindowsGpuPollingBenchmark
@@ -106,6 +114,7 @@ namespace CA.SystemOverlay
             if (snapshot == null)
                 throw new ArgumentNullException("snapshot");
             List<WindowsGpuPublicAdapter> adapters = new List<WindowsGpuPublicAdapter>();
+            List<WindowsGpuPollingReasonCount> failureReasons = new List<WindowsGpuPollingReasonCount>();
             foreach (WindowsGpuMappedMetric adapter in snapshot.Adapters)
             {
                 int vramPercent = -1;
@@ -125,10 +134,20 @@ namespace CA.SystemOverlay
                     VramPercent = vramPercent
                 });
             }
+            List<string> failureCodes = new List<string>(snapshot.FailureReasonCounts.Keys);
+            failureCodes.Sort(StringComparer.Ordinal);
+            foreach (string code in failureCodes)
+            {
+                failureReasons.Add(new WindowsGpuPollingReasonCount
+                {
+                    Code = code,
+                    Count = snapshot.FailureReasonCounts[code]
+                });
+            }
 
             return new WindowsGpuPollingReportDocument
             {
-                SchemaVersion = 1,
+                SchemaVersion = 2,
                 CapturedUtc = capturedUtc.ToUniversalTime().ToString("o", CultureInfo.InvariantCulture),
                 Source = "live-windows-polling-read-only",
                 DurationSeconds = durationSeconds,
@@ -146,6 +165,7 @@ namespace CA.SystemOverlay
                 LastCollectionDurationMilliseconds = snapshot.LastCollectionDurationMilliseconds,
                 MaximumCollectionDurationMilliseconds = snapshot.MaximumCollectionDurationMilliseconds,
                 ReasonCodes = snapshot.ReasonCodes.ToArray(),
+                FailureReasonCounts = failureReasons.ToArray(),
                 Adapters = adapters.ToArray(),
                 HardwareWrites = false,
                 NetworkAccess = false,

@@ -22,6 +22,6 @@ The Settings window can copy a diagnostic block only after an explicit click. It
 
 The optional Windows GPU research command writes a local JSON file only to the path explicitly supplied by the user. It includes capture time, provider/status fields, sanitized adapter names, display indexes, engine load, dedicated-memory use/capacity/percentage, and fail-closed reason codes. It excludes LUIDs, PIDs, PNP identifiers, user/machine names, and paths; it performs no upload.
 
-The optional bounded polling benchmark adds only duration/cadence, normalized process CPU, collection counts/latency, overlap count, and final freshness/topology status to that local report. It uses the same identifier exclusions, performs no upload, and never authorizes HUD integration.
+The optional bounded polling benchmark adds only duration/cadence, normalized process CPU, collection counts/latency, overlap count, a sorted failure-reason histogram, and final freshness/topology status to that local report. It uses the same identifier exclusions, performs no upload, and never authorizes HUD integration.
 
 Before sharing any copied diagnostic, log, screenshot, or benchmark, inspect it and remove usernames, computer names, GPU UUIDs, monitor contents, personal paths, webhook addresses, tokens, and biometric material. Hardware models, driver versions, supported power ranges, anonymized temperatures, watts, and workload throughput are generally useful without those identifiers.

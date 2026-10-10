@@ -184,6 +184,7 @@ internal static class WindowsGpuPollingTests
             WindowsGpuPollingSnapshot snapshot = provider.GetSnapshot();
             Assert(snapshot.CompletedCollectionCount == 3, "Completed collection count is wrong.");
             Assert(snapshot.SuccessfulMappingCollectionCount == 2 && snapshot.UnavailableCollectionCount == 1, "Success/failure counts are wrong.");
+            Assert(snapshot.FailureReasonCounts.ContainsKey("fixture-unavailable") && snapshot.FailureReasonCounts["fixture-unavailable"] == 1, "Failure reason histogram is wrong.");
             Assert(snapshot.LastCollectionDurationMilliseconds >= 0 && snapshot.MaximumCollectionDurationMilliseconds >= snapshot.LastCollectionDurationMilliseconds, "Collection duration metrics are invalid.");
         }
     }
@@ -198,6 +199,7 @@ internal static class WindowsGpuPollingTests
             WindowsGpuPollingSnapshot snapshot = provider.GetSnapshot();
             WindowsGpuPollingReportDocument report = WindowsGpuPollingBenchmark.Create(snapshot, now, 600, 2000, 600000, 0.25);
             string json = WindowsGpuPollingBenchmark.Serialize(report);
+            Assert(report.SchemaVersion == 2, "Polling report schema was not advanced for retained failure reasons.");
             Assert(json.Contains("live-windows-polling-read-only", StringComparison.Ordinal), "Polling report omitted its source boundary.");
             Assert(json.Contains("\"normalizedProcessCpuPercent\":0.25", StringComparison.Ordinal), "Polling report omitted normalized process CPU.");
             Assert(!json.Contains("private-fingerprint", StringComparison.Ordinal) && !json.Contains("luid_", StringComparison.OrdinalIgnoreCase) && !json.Contains("pid_", StringComparison.OrdinalIgnoreCase), "Polling report exposed internal identity.");
