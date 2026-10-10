@@ -4,6 +4,9 @@ This project follows semantic versioning after `v1.0.0`. Pre-1.0 releases may ch
 
 ## Unreleased
 
+- Added an evidence-tiered public hardware/workflow matrix that distinguishes live maintainer checks, deterministic fixtures, unsupported surfaces, and zero external reproductions.
+- Fixed issue-form labels to match repository labels, added privacy-aware contact routing, and required hardware submissions to retain failed/incomplete runs.
+
 ## v0.2.3-alpha.1 — ComfyUI image-efficiency adapter
 
 - Added schema-v2 generalized work throughput and unit-aware efficiency reporting, while retaining schema-v1 token-run compatibility.

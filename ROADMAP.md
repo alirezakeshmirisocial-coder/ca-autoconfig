@@ -53,7 +53,7 @@ The product direction is a tiny, trustworthy Windows HUD and safe power optimize
 
 ## Milestone 4 — Community launch
 
-- [ ] Complete repository community-health files, issue forms, Discussions, and a public hardware matrix.
+- [x] Complete repository community-health files, issue forms, Discussions, and a public evidence-tiered hardware matrix.
 - [ ] Recruit 20–30 design partners across local-LLM and diffusion workflows.
 - [ ] Publish reproducible power-versus-throughput studies rather than promotional claims.
 - [ ] Prepare tailored, rules-compliant launches for relevant Reddit communities, Show HN, and local-AI creators.

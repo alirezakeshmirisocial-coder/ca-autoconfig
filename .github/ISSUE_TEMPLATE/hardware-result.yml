@@ -1,7 +1,7 @@
 name: Hardware result
 description: Share a reproducible local-AI power and thermal result.
 title: "[Hardware]: "
-labels: [hardware-data]
+labels: ["hardware validation"]
 body:
   - type: input
     id: gpu
@@ -25,7 +25,8 @@ body:
   - type: textarea
     id: workload
     attributes:
-      label: Workload and exact command or workflow
+      label: Workload and reproducible protocol
+      description: Link or describe the exact public/sanitized protocol. Do not paste private paths, prompts, tokens, or raw commands containing personal data.
     validations:
       required: true
   - type: textarea
@@ -39,7 +40,9 @@ body:
     attributes:
       label: Safety checks
       options:
-        - label: No driver reset or workload error occurred.
+        - label: I explicitly reported whether a driver reset, workload error, timeout, or thermal throttle occurred.
           required: true
         - label: I removed GPU UUIDs, usernames, machine names, and personal paths.
+          required: true
+        - label: I kept failed, incomplete, reset, and throttled runs instead of reporting only the best result.
           required: true

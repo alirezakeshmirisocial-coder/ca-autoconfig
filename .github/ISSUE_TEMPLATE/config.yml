@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions and design-partner testing
+    url: https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/discussions
+    about: Ask a question or volunteer for one defined installation, monitor, telemetry, or workload test.
+  - name: Private security report
+    url: https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/security/advisories/new
+    about: Report vulnerabilities or sensitive logs privately instead of opening a public issue.

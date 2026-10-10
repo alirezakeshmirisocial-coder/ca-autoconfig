@@ -1,7 +1,7 @@
 name: Feature proposal
 description: Propose a focused improvement for AI-workstation monitoring or safe power control.
 title: "[Feature]: "
-labels: [enhancement, needs-discussion]
+labels: [enhancement]
 body:
   - type: textarea
     id: problem
