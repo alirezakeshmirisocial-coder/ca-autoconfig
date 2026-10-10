@@ -19,6 +19,8 @@ namespace CA.SystemOverlay
         public int DisplayIndex { get; set; }
         public string Name { get; set; }
         public string DriverVersion { get; set; }
+        public long DedicatedMemoryCapacityBytes { get; set; }
+        public bool IsSoftware { get; set; }
     }
 
     internal sealed class WindowsGpuCounterObservation
@@ -35,6 +37,7 @@ namespace CA.SystemOverlay
         public string DriverVersion;
         public int EngineLoadPercent = -1;
         public long DedicatedMemoryBytes = -1;
+        public long DedicatedMemoryCapacityBytes = -1;
     }
 
     internal sealed class WindowsGpuCounterMapResult
@@ -49,16 +52,21 @@ namespace CA.SystemOverlay
 
     internal static class WindowsGpuCounterMapper
     {
+        private static readonly Regex AdapterIdentityPattern = new Regex(
+            @"^luid_(?<first>0x[0-9a-f]{1,16})_(?<second>0x[0-9a-f]{1,16})_phys_(?<physical>[0-9]+)$",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
         private static readonly Regex CounterIdentityPattern = new Regex(
-            @"^luid_(?<first>0x[0-9a-f]{1,16})_(?<second>0x[0-9a-f]{1,16})_phys_(?<physical>[0-9]+)(?:_|$)",
+            @"(?:^|_)luid_(?<first>0x[0-9a-f]{1,16})_(?<second>0x[0-9a-f]{1,16})_phys_(?<physical>[0-9]+)(?<suffix>(?:_.*)?)$",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        private static readonly Regex EngineIdentityPattern = new Regex(
+            @"^_eng_(?<engine>[0-9]+)_engtype_(?<type>[a-z0-9_]+?)(?:#[0-9]+)?$",
             RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
         private sealed class Builder
         {
             public WindowsGpuMappedMetric Metric;
-            public int EngineSamples;
             public int DedicatedMemorySamples;
-            public double MaximumEngineLoad = -1;
+            public Dictionary<string, double> EngineTotals = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
         }
 
         internal static WindowsGpuCounterMapResult Map(
@@ -68,6 +76,8 @@ namespace CA.SystemOverlay
             WindowsGpuCounterMapResult result = new WindowsGpuCounterMapResult();
             List<string> reasons = result.ReasonCodes;
             Dictionary<string, Builder> byKey = new Dictionary<string, Builder>(StringComparer.OrdinalIgnoreCase);
+            HashSet<string> ignoredSoftwareKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            HashSet<string> allAdapterKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             HashSet<int> displayIndexes = new HashSet<int>();
 
             if (adapterInventory == null)
@@ -79,7 +89,7 @@ namespace CA.SystemOverlay
                 foreach (WindowsGpuAdapterInventory adapter in adapterInventory)
                 {
                     string key;
-                    if (adapter == null || !TryNormalizeIdentity(adapter.CorrelationKey, out key))
+                    if (adapter == null || !TryNormalizeAdapterIdentity(adapter.CorrelationKey, out key))
                     {
                         AddReason(reasons, "adapter-identity-invalid");
                         continue;
@@ -89,14 +99,24 @@ namespace CA.SystemOverlay
                         AddReason(reasons, "adapter-display-index-invalid");
                         continue;
                     }
+                    if (!allAdapterKeys.Add(key))
+                    {
+                        AddReason(reasons, "adapter-identity-duplicate");
+                        continue;
+                    }
                     if (String.IsNullOrWhiteSpace(adapter.Name))
                     {
                         AddReason(reasons, "adapter-name-missing");
                         continue;
                     }
-                    if (byKey.ContainsKey(key))
+                    if (adapter.DedicatedMemoryCapacityBytes < 0)
                     {
-                        AddReason(reasons, "adapter-identity-duplicate");
+                        AddReason(reasons, "adapter-memory-capacity-invalid");
+                        continue;
+                    }
+                    if (adapter.IsSoftware)
+                    {
+                        ignoredSoftwareKeys.Add(key);
                         continue;
                     }
 
@@ -105,7 +125,8 @@ namespace CA.SystemOverlay
                     {
                         DisplayIndex = adapter.DisplayIndex,
                         Name = adapter.Name.Trim(),
-                        DriverVersion = (adapter.DriverVersion ?? String.Empty).Trim()
+                        DriverVersion = (adapter.DriverVersion ?? String.Empty).Trim(),
+                        DedicatedMemoryCapacityBytes = adapter.DedicatedMemoryCapacityBytes
                     };
                     byKey.Add(key, builder);
                 }
@@ -123,13 +144,16 @@ namespace CA.SystemOverlay
                 foreach (WindowsGpuCounterObservation observation in counterObservations)
                 {
                     string key;
-                    if (observation == null || !TryNormalizeIdentity(observation.InstanceName, out key))
+                    string suffix;
+                    if (observation == null || !TryParseCounterIdentity(observation.InstanceName, out key, out suffix))
                     {
                         AddReason(reasons, "counter-identity-invalid");
                         continue;
                     }
 
                     Builder builder;
+                    if (ignoredSoftwareKeys.Contains(key))
+                        continue;
                     if (!byKey.TryGetValue(key, out builder))
                     {
                         AddReason(reasons, "counter-adapter-not-in-inventory");
@@ -143,16 +167,29 @@ namespace CA.SystemOverlay
 
                     if (observation.Kind == WindowsGpuCounterKind.EngineUtilizationPercent)
                     {
+                        Match engineMatch = EngineIdentityPattern.Match(suffix);
+                        if (!engineMatch.Success)
+                        {
+                            AddReason(reasons, "engine-counter-instance-invalid");
+                            continue;
+                        }
                         if (observation.Value < 0 || observation.Value > 100)
                         {
                             AddReason(reasons, "engine-counter-out-of-range");
                             continue;
                         }
-                        builder.EngineSamples++;
-                        builder.MaximumEngineLoad = Math.Max(builder.MaximumEngineLoad, observation.Value);
+                        string engineKey = engineMatch.Groups["engine"].Value + ":" + engineMatch.Groups["type"].Value.ToLowerInvariant();
+                        double currentTotal;
+                        builder.EngineTotals.TryGetValue(engineKey, out currentTotal);
+                        builder.EngineTotals[engineKey] = currentTotal + observation.Value;
                     }
                     else if (observation.Kind == WindowsGpuCounterKind.DedicatedMemoryBytes)
                     {
+                        if (suffix.Length != 0)
+                        {
+                            AddReason(reasons, "memory-counter-instance-invalid");
+                            continue;
+                        }
                         if (observation.Value < 0 || observation.Value > Int64.MaxValue)
                         {
                             AddReason(reasons, "memory-counter-out-of-range");
@@ -176,10 +213,18 @@ namespace CA.SystemOverlay
             foreach (KeyValuePair<string, Builder> pair in byKey)
             {
                 Builder builder = pair.Value;
-                if (builder.EngineSamples == 0)
+                if (builder.EngineTotals.Count == 0)
                     AddReason(reasons, "engine-counter-missing");
                 else
-                    builder.Metric.EngineLoadPercent = ClampPercent((int)Math.Round(builder.MaximumEngineLoad, MidpointRounding.AwayFromZero));
+                {
+                    double busiestEngine = 0;
+                    foreach (double total in builder.EngineTotals.Values)
+                        busiestEngine = Math.Max(busiestEngine, total);
+                    if (busiestEngine > 100.5)
+                        AddReason(reasons, "engine-aggregate-out-of-range");
+                    else
+                        builder.Metric.EngineLoadPercent = ClampPercent((int)Math.Round(busiestEngine, MidpointRounding.AwayFromZero));
+                }
                 if (builder.DedicatedMemorySamples == 0)
                     AddReason(reasons, "dedicated-memory-counter-missing");
                 result.Adapters.Add(builder.Metric);
@@ -196,12 +241,30 @@ namespace CA.SystemOverlay
             return result;
         }
 
-        private static bool TryNormalizeIdentity(string value, out string key)
+        private static bool TryNormalizeAdapterIdentity(string value, out string key)
         {
             key = String.Empty;
-            Match match = CounterIdentityPattern.Match((value ?? String.Empty).Trim());
+            Match match = AdapterIdentityPattern.Match((value ?? String.Empty).Trim());
             if (!match.Success)
                 return false;
+
+            return TryBuildNormalizedKey(match, out key);
+        }
+
+        private static bool TryParseCounterIdentity(string value, out string key, out string suffix)
+        {
+            key = String.Empty;
+            suffix = String.Empty;
+            Match match = CounterIdentityPattern.Match((value ?? String.Empty).Trim());
+            if (!match.Success || !TryBuildNormalizedKey(match, out key))
+                return false;
+            suffix = match.Groups["suffix"].Value;
+            return true;
+        }
+
+        private static bool TryBuildNormalizedKey(Match match, out string key)
+        {
+            key = String.Empty;
 
             ulong first;
             ulong second;

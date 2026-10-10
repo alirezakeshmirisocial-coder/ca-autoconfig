@@ -21,6 +21,7 @@ CA AutoConfig is an open-source, lightweight Windows HUD and conservative GPU po
 - A visual display map reads the current Windows monitor topology. Double-click the tray icon, right-click the unlocked HUD, or use `HUD settings` in the control panel to choose a display.
 - The global lock shortcut, opacity, display, and position are user-configurable and stored locally in `%LOCALAPPDATA%\CAAutoConfig\settings.json`.
 - Live NVIDIA telemetry includes GPU identity, CUDA/SM load, VRAM, power draw/cap, temperature, and graphics clock.
+- An unreleased, explicit one-shot Windows/WDDM research probe can now join DXGI adapters to engine and dedicated-memory counters and write a sanitized local JSON report. It is still disconnected from the HUD and cannot authorize telemetry or GPU changes until polling/reset and cross-hardware evidence exist.
 - The read-only power advisor proposes a conservative benchmark starting point inside NVIDIA's reported minimum/default range. It never raises an existing lower cap and does not apply changes automatically.
 - An isolated adaptive-cooling policy now simulates fan and power advice from ambient temperature, inlet temperature, card heat, neighboring-system heat, fan telemetry, and a matched clean baseline. It is deliberately advice-only until physical tach validation and a crash-safe vendor-auto restore path exist.
 - The configured startup profile is pinned to stable NVIDIA GPU UUIDs and verified against current-boot state plus live data. A reordered, missing, replaced, failed, or mismatched target remains clearly red.

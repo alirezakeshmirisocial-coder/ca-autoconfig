@@ -16,6 +16,7 @@ namespace CA.SystemOverlay
             string settings = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "CAAutoConfig", "settings.json");
             string targetDisplay = String.Empty;
             string smokeResult = String.Empty;
+            string windowsGpuProbeResult = String.Empty;
             int pollMilliseconds = 2000;
             double opacity = 0.82;
             bool openSettings = false;
@@ -57,6 +58,10 @@ namespace CA.SystemOverlay
                     {
                         smokeResult = ReadValue(args, ref index, argument);
                     }
+                    else if (String.Equals(argument, "--windows-gpu-probe-result", StringComparison.OrdinalIgnoreCase))
+                    {
+                        windowsGpuProbeResult = ReadValue(args, ref index, argument);
+                    }
                     else
                     {
                         throw new ArgumentException("Unknown argument: " + argument);
@@ -70,6 +75,8 @@ namespace CA.SystemOverlay
 
                 if (!String.IsNullOrWhiteSpace(smokeResult))
                     return DesktopSmokeTest.Run(smokeResult);
+                if (!String.IsNullOrWhiteSpace(windowsGpuProbeResult))
+                    return WindowsGpuLiveReport.Write(windowsGpuProbeResult);
                 if (openSettings && Program.RequestSettings())
                     return 0;
 

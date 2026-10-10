@@ -20,4 +20,6 @@ The HUD and GPU helper make no network requests. The Ollama benchmark adapter ca
 
 The Settings window can copy a diagnostic block only after an explicit click. It writes to the local Windows clipboard and does not transmit or save the text. The block includes app/Windows version, architecture, shortcut, display topology and scale, profile status, and current hardware telemetry. It does not source usernames, computer names, GPU UUIDs, local paths, prompts, outputs, workflows, or image content, and it defensively redacts UUID/path patterns from assembled lines.
 
+The optional Windows GPU research command writes a local JSON file only to the path explicitly supplied by the user. It includes capture time, provider/status fields, sanitized adapter names, display indexes, engine load, dedicated-memory use/capacity/percentage, and fail-closed reason codes. It excludes LUIDs, PIDs, PNP identifiers, user/machine names, and paths; it performs no upload.
+
 Before sharing any copied diagnostic, log, screenshot, or benchmark, inspect it and remove usernames, computer names, GPU UUIDs, monitor contents, personal paths, webhook addresses, tokens, and biometric material. Hardware models, driver versions, supported power ranges, anonymized temperatures, watts, and workload throughput are generally useful without those identifiers.

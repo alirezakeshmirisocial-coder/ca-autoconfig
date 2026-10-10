@@ -10,12 +10,13 @@ Microsoft documents GPU utilization and memory counters in the Windows performan
 
 Those APIs do not make every value interchangeable:
 
+- [`IDXGIFactory1::EnumAdapters1`](https://learn.microsoft.com/en-us/windows/win32/api/dxgi/nf-dxgi-idxgifactory1-enumadapters1) enumerates adapters, while [`IDXGIAdapter1::GetDesc1`](https://learn.microsoft.com/en-us/windows/win32/api/dxgi/nf-dxgi-idxgiadapter1-getdesc1) returns the matching description, memory capacities, adapter LUID, and flags. The provider uses that LUID only as an in-memory join key and uses the documented software flag rather than guessing from a zero-valued counter.
 - GPU-engine instances can represent different processes, engines, linked adapters, and physical adapter indices. Summing every engine percentage can exceed 100% and can silently mix cards.
 - [`IDXGIAdapter3::QueryVideoMemoryInfo`](https://learn.microsoft.com/en-us/windows/win32/api/dxgi1_4/nf-dxgi1_4-idxgiadapter3-queryvideomemoryinfo) reports a memory budget and current usage visible to an application. It is not sufficient evidence by itself that the value equals Task Manager's whole-adapter dedicated-memory use.
 - Microsoft documents incorrect or zero `GPU Process Memory` dedicated-memory values on affected Windows systems and recommends Task Manager Performance, WPR, or WPA for that case. See [GPU Process Memory counters report incorrect values](https://learn.microsoft.com/en-us/troubleshoot/windows-client/performance/gpu-process-memory-counters-report-wrong-value).
 - WDDM 2.x provides the underlying virtual-memory and scheduling model, but a driver-level structure is not automatically a stable application-level contract. See [GPU virtual memory in WDDM 2.0](https://learn.microsoft.com/en-us/windows-hardware/drivers/display/gpu-virtual-memory-in-wddm-2-0).
 
-On the maintainer's Windows 10 standard-user session, a 2026-10-10 query for `GPU*` counter sets produced no usable set, and `typeperf -qx GPU` returned the documented Performance Log Users/elevation error. This was a read-only capability check. It means a PDH-only implementation would fail on at least one otherwise supported CA AutoConfig installation unless it preserves an explicit unavailable state.
+On the maintainer's Windows 10 standard-user session, an initial 2026-10-10 shell inspection produced no usable set and `typeperf -qx GPU` returned a Performance Log Users/elevation error. A later run through the implemented capability and WMI paths exposed five `GPU*` sets and usable formatted classes without elevation. The differing results are retained because availability can vary by API, session, and counter state; every collection must preserve an explicit unavailable state rather than assume prior success.
 
 ## Provider contract
 
@@ -44,8 +45,8 @@ The HUD must continue showing unknown/red when the provider cannot meet the cont
 ## Implementation sequence
 
 1. **Capability probe — implemented:** `Get-WindowsGpuCapability.ps1` enumerates available counter sets and video-controller names as a normal user. It returns only capability/status metadata and sanitized names, rejects raw identifier fields from fixtures, and can never authorize HUD use.
-2. **Recorded mapping core — implemented:** the pure `WindowsGpuCounterMapper` joins DXGI inventory and counter rows by an internal normalized LUID/physical-adapter key. Nine deterministic cases cover duplicate model names, counter and adapter enumeration reorder, unknown/malformed identities, missing memory, duplicate identities, privacy-safe output, and busiest-engine aggregation. It performs no hardware access and keeps `CanUseInHud=false`.
-3. **Read-only live provider:** sample without shell commands, network access, elevation, persistence, or hardware writes. Keep the existing two-second collector overlap guard.
+2. **Recorded mapping core — implemented:** the pure `WindowsGpuCounterMapper` joins DXGI inventory and counter rows by an internal normalized LUID/physical-adapter key. Fourteen deterministic cases cover duplicate model names, counter and adapter enumeration reorder, unknown/malformed identities, missing memory, duplicate identities, DXGI-flagged software adapters, provider failures, privacy-safe reporting, and process-aware busiest-engine aggregation. Fixture tests perform no hardware access and always keep `CanUseInHud=false`.
+3. **Read-only live research provider — implemented, not connected to the HUD:** DXGI supplies the adapter description, LUID, software flag, and dedicated-memory capacity; Windows formatted GPU classes supply per-process engine samples and whole-adapter dedicated usage. The join key remains internal. The provider uses no shell command, network access, elevation, or hardware write and emits a sanitized schema-v1 JSON report. Production polling and stale/reset behavior remain unimplemented.
 4. **Cross-hardware validation:** require Windows 10 and 11 results covering AMD, Intel, NVIDIA, integrated/discrete, and at least one inaccessible-counter environment.
 5. **HUD integration:** display the provider label and only supported fields. NVIDIA profile health remains an NVIDIA-specific state until equivalent identity and limit evidence exists.
 
@@ -68,4 +69,12 @@ Run the first-stage probe without changing the HUD or hardware:
 
 `CanProceedToMappingValidation` means only that the machine exposes the inputs needed for the next research stage. `CanUseInHud` remains `false` until the mapping and cross-hardware evidence above exists.
 
-The mapping core deliberately uses the maximum active engine percentage instead of summing engine counters. Summing 3D, copy, video, and compute engines can exceed 100% and misrepresent utilization. The live provider must prove that the same normalized key is obtained from DXGI and Windows performance counters within one sample before this result can enter the HUD.
+From a current self-contained source build, write one sanitized live research report with:
+
+```powershell
+.\dist\desktop-win-x64-self-contained\CAAutoConfig.exe --windows-gpu-probe-result .\windows-gpu-probe.json
+```
+
+On the maintainer's dual-RTX-3090 system this returned two distinct hardware rows, matched engine and dedicated-memory counters, and excluded the DXGI-flagged software adapter. The report declared `MAPPING_AVAILABLE`, `CanUseInHud=false`, no raw adapter identifiers, and no hardware/network/elevation action. This is one-machine evidence, not AMD/Intel or cross-Windows validation.
+
+The mapping core first sums process-scoped samples for the same physical engine, then uses the busiest engine percentage for the adapter. It does not sum 3D, copy, video, and compute engines together because parallel or shared-core engines can exceed 100% and misrepresent utilization. This follows the aggregation rationale documented by Microsoft's [DirectX team](https://devblogs.microsoft.com/directx/gpus-in-the-task-manager/). The live provider must prove that the same normalized key is obtained from DXGI and Windows performance counters within one sample before this result can enter the HUD.

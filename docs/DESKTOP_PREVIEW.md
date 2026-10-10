@@ -43,6 +43,14 @@ For Windows GPU research beyond the current NVIDIA provider, the ZIP also includ
 
 It reports sanitized video-controller names and whether Windows exposes GPU engine and memory counter families. It performs no hardware write, never emits raw adapter identifiers, and always keeps `CanUseInHud=false` until per-adapter mapping and cross-hardware validation are complete.
 
+Current source builds also expose the next research stage through the compiled executable:
+
+```powershell
+.\CAAutoConfig.exe --windows-gpu-probe-result .\windows-gpu-probe.json
+```
+
+This explicit one-shot probe joins DXGI adapters to Windows engine and dedicated-memory counters, filters only adapters carrying the official DXGI software flag, and writes a sanitized local JSON report. It does not alter the running HUD, poll in the background, request elevation, access the network, change hardware, or emit raw LUID/PID values. `canUseInHud` remains `false` even when mapping succeeds.
+
 To opt in, review your exact board limits and run `Install-GpuLimits.ps1` with explicit GPU indices, MHz, watts, and `-AcceptHardwareRisk`. The installer reruns the plan before UAC, hash-pins the helper across elevation, and registers fixed Apply and Reset SYSTEM tasks. Raising an existing current power cap additionally requires `-AcknowledgePowerIncrease`, which is retained in the reviewed fixed task and independently enforced by the helper. Manual changes require confirmation in the control panel; the protected reset record restores the exact pre-apply power values rather than guessing a universal default.
 
 ## Remove

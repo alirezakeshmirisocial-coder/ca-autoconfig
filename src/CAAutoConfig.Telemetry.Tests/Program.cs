@@ -8,8 +8,11 @@ internal static class Program
     private const string AdapterB = "luid_0x00000000_0x000000b2_phys_0";
     private static int _passed;
 
-    private static int Main()
+    private static int Main(string[] args)
     {
+        if (args.Length == 1 && String.Equals(args[0], "--live-probe", StringComparison.OrdinalIgnoreCase))
+            return RunLiveProbe();
+
         var tests = new (string Name, Action Body)[]
         {
             ("duplicate model names map by internal identity", DuplicateNamesMapByIdentity),
@@ -20,7 +23,12 @@ internal static class Program
             ("malformed identity fails closed", MalformedIdentityFailsClosed),
             ("duplicate adapter identity fails closed", DuplicateAdapterIdentityFailsClosed),
             ("public result omits raw adapter identity", PublicResultOmitsRawIdentity),
-            ("engine aggregation uses busiest engine", EngineAggregationUsesBusiestEngine)
+            ("process engine samples aggregate before busiest engine", EngineAggregationUsesBusiestEngine),
+            ("live orchestrator cannot authorize HUD use", LiveOrchestratorCannotAuthorizeHud),
+            ("DXGI source failure is retained", AdapterSourceFailureIsRetained),
+            ("counter source failure is retained", CounterSourceFailureIsRetained),
+            ("DXGI software adapter counters are explicitly ignored", SoftwareAdapterCountersAreIgnored),
+            ("public live report is sanitized and non-authorizing", PublicLiveReportIsSanitized)
         };
 
         try
@@ -76,7 +84,7 @@ internal static class Program
         List<WindowsGpuCounterObservation> observations = Observations();
         observations.Add(new WindowsGpuCounterObservation
         {
-            InstanceName = "luid_0x0_0xdead_phys_0_eng_0_engtype_3D",
+            InstanceName = "pid_999_luid_0x0_0xdead_phys_0_eng_0_engtype_3D",
             Kind = WindowsGpuCounterKind.EngineUtilizationPercent,
             Value = 1
         });
@@ -126,12 +134,70 @@ internal static class Program
         Assert(result.Adapters[0].EngineLoadPercent <= 100, "Engine aggregation exceeded 100 percent.");
     }
 
+    private static void LiveOrchestratorCannotAuthorizeHud()
+    {
+        WindowsGpuLiveProbeResult result = WindowsGpuLiveProbe.Run(
+            new FakeAdapterSource(true, String.Empty),
+            new FakeCounterSource(true, String.Empty));
+        Assert(result.ProbeStatus == "MAPPING_AVAILABLE" && result.MappingChecksPass, "Complete recorded live inputs did not reach the mapping boundary.");
+        Assert(!result.CanUseInHud && !result.HardwareWrites && !result.NetworkAccess && !result.ElevationRequested && !result.RawAdapterIdentifiersIncluded, "Live orchestrator weakened a safety boundary.");
+    }
+
+    private static void AdapterSourceFailureIsRetained()
+    {
+        WindowsGpuLiveProbeResult result = WindowsGpuLiveProbe.Run(
+            new FakeAdapterSource(false, "dxgi-test-failure"),
+            new FakeCounterSource(true, String.Empty));
+        Assert(result.ProbeStatus == "BLOCKED" && result.ReasonCodes.Contains("dxgi-test-failure"), "DXGI failure was hidden.");
+    }
+
+    private static void CounterSourceFailureIsRetained()
+    {
+        WindowsGpuLiveProbeResult result = WindowsGpuLiveProbe.Run(
+            new FakeAdapterSource(true, String.Empty),
+            new FakeCounterSource(false, "counter-test-failure"));
+        Assert(result.ProbeStatus == "BLOCKED" && result.ReasonCodes.Contains("counter-test-failure"), "Counter failure was hidden.");
+    }
+
+    private static void SoftwareAdapterCountersAreIgnored()
+    {
+        const string software = "luid_0x00000000_0x000000c3_phys_0";
+        List<WindowsGpuAdapterInventory> inventory = Inventory();
+        inventory.Add(new WindowsGpuAdapterInventory
+        {
+            CorrelationKey = software,
+            DisplayIndex = 2,
+            Name = "Software Adapter",
+            DriverVersion = String.Empty,
+            DedicatedMemoryCapacityBytes = 0,
+            IsSoftware = true
+        });
+        List<WindowsGpuCounterObservation> observations = Observations();
+        observations.Add(new WindowsGpuCounterObservation { InstanceName = "pid_400_" + software + "_eng_0_engtype_3D#1", Kind = WindowsGpuCounterKind.EngineUtilizationPercent, Value = 0 });
+        observations.Add(new WindowsGpuCounterObservation { InstanceName = software, Kind = WindowsGpuCounterKind.DedicatedMemoryBytes, Value = 0 });
+        WindowsGpuCounterMapResult result = WindowsGpuCounterMapper.Map(inventory, observations);
+        Assert(result.MappingChecksPass && result.Adapters.Count == 2, "An explicitly flagged DXGI software adapter contaminated hardware mapping.");
+    }
+
+    private static void PublicLiveReportIsSanitized()
+    {
+        WindowsGpuLiveProbeResult result = WindowsGpuLiveProbe.Run(
+            new FakeAdapterSource(true, String.Empty),
+            new FakeCounterSource(true, String.Empty));
+        WindowsGpuLiveReportDocument document = WindowsGpuLiveReport.Create(result, DateTime.Parse("2026-10-10T12:00:00Z").ToUniversalTime());
+        string json = WindowsGpuLiveReport.Serialize(document);
+        Assert(json.Contains("live-windows-read-only", StringComparison.Ordinal), "Public report omitted its source boundary.");
+        Assert(json.Contains("\"vramPercent\":33", StringComparison.Ordinal), "Public report did not derive bounded VRAM percentage.");
+        Assert(!json.Contains("luid_", StringComparison.OrdinalIgnoreCase) && !json.Contains("pid_", StringComparison.OrdinalIgnoreCase), "Public report exposed a raw adapter or process identifier.");
+        Assert(!document.CanUseInHud && !document.HardwareWrites && !document.NetworkAccess && !document.ElevationRequested && !document.RawAdapterIdentifiersIncluded, "Public report weakened a safety boundary.");
+    }
+
     private static List<WindowsGpuAdapterInventory> Inventory()
     {
         return new List<WindowsGpuAdapterInventory>
         {
-            new WindowsGpuAdapterInventory { CorrelationKey = AdapterA, DisplayIndex = 0, Name = "Fixture GPU", DriverVersion = "1.2.3.4" },
-            new WindowsGpuAdapterInventory { CorrelationKey = AdapterB, DisplayIndex = 1, Name = "Fixture GPU", DriverVersion = "1.2.3.4" }
+            new WindowsGpuAdapterInventory { CorrelationKey = AdapterA, DisplayIndex = 0, Name = "Fixture GPU", DriverVersion = "1.2.3.4", DedicatedMemoryCapacityBytes = 24_000_000_000L },
+            new WindowsGpuAdapterInventory { CorrelationKey = AdapterB, DisplayIndex = 1, Name = "Fixture GPU", DriverVersion = "1.2.3.4", DedicatedMemoryCapacityBytes = 24_000_000_000L }
         };
     }
 
@@ -139,10 +205,11 @@ internal static class Program
     {
         return new List<WindowsGpuCounterObservation>
         {
-            new WindowsGpuCounterObservation { InstanceName = AdapterA + "_eng_0_engtype_3D", Kind = WindowsGpuCounterKind.EngineUtilizationPercent, Value = 72 },
-            new WindowsGpuCounterObservation { InstanceName = AdapterA + "_eng_1_engtype_Copy", Kind = WindowsGpuCounterKind.EngineUtilizationPercent, Value = 18 },
+            new WindowsGpuCounterObservation { InstanceName = "pid_100_" + AdapterA + "_eng_0_engtype_3D", Kind = WindowsGpuCounterKind.EngineUtilizationPercent, Value = 50 },
+            new WindowsGpuCounterObservation { InstanceName = "pid_200_" + AdapterA + "_eng_0_engtype_3D", Kind = WindowsGpuCounterKind.EngineUtilizationPercent, Value = 22 },
+            new WindowsGpuCounterObservation { InstanceName = "pid_100_" + AdapterA + "_eng_1_engtype_Copy", Kind = WindowsGpuCounterKind.EngineUtilizationPercent, Value = 18 },
             new WindowsGpuCounterObservation { InstanceName = AdapterA, Kind = WindowsGpuCounterKind.DedicatedMemoryBytes, Value = 8_000_000_000L },
-            new WindowsGpuCounterObservation { InstanceName = AdapterB + "_eng_0_engtype_Compute_0", Kind = WindowsGpuCounterKind.EngineUtilizationPercent, Value = 41 },
+            new WindowsGpuCounterObservation { InstanceName = "pid_300_" + AdapterB + "_eng_0_engtype_Compute_0", Kind = WindowsGpuCounterKind.EngineUtilizationPercent, Value = 41 },
             new WindowsGpuCounterObservation { InstanceName = AdapterB, Kind = WindowsGpuCounterKind.DedicatedMemoryBytes, Value = 12_000_000_000L }
         };
     }
@@ -151,5 +218,66 @@ internal static class Program
     {
         if (!condition)
             throw new InvalidOperationException(message);
+    }
+
+    private static int RunLiveProbe()
+    {
+        WindowsGpuLiveProbeResult result = WindowsGpuLiveProbe.Run();
+        Console.WriteLine("ProbeStatus=" + result.ProbeStatus);
+        Console.WriteLine("MappingChecksPass=" + result.MappingChecksPass);
+        Console.WriteLine("AdapterCount=" + result.Adapters.Count);
+        foreach (WindowsGpuMappedMetric adapter in result.Adapters)
+        {
+            Console.WriteLine(
+                "Adapter " + adapter.DisplayIndex + ": " + adapter.Name +
+                "; engine=" + adapter.EngineLoadPercent +
+                "; dedicatedBytes=" + adapter.DedicatedMemoryBytes +
+                "; capacityBytes=" + adapter.DedicatedMemoryCapacityBytes);
+        }
+        Console.WriteLine("ReasonCodes=" + String.Join(",", result.ReasonCodes));
+        Console.WriteLine("CanUseInHud=" + result.CanUseInHud);
+        Console.WriteLine("HardwareWrites=" + result.HardwareWrites);
+        Console.WriteLine("NetworkAccess=" + result.NetworkAccess);
+        Console.WriteLine("ElevationRequested=" + result.ElevationRequested);
+        Console.WriteLine("RawAdapterIdentifiersIncluded=" + result.RawAdapterIdentifiersIncluded);
+        return 0;
+    }
+
+    private sealed class FakeAdapterSource : IWindowsGpuAdapterSource
+    {
+        private readonly bool _success;
+        private readonly string _reason;
+
+        public FakeAdapterSource(bool success, string reason)
+        {
+            _success = success;
+            _reason = reason;
+        }
+
+        public bool TryRead(out List<WindowsGpuAdapterInventory> adapters, out string reasonCode)
+        {
+            adapters = _success ? Inventory() : new List<WindowsGpuAdapterInventory>();
+            reasonCode = _reason;
+            return _success;
+        }
+    }
+
+    private sealed class FakeCounterSource : IWindowsGpuCounterSource
+    {
+        private readonly bool _success;
+        private readonly string _reason;
+
+        public FakeCounterSource(bool success, string reason)
+        {
+            _success = success;
+            _reason = reason;
+        }
+
+        public bool TryRead(out List<WindowsGpuCounterObservation> observations, out string reasonCode)
+        {
+            observations = _success ? Observations() : new List<WindowsGpuCounterObservation>();
+            reasonCode = _reason;
+            return _success;
+        }
     }
 }

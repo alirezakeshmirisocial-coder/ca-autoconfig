@@ -9,7 +9,7 @@ This project follows semantic versioning after `v1.0.0`. Pre-1.0 releases may ch
 - Added a dedicated clean-machine result issue form that requires exact release/build context, retained failures, the sanitized result JSON, and explicit privacy/evidence-boundary confirmations.
 - Defined the Windows/WDDM GPU telemetry provider contract, including per-adapter identity, field-level capability, standard-user failure behavior, known counter-scope limitations, and the evidence required before AMD/Intel telemetry can reach the HUD.
 - Added a query-only Windows GPU capability probe with seven deterministic tests. It reports sanitized controller names and counter availability, rejects raw identifiers, and keeps `CanUseInHud=false` until per-adapter mapping is validated.
-- Added a pure Windows GPU counter-mapping core with nine hardware-independent cases for same-name adapters, enumeration reorder, incomplete/foreign identities, busiest-engine aggregation, and raw-LUID omission. It remains disconnected from the HUD pending a live DXGI provider and cross-hardware evidence.
+- Added a read-only Windows GPU research provider and mapping core with fourteen hardware-independent cases for same-name adapters, enumeration reorder, incomplete/foreign identities, DXGI software filtering, source failures, process-aware busiest-engine aggregation, and sanitized JSON reporting. A live standard-user dual-RTX-3090 probe mapped two cards without exposing LUIDs, network/elevation, or hardware writes; `CanUseInHud` remains false pending polling/reset and cross-hardware evidence.
 
 ## v0.2.6-alpha.3 — Offline package verification
 
