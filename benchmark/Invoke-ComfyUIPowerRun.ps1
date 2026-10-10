@@ -226,6 +226,7 @@ try {
         }
     }
 
+    $measurementStartedUtc = [DateTime]::UtcNow
     $measureClock = [Diagnostics.Stopwatch]::StartNew()
     $measuredPromptId = Submit-ComfyWorkflow -RunWorkflow $measuredWorkflow
     $sampleIndex = 0
@@ -256,6 +257,7 @@ try {
         if ($remaining -gt 0) { Start-Sleep -Milliseconds $remaining }
     } while ($measureClock.Elapsed.TotalSeconds -lt $TimeoutSeconds)
     $measureClock.Stop()
+    $measurementEndedUtc = [DateTime]::UtcNow
 
     if ($null -eq $measureStatus -or $measureStatus.State -eq 'pending') {
         $resultStatus = 'failed'
@@ -326,6 +328,8 @@ try {
             promptRateWindow     = $null
             generationRateWindow = $null
             workRateWindow       = if ($null -eq $workUnitsPerSecond) { $null } else { 'client-window' }
+            startedUtc           = $measurementStartedUtc.ToString('o', [Globalization.CultureInfo]::InvariantCulture)
+            endedUtc             = $measurementEndedUtc.ToString('o', [Globalization.CultureInfo]::InvariantCulture)
         }
         result        = [pscustomobject][ordered]@{
             status     = $resultStatus

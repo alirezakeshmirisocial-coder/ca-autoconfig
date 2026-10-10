@@ -36,6 +36,26 @@ The bounded [`Invoke-WindowsGpuChurnValidation.ps1`](../../tools/Invoke-WindowsG
 
 The [60-second schema-v3 polling report](../evidence/windows-gpu-pdh-raw-churn-60s-2026-10-10.json) and [linked sanitized churn summary](../evidence/windows-gpu-pdh-raw-churn-summary-60s-2026-10-10.json) observed the browser process plus two positive process-specific GPU-counter samples, with a 1.452% maximum. The separately sampled whole-card `nvidia-smi` integer percentage remained 0; it is optional corroboration, not the proof of browser activity. The provider completed 29/30 full mappings, retained exactly one `pdh-engine-baseline-missing` partial for adapter 0 when the process appeared, kept dedicated memory valid 30/30, and recorded zero unavailable collections or overlaps. The next interval recovered and the stopped process left no stale row. Because the run retained one engine failure, `engineLoadReadyForValidation` and overall readiness stayed false even though the final state was healthy. This is the intended fail-closed boundary.
 
+## Link a loaded inference window
+
+[`New-WindowsGpuLoadedValidationSummary.ps1`](../../tools/New-WindowsGpuLoadedValidationSummary.ps1) is an offline gate for two already-created evidence files. It does not launch a model or collect telemetry. Run a schema-v3 workload adapter and the explicit raw-PDH polling command concurrently, then link the two files:
+
+```powershell
+.\tools\New-WindowsGpuLoadedValidationSummary.ps1 `
+  -WindowsReportPath .\windows-gpu-pdh-raw-loaded.json `
+  -WorkloadRunPath .\ollama-run.json `
+  -OutputPath .\windows-gpu-loaded-link.json `
+  -MinimumLoadedUtilizationPercent 50 `
+  -MinimumLoadedSamplePercent 50 `
+  -MinimumOverlapSeconds 10
+```
+
+The gate requires a `live` passed workload run with explicit `measurement.startedUtc`/`endedUtc`, at least 95% workload-window coverage, the declared minimum overlap, valid utilization in every sample, threshold load in at least the declared share of samples on every workload GPU, internally consistent Windows counts, zero unavailable or overlapping collections, and complete engine/memory evidence. A lone utilization spike therefore cannot qualify as loaded inference. It rejects private schema flags, a duration that disagrees with `protocol.sampleSeconds`, and input/output collisions. The summary contains hashes and aggregate windows/load only—not input filenames, workload identity, model/run ID, prompts, paths, commands, raw adapter identities, or process IDs.
+
+`READY_FOR_MANUAL_VALUE_COMPARISON` is intentionally not a validation claim. A reviewer must still compare the time-aligned Windows values with an independent vendor source using a declared tolerance, retain every discrepancy, and reproduce across hardware/lifecycle cases. The summary always emits `valuesCompared=false`, `promotionAuthorized=false`, and `canUseInHud=false`.
+
+The maintainer host had Ollama available but no installed models, and no identified local llama.cpp or ComfyUI model input. No model was downloaded to manufacture a result. Therefore this repository currently includes deterministic fixture validation of the linker, not loaded-inference evidence.
+
 ## Reproduce without enabling the HUD
 
 From a current source build:
@@ -65,7 +85,7 @@ The harness writes the untouched polling report plus a separate `.churn-summary.
 
 ## Remaining proof
 
-- Deterministic coverage and one low-load live browser run now prove the intended process lifecycle: a new nonzero engine fails only its first interval, recovers once an adjacent baseline exists, and disappears without leaving a stale row. Loaded inference/process churn still needs independent evidence.
+- Deterministic coverage and one low-load live browser run now prove the intended process lifecycle: a new nonzero engine fails only its first interval, recovers once an adjacent baseline exists, and disappears without leaving a stale row. The offline linker is ready, but loaded inference/process churn still needs a real local model input and independent evidence.
 - Repeat the 600-second result after sleep/resume and during a loaded local-AI workload; retain every intermediate failure.
 - Loaded inference and image-generation runs must agree with an independent vendor source within a declared sampling tolerance.
 - Sleep/resume, loaded process churn, driver reset, adapter reorder, and stale-data behavior need explicit system tests.

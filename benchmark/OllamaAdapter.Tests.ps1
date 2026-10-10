@@ -190,6 +190,7 @@ Test-Case 'local mock server records a complete privacy-safe run while telemetry
         Assert-True ($rawRun -notmatch 'private benchmark prompt|never export this response') 'Prompt or generated response leaked into the export.'
         $run = $rawRun | ConvertFrom-Json
         Assert-True ([int]$run.schemaVersion -eq 3 -and [string]$run.measurement.powerWindow -eq 'end-to-end-request') 'Ollama output lost request-window power provenance.'
+        Assert-True ([DateTime]$run.measurement.endedUtc -gt [DateTime]$run.measurement.startedUtc) 'Ollama output lost its explicit measurement window.'
         Assert-True ([string]$run.measurement.promptRateWindow -eq 'prompt-phase' -and [string]$run.measurement.generationRateWindow -eq 'generation-phase') 'Ollama output mislabeled phase-specific throughput.'
         Assert-True ([string]$run.workload.quantization -eq 'Q4_K_M') 'Model quantization was not captured from /api/show.'
         Assert-True ([string]$run.workload.name -match '^fixture-v1 .+num_ctx=4096 .+num_predict=64') 'Non-sensitive benchmark fingerprint is incomplete.'

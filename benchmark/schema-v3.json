@@ -53,7 +53,13 @@
         "powerWindow": { "$ref": "#/$defs/window" },
         "promptRateWindow": { "oneOf": [{ "$ref": "#/$defs/window" }, { "type": "null" }] },
         "generationRateWindow": { "oneOf": [{ "$ref": "#/$defs/window" }, { "type": "null" }] },
-        "workRateWindow": { "oneOf": [{ "$ref": "#/$defs/window" }, { "type": "null" }] }
+        "workRateWindow": { "oneOf": [{ "$ref": "#/$defs/window" }, { "type": "null" }] },
+        "startedUtc": { "type": "string", "format": "date-time" },
+        "endedUtc": { "type": "string", "format": "date-time" }
+      },
+      "dependentRequired": {
+        "startedUtc": ["endedUtc"],
+        "endedUtc": ["startedUtc"]
       }
     },
     "result": {

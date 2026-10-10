@@ -139,6 +139,7 @@ if ($WarmupSeconds -gt 0) {
 }
 
 $sampleTarget = [Math]::Max(1, [int][Math]::Ceiling(($SampleSeconds * 1000.0) / $IntervalMilliseconds))
+$measurementStartedUtc = [DateTime]::UtcNow
 $clock = [Diagnostics.Stopwatch]::StartNew()
 for ($sampleIndex = 0; $sampleIndex -lt $sampleTarget; $sampleIndex++) {
     foreach ($index in $gpuIndexes) {
@@ -158,6 +159,7 @@ for ($sampleIndex = 0; $sampleIndex -lt $sampleTarget; $sampleIndex++) {
     if ($sampleIndex -lt $sampleTarget - 1 -and $remaining -gt 0) { Start-Sleep -Milliseconds $remaining }
 }
 $clock.Stop()
+$measurementEndedUtc = [DateTime]::UtcNow
 
 $gpus = foreach ($index in $gpuIndexes) {
     $gpu = $gpuData[[string]$index]
@@ -173,7 +175,7 @@ $gpus = foreach ($index in $gpuIndexes) {
 $run = [pscustomobject][ordered]@{
     schemaVersion = 3
     runId         = 'run-' + [Guid]::NewGuid().ToString('N')
-    createdUtc    = [DateTime]::UtcNow.Date.ToString('yyyy-MM-ddTHH:mm:ssZ')
+    createdUtc    = [DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ')
     source        = 'live'
     privacy       = [pscustomobject][ordered]@{
         containsGpuUuid     = $false
@@ -200,6 +202,8 @@ $run = [pscustomobject][ordered]@{
         promptRateWindow    = if ($null -eq $PromptTokensPerSecond) { $null } else { 'steady-state' }
         generationRateWindow = if ($null -eq $GenerationTokensPerSecond) { $null } else { 'steady-state' }
         workRateWindow      = $null
+        startedUtc          = $measurementStartedUtc.ToString('o', [Globalization.CultureInfo]::InvariantCulture)
+        endedUtc            = $measurementEndedUtc.ToString('o', [Globalization.CultureInfo]::InvariantCulture)
     }
     result        = [pscustomobject][ordered]@{
         status     = $ResultStatus

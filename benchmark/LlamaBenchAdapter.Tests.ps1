@@ -203,6 +203,7 @@ public static class FakeLlamaBench {
         $run = $raw | ConvertFrom-Json
         Assert-True ([string]$result.Status -eq 'Recorded' -and [string]$run.result.status -eq 'passed') 'Valid fixture run was not recorded as passed.'
         Assert-True ([int]$run.schemaVersion -eq 3 -and [string]$run.measurement.powerWindow -eq 'process-window') 'llama-bench output lost process-window power provenance.'
+        Assert-True ([DateTime]$run.measurement.endedUtc -gt [DateTime]$run.measurement.startedUtc) 'llama-bench output lost its explicit measurement window.'
         Assert-True ([string]$run.measurement.promptRateWindow -eq 'prompt-phase' -and [string]$run.measurement.generationRateWindow -eq 'generation-phase') 'llama-bench output mislabeled phase-specific throughput.'
         Assert-True ([double]$run.result.throughput.promptTokensPerSecond -eq 100.0 -and [double]$run.result.throughput.generationTokensPerSecond -eq 25.0) 'Fixture throughput changed.'
         Assert-True (@($run.gpus[0].samples).Count -ge 4) 'GPU telemetry was not sampled concurrently.'

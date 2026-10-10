@@ -238,6 +238,7 @@ foreach ($index in $gpuIndexes) {
     }
 }
 
+$measurementStartedUtc = [DateTime]::UtcNow
 $process = Start-LlamaBenchProcess -Arguments (New-LlamaBenchArguments -RunRepetitions $BenchRepetitions)
 $stdoutTask = $process.StandardOutput.ReadToEndAsync()
 $stderrTask = $process.StandardError.ReadToEndAsync()
@@ -266,6 +267,7 @@ try {
 finally {
     $completed = Complete-LlamaBenchProcess -Process $process -StandardOutputTask $stdoutTask -StandardErrorTask $stderrTask -Clock $measureClock
 }
+$measurementEndedUtc = [DateTime]::UtcNow
 
 $resultStatus = 'passed'
 $resultError = $null
@@ -338,6 +340,8 @@ $run = [pscustomobject][ordered]@{
         promptRateWindow     = if ($null -eq $promptTokensPerSecond) { $null } else { 'prompt-phase' }
         generationRateWindow = if ($null -eq $generationTokensPerSecond) { $null } else { 'generation-phase' }
         workRateWindow       = $null
+        startedUtc           = $measurementStartedUtc.ToString('o', [Globalization.CultureInfo]::InvariantCulture)
+        endedUtc             = $measurementEndedUtc.ToString('o', [Globalization.CultureInfo]::InvariantCulture)
     }
     result        = [pscustomobject][ordered]@{
         status     = $resultStatus

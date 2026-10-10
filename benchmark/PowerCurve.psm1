@@ -144,6 +144,24 @@ function Assert-CAPowerCurveRun {
         foreach ($name in @('powerWindow', 'promptRateWindow', 'generationRateWindow', 'workRateWindow')) {
             Assert-CAProperty -Object $Run.measurement -Name $name -Path 'run.measurement'
         }
+        $startedProperty = $Run.measurement.PSObject.Properties['startedUtc']
+        $endedProperty = $Run.measurement.PSObject.Properties['endedUtc']
+        if (($null -eq $startedProperty) -ne ($null -eq $endedProperty)) {
+            throw 'run.measurement.startedUtc and endedUtc must either both be present or both be absent.'
+        }
+        if ($null -ne $startedProperty) {
+            $dateStyles = [Globalization.DateTimeStyles]::AssumeUniversal -bor [Globalization.DateTimeStyles]::AdjustToUniversal
+            try {
+                $measurementStarted = [DateTime]::Parse([string]$startedProperty.Value, [Globalization.CultureInfo]::InvariantCulture, $dateStyles)
+                $measurementEnded = [DateTime]::Parse([string]$endedProperty.Value, [Globalization.CultureInfo]::InvariantCulture, $dateStyles)
+            }
+            catch {
+                throw 'run.measurement.startedUtc and endedUtc must be valid date-time values.'
+            }
+            if ($measurementEnded -le $measurementStarted) {
+                throw 'run.measurement.endedUtc must be later than startedUtc.'
+            }
+        }
         $allowedWindows = @('steady-state', 'end-to-end-request', 'process-window', 'client-window', 'prompt-phase', 'generation-phase')
         if ([string]$Run.measurement.powerWindow -notin $allowedWindows) {
             throw 'run.measurement.powerWindow must name a supported measurement window.'

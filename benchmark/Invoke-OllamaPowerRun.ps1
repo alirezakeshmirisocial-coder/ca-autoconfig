@@ -191,6 +191,7 @@ try {
         options    = [ordered]@{ temperature = 0; seed = 42; num_ctx = $NumCtx; num_predict = $NumPredict }
     }
     $measureContent = New-JsonContent -Body $measureBody
+    $measurementStartedUtc = [DateTime]::UtcNow
     $measureClock = [Diagnostics.Stopwatch]::StartNew()
     $measureTask = $client.PostAsync([uri]"$base/api/generate", $measureContent)
     $sampleIndex = 0
@@ -230,6 +231,7 @@ try {
         $measureClock.Stop()
         $measureContent.Dispose()
     }
+    $measurementEndedUtc = [DateTime]::UtcNow
 
     $measuredSeconds = $measureClock.Elapsed.TotalSeconds
     $promptTokensPerSecond = $null
@@ -298,6 +300,8 @@ try {
             promptRateWindow     = if ($null -eq $promptTokensPerSecond) { $null } else { 'prompt-phase' }
             generationRateWindow = if ($null -eq $generationTokensPerSecond) { $null } else { 'generation-phase' }
             workRateWindow       = $null
+            startedUtc           = $measurementStartedUtc.ToString('o', [Globalization.CultureInfo]::InvariantCulture)
+            endedUtc             = $measurementEndedUtc.ToString('o', [Globalization.CultureInfo]::InvariantCulture)
         }
         result        = [pscustomobject][ordered]@{
             status     = $resultStatus

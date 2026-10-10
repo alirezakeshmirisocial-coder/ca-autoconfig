@@ -33,6 +33,8 @@ The SVG card is generated deterministically from the same validated rows. It lab
 
 Schema-v3 records `powerWindow`, `promptRateWindow`, `generationRateWindow`, and `workRateWindow`. Exact `/J` output is allowed only when the relevant rate window equals the power window:
 
+Current recorders also add the optional `measurement.startedUtc` and `measurement.endedUtc` pair. Offline cross-provider validation requires this explicit pair and rejects older date-only or inferred windows; ordinary schema-v3 analysis remains backward-compatible with existing runs that omit it.
+
 - The generic recorder declares `steady-state` for the user-supplied rate and sampled power. The user is responsible for measuring that rate over the same steady interval.
 - Ollama power samples span the `end-to-end-request`, while its official prompt and generation rates describe `prompt-phase` and `generation-phase`. The report therefore emits a within-protocol rate/power index, never prompt or generation tokens/J.
 - llama.cpp power samples span the measured `process-window`, including load and shutdown, while official `pp` and `tg` rates describe their benchmark phases. These are also index-only until power is sampled per phase.

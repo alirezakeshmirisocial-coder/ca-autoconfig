@@ -40,6 +40,9 @@ jobs:
       - name: Windows GPU churn harness policy tests
         shell: pwsh
         run: .\tests\WindowsGpuChurnHarness.Tests.ps1
+      - name: Windows GPU loaded-evidence linker tests
+        shell: pwsh
+        run: .\tests\WindowsGpuLoadedValidation.Tests.ps1
       - name: Windows GPU counter mapping tests
         shell: pwsh
         run: dotnet run --project .\src\CAAutoConfig.Telemetry.Tests\CAAutoConfig.Telemetry.Tests.csproj -c Release

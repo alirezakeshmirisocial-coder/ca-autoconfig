@@ -246,6 +246,7 @@ Test-Case 'local ComfyUI fixture records work rate while stripping workflow and 
         $run = $rawRun | ConvertFrom-Json
         Assert-True ([string]$result.Status -eq 'Recorded' -and [int]$run.schemaVersion -eq 3 -and [string]$run.result.status -eq 'passed') 'Valid ComfyUI fixture run was not recorded.'
         Assert-True ([string]$run.measurement.powerWindow -eq 'client-window' -and [string]$run.measurement.workRateWindow -eq 'client-window') 'ComfyUI output lost same-window energy provenance.'
+        Assert-True ([DateTime]$run.measurement.endedUtc -gt [DateTime]$run.measurement.startedUtc) 'ComfyUI output lost its explicit measurement window.'
         Assert-True ([double]$run.result.throughput.workUnitsPerSecond -gt 0 -and [string]$run.result.throughput.workUnit -eq 'image') 'Work-unit throughput was not recorded.'
         Assert-True (@($run.gpus[0].samples).Count -ge 5) 'ComfyUI execution was not sampled concurrently.'
         Assert-True ($rawRun -notmatch 'private prompt|private-output|private/path|private workflow|workflowPath|prompt_id') 'Workflow, output, path, or prompt identity leaked into the export.'

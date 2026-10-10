@@ -25,7 +25,7 @@ This zero baseline is useful: it means future attribution is not mixed with an e
 | Stage | Exit condition | Current status |
 | --- | --- | --- |
 | Product proof | Compiled demo, architecture, repeatable tests, checksum release | Complete |
-| Measurement proof | One real, repeated, raw-data power curve | Ollama, llama-bench, ComfyUI, evidence-gated share cards, and a paired idle-regression gate shipped; blocked on real model/workflow inputs and repeated runs |
+| Measurement proof | One real, repeated, raw-data power curve | Ollama, llama-bench, ComfyUI, evidence-gated share cards, a paired idle-regression gate, and a loaded raw-PDH evidence linker shipped; no model was downloaded and no real model/workflow input or repeated run exists |
 | Design partners | 10 external Windows/NVIDIA testers, 5 reports, 3 GPU families | [Focused intake open](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/discussions/9); 0 confirmed |
 | Community launch | Human-authored, rules-compliant benchmark post; active response coverage | Not ready |
 | Repeatable distribution | Workload adapters, compatibility matrix, creator reproductions | Planned |
@@ -81,5 +81,6 @@ No tracking is added to the desktop app. GitHub's aggregate repository/release c
 | 2026-10-10 | GitHub `main` | Raw-PDH adjacent-pair evidence | 0 | 0 | 0 | 0 | A separately named raw provider reached 300/300 engine-valid and memory-valid collections with zero partial/unavailable/overlap samples and 0.021% normalized CPU on one idle dual-RTX-3090 host; HUD promotion remains blocked pending loaded, sleep/reset, and external evidence, and no external post or vote solicitation occurred. |
 | 2026-10-10 | Project Discussion + issue form | Raw-PDH external validation lane | 0 | 0 | 0 | 0 | The design-partner intake now links the current alpha and an exact-commit, standard-user reproduction for idle/load/churn/lifecycle results. The issue form records the primary scenario and requires every read-only/privacy flag; no report, external-network post, endorsement, or vote solicitation has occurred yet. |
 | 2026-10-10 | GitHub `main` | Raw-PDH live process-churn evidence | 0 | 0 | 0 | 0 | A local-only WebGL fixture produced positive process-scoped GPU counters; the 60-second run retained one baseline-missing partial, recovered without hiding it, kept VRAM valid 30/30, and had zero unavailable samples/overlaps. This is maintainer evidence, not an external report or loaded-inference claim, and no vote solicitation occurred. |
+| 2026-10-10 | GitHub `main` | Loaded-inference evidence linker | 0 | 0 | 0 | 0 | An offline, fail-closed linker now checks explicit simultaneous raw-PDH/schema-v3 windows, sustained every-GPU load, complete utilization, provider completeness, privacy, and input hashes. Ten fixture-only cases pass in both PowerShell runtimes; there is no installed local model result, value comparison, promotion, external post, or vote solicitation. |
 
 Add a row after a legitimate launch or collaboration. Never use referral tags to track people inside the application, buy traffic, solicit votes, or attribute normal organic traffic to a campaign without evidence.
