@@ -31,6 +31,8 @@ Generated Power Curve cards must link the exact raw anonymized JSON and method u
 
 Persistent clock-lock candidates also need paired idle evidence from [`Record-IdlePowerRun.ps1`](benchmark/Record-IdlePowerRun.ps1): at least three vendor-auto baseline runs and three candidate runs with the same cards and driver. Retain busy, missing, failed, and incomplete runs. A passing idle report means only that the candidate may proceed to workload, stability, temperature, rollback, and confirmation gates; do not present it as a final recommendation.
 
+Use [`New-WorkloadCandidateReport.ps1`](benchmark/New-WorkloadCandidateReport.ps1) to evaluate one explicitly named candidate against one explicitly named reference. Do not remove a failed/incomplete/reset run, loosen a threshold after seeing the result without disclosing it, or substitute a phase-mismatched rate/power index for energy. Publish the exact anonymized inputs, command thresholds, and rejection reason codes with the report.
+
 Accepted evidence is summarized in the public [hardware matrix](docs/HARDWARE_MATRIX.md). The desktop Settings window can copy a sanitized starting block; inspect it before posting, then add workload method and failures manually. A report must include failures and incomplete runs, not only the best repetition. You never need to star the repository to participate.
 
 ## Community conduct

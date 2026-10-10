@@ -4,6 +4,12 @@ This project follows semantic versioning after `v1.0.0`. Pre-1.0 releases may ch
 
 ## Unreleased
 
+## v0.2.5-alpha.2 — Fail-closed workload candidates
+
+- Added an explicit-reference workload candidate gate that requires live phase-aligned schema-v3 evidence, repeated complete sampling, lower power, configurable throughput retention and efficiency gain, bounded temperature, and stable loaded clocks below a declared ceiling.
+- Failed/incomplete runs now reject the selected candidate; driver/GPU reset, device-loss, and NVIDIA Xid errors receive an explicit rejection reason. Fixture data can exercise thresholds but can never pass.
+- Added 14 deterministic workload-advisor tests and a read-only Markdown report; the strongest output is `CanProceedPastWorkloadGate`, never an apply recommendation.
+
 ## v0.2.5-alpha.1 — Idle-safe clock candidates
 
 - Added a separate, query-only idle-power recorder, anonymized idle-schema-v1 contract, deterministic paired baseline/candidate fixtures, and a fail-closed regression report for persistent graphics-clock candidates.

@@ -216,6 +216,31 @@ $runs = Get-ChildItem .\artifacts\runs\*.json | ForEach-Object FullName
 
 The report compares only identical workload fingerprints (`class`, `name`, `model`, `quantization`, and `backend`). The adapters put their performance-affecting protocol settings in `name`, so unlike token counts, batches, or prompts are not ranked together. It identifies an efficiency leader only when power and rate windows align; otherwise it reports a rate/power index with the two windows visible. Every leader remains a candidate for repetition—not a universal best limit.
 
+## Gate one workload candidate
+
+The comparison report ranks evidence but does not authorize a profile. To evaluate one explicitly named candidate against one explicitly named reference, run:
+
+```powershell
+.\benchmark\New-WorkloadCandidateReport.ps1 `
+  -InputPath $runs `
+  -ReferenceProfile 'GPU0 350 W + GPU1 350 W' `
+  -CandidateProfile 'GPU0 280 W + GPU1 280 W' `
+  -ExpectedGraphicsClockMaximumMHz 1700 `
+  -OutputPath .\artifacts\workload-candidate-gate.md
+```
+
+The default workload gate requires live schema-v3 evidence with aligned rate/power windows, one exact workload and hardware/driver identity, three unique repetitions per profile, and at least 30 seconds of complete power and temperature telemetry per run. The candidate must:
+
+- retain at least 90% of reference throughput;
+- improve the same-window efficiency metric by at least 5%;
+- use less mean board power than the reference;
+- stay at or below 85°C peak;
+- provide at least three graphics-clock samples per GPU/run while utilization is at least 50%;
+- keep the p05-to-p95 loaded-clock spread within 5%; and
+- never exceed the declared graphics-clock ceiling by more than 30 MHz.
+
+Any failed or incomplete selected run rejects the candidate. Errors mentioning a driver/GPU reset, device loss, or NVIDIA Xid also receive a dedicated `driver-reset-evidence` reason. Missing/short/mixed evidence fails as `INSUFFICIENT`; measured threshold or failure violations return `REJECTED`; synthetic data always returns `FIXTURE`. A live pass exposes only `CanProceedPastWorkloadGate` and still needs the idle-power, privilege, confirmation, and rollback gates.
+
 Create a share card only from the exact run set used for the report:
 
 ```powershell

@@ -12,7 +12,7 @@ This matrix separates live maintainer checks, deterministic fixtures, and extern
 
 ## Maintainer workstation
 
-Last checked: 2026-10-10 with `v0.2.5-alpha.1`.
+Last checked: 2026-10-10 with `v0.2.5-alpha.2`.
 
 | Surface | Environment | Evidence | Result and boundary |
 | --- | --- | --- | --- |
@@ -25,6 +25,7 @@ Last checked: 2026-10-10 with `v0.2.5-alpha.1`.
 | llama.cpp adapter | No `llama-bench` on PATH and no user-approved GGUF input | Deterministic fixture | Exact official JSON pp/tg parsing, process telemetry, failure retention, and path omission pass. No hardware result claimed. |
 | ComfyUI adapter | No listener on ports 8188/8189 and no supplied API workflow | Deterministic loopback fixture | Queue/history, seed-cache rejection, exact image count, schema-v3 aligned client-window image/J, failures, and redaction pass. No diffusion result claimed. |
 | Idle-power regression gate | Synthetic paired dual-3090 baseline/candidate evidence | Deterministic fixture | Three repetitions per condition, aggregate/per-GPU deltas, busy/missing/failed/mixed evidence rejection, and permanent fixture non-authorization pass. No live idle result or clock recommendation claimed. |
+| Workload candidate gate | Synthetic repeated dual-3090 reference/candidate evidence | Deterministic fixture | Phase alignment, throughput retention, efficiency gain, temperature, loaded-clock stability/ceiling, driver-reset/failure/incomplete/missing/mixed rejection, and permanent fixture non-authorization pass. No real workload result or profile recommendation claimed. |
 | Presence experiment | Microsoft LifeCam Studio RGB webcam | Maintainer experiment only | Local RGB face matching is optional, spoofable, and separate from the default HUD. The device is not available as Windows Hello Face hardware. |
 
 ## External coverage

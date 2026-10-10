@@ -36,7 +36,7 @@ The product direction is a tiny, trustworthy Windows HUD and safe power optimize
 - [x] Add a loopback-first ComfyUI adapter with explicit work units, cache-separated seeds, empty-queue preflight, and workflow/output omission.
 - [ ] Offer Balanced, Eco, Quiet, and Default profiles only when evidence is sufficient.
 - [x] Add a read-only, paired idle-power regression gate before recommending a persistent graphics-clock lock; fixture evidence can exercise thresholds but can never authorize progression.
-- [ ] Reject a candidate after driver reset, workload error, unstable clock behavior, or incomplete data.
+- [x] Reject a workload candidate after driver-reset evidence, workload error, incomplete data, unstable loaded clocks, or a clock-ceiling violation.
 - [ ] Require explicit confirmation, administrator elevation, and a tested one-click rollback.
 - [x] Turn the anonymized JSON benchmark into a deterministic, evidence-gated AI Power Curve SVG card.
 - [x] Add schema-v3 phase provenance so only same-window throughput and board power can produce per-joule claims.
