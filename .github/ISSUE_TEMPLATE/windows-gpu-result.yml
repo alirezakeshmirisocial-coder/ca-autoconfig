@@ -36,12 +36,26 @@ body:
         - windows-wmi-formatted
     validations:
       required: true
+  - type: dropdown
+    id: scenario
+    attributes:
+      label: Primary validation scenario
+      description: Pick the strongest condition exercised by this report. Do not intentionally trigger a driver reset solely for this test.
+      options:
+        - Idle desktop baseline
+        - Deliberate GPU-process start/stop churn
+        - Loaded local-AI workload
+        - After sleep/resume
+        - Observed driver-reset or recovery path
+        - Counter access denied or unavailable
+    validations:
+      required: true
   - type: textarea
     id: command
     attributes:
       label: Research command and duration
       description: Include the public command and whether the shell was a standard-user session. Remove personal paths.
-      placeholder: .\CAAutoConfig.exe --windows-gpu-poll-result .\report.json --windows-gpu-poll-seconds 600 --windows-gpu-poll-ms 2000 --windows-gpu-provider pdh
+      placeholder: .\CAAutoConfig.exe --windows-gpu-poll-result .\report.json --windows-gpu-poll-seconds 600 --windows-gpu-poll-ms 2000 --windows-gpu-provider pdh-raw
     validations:
       required: true
   - type: textarea
@@ -56,7 +70,7 @@ body:
     id: observations
     attributes:
       label: Comparison and observed failures
-      description: Note Task Manager/vendor-tool agreement, sleep/resume or driver-reset behavior, and every mismatch or unavailable sample. Do not report only the best run.
+      description: Note Task Manager/vendor-tool agreement, any additional idle/load/churn/lifecycle phases, sampling tolerance, and every mismatch or unavailable sample. Do not report only the best run or include private workload content.
   - type: checkboxes
     id: boundaries
     attributes:
@@ -66,7 +80,7 @@ body:
           required: true
         - label: I retained failed and unavailable samples and did not edit values to look successful.
           required: true
-        - label: The report says canUseInHud=false, hardwareWrites=false, networkAccess=false, and elevationRequested=false.
+        - label: The report says canUseInHud=false, hardwareWrites=false, networkAccess=false, elevationRequested=false, and rawAdapterIdentifiersIncluded=false.
           required: true
         - label: I removed LUIDs, PIDs, PNP/PCI identifiers, UUIDs, user or machine names, and personal paths.
           required: true
