@@ -1,0 +1,463 @@
+{
+  "SchemaVersion": 1,
+  "Status": "MEASURED_LOCAL_PROCESS",
+  "EvidenceGrade": "MEASURED_LOCAL_PROCESS",
+  "MeasuredLive": true,
+  "Scope": "CAAutoConfig-process-only",
+  "AppVersion": "0.2.5-alpha.2",
+  "StartedUtc": "2026-10-10T16:35:20.8918907Z",
+  "FinishedUtc": "2026-10-10T16:37:21.0245704Z",
+  "ObservedSeconds": 120.024,
+  "ProcessorCount": 32,
+  "SampleCount": 60,
+  "NonRespondingSampleCount": 0,
+  "Cpu": {
+    "Unit": "percent-of-total-logical-processor-capacity",
+    "Mean": 0.0114,
+    "P95": 0.0245,
+    "Maximum": 0.049
+  },
+  "WorkingSetMiB": {
+    "Mean": 66.445,
+    "P95": 66.445,
+    "Maximum": 66.445
+  },
+  "PrivateMemoryMiB": {
+    "Mean": 24.34,
+    "P95": 24.34,
+    "Maximum": 24.34
+  },
+  "Samples": [
+    {
+      "RelativeSeconds": 2.056,
+      "NormalizedCpuPercent": 0.0,
+      "WorkingSetMiB": 66.445,
+      "PrivateMemoryMiB": 24.34,
+      "Responding": true
+    },
+    {
+      "RelativeSeconds": 4.012,
+      "NormalizedCpuPercent": 0.0,
+      "WorkingSetMiB": 66.445,
+      "PrivateMemoryMiB": 24.34,
+      "Responding": true
+    },
+    {
+      "RelativeSeconds": 6.008,
+      "NormalizedCpuPercent": 0.0245,
+      "WorkingSetMiB": 66.445,
+      "PrivateMemoryMiB": 24.34,
+      "Responding": true
+    },
+    {
+      "RelativeSeconds": 8.01,
+      "NormalizedCpuPercent": 0.0488,
+      "WorkingSetMiB": 66.445,
+      "PrivateMemoryMiB": 24.34,
+      "Responding": true
+    },
+    {
+      "RelativeSeconds": 10.007,
+      "NormalizedCpuPercent": 0.0,
+      "WorkingSetMiB": 66.445,
+      "PrivateMemoryMiB": 24.34,
+      "Responding": true
+    },
+    {
+      "RelativeSeconds": 12.009,
+      "NormalizedCpuPercent": 0.0,
+      "WorkingSetMiB": 66.445,
+      "PrivateMemoryMiB": 24.34,
+      "Responding": true
+    },
+    {
+      "RelativeSeconds": 14.016,
+      "NormalizedCpuPercent": 0.0,
+      "WorkingSetMiB": 66.445,
+      "PrivateMemoryMiB": 24.34,
+      "Responding": true
+    },
+    {
+      "RelativeSeconds": 16.012,
+      "NormalizedCpuPercent": 0.0245,
+      "WorkingSetMiB": 66.445,
+      "PrivateMemoryMiB": 24.34,
+      "Responding": true
+    },
+    {
+      "RelativeSeconds": 18.01,
+      "NormalizedCpuPercent": 0.0489,
+      "WorkingSetMiB": 66.445,
+      "PrivateMemoryMiB": 24.34,
+      "Responding": true
+    },
+    {
+      "RelativeSeconds": 20.015,
+      "NormalizedCpuPercent": 0.0,
+      "WorkingSetMiB": 66.445,
+      "PrivateMemoryMiB": 24.34,
+      "Responding": true
+    },
+    {
+      "RelativeSeconds": 22.016,
+      "NormalizedCpuPercent": 0.0,
+      "WorkingSetMiB": 66.445,
+      "PrivateMemoryMiB": 24.34,
+      "Responding": true
+    },
+    {
+      "RelativeSeconds": 24.01,
+      "NormalizedCpuPercent": 0.049,
+      "WorkingSetMiB": 66.445,
+      "PrivateMemoryMiB": 24.34,
+      "Responding": true
+    },
+    {
+      "RelativeSeconds": 26.019,
+      "NormalizedCpuPercent": 0.0,
+      "WorkingSetMiB": 66.445,
+      "PrivateMemoryMiB": 24.34,
+      "Responding": true
+    },
+    {
+      "RelativeSeconds": 28.018,
+      "NormalizedCpuPercent": 0.0,
+      "WorkingSetMiB": 66.445,
+      "PrivateMemoryMiB": 24.34,
+      "Responding": true
+    },
+    {
+      "RelativeSeconds": 30.019,
+      "NormalizedCpuPercent": 0.0,
+      "WorkingSetMiB": 66.445,
+      "PrivateMemoryMiB": 24.34,
+      "Responding": true
+    },
+    {
+      "RelativeSeconds": 32.022,
+      "NormalizedCpuPercent": 0.0244,
+      "WorkingSetMiB": 66.445,
+      "PrivateMemoryMiB": 24.34,
+      "Responding": true
+    },
+    {
+      "RelativeSeconds": 34.004,
+      "NormalizedCpuPercent": 0.0,
+      "WorkingSetMiB": 66.445,
+      "PrivateMemoryMiB": 24.34,
+      "Responding": true
+    },
+    {
+      "RelativeSeconds": 36.001,
+      "NormalizedCpuPercent": 0.0244,
+      "WorkingSetMiB": 66.445,
+      "PrivateMemoryMiB": 24.34,
+      "Responding": true
+    },
+    {
+      "RelativeSeconds": 38.022,
+      "NormalizedCpuPercent": 0.0,
+      "WorkingSetMiB": 66.445,
+      "PrivateMemoryMiB": 24.34,
+      "Responding": true
+    },
+    {
+      "RelativeSeconds": 40.005,
+      "NormalizedCpuPercent": 0.0,
+      "WorkingSetMiB": 66.445,
+      "PrivateMemoryMiB": 24.34,
+      "Responding": true
+    },
+    {
+      "RelativeSeconds": 42.025,
+      "NormalizedCpuPercent": 0.0242,
+      "WorkingSetMiB": 66.445,
+      "PrivateMemoryMiB": 24.34,
+      "Responding": true
+    },
+    {
+      "RelativeSeconds": 44.003,
+      "NormalizedCpuPercent": 0.0,
+      "WorkingSetMiB": 66.445,
+      "PrivateMemoryMiB": 24.34,
+      "Responding": true
+    },
+    {
+      "RelativeSeconds": 46.02,
+      "NormalizedCpuPercent": 0.0,
+      "WorkingSetMiB": 66.445,
+      "PrivateMemoryMiB": 24.34,
+      "Responding": true
+    },
+    {
+      "RelativeSeconds": 48.004,
+      "NormalizedCpuPercent": 0.0,
+      "WorkingSetMiB": 66.445,
+      "PrivateMemoryMiB": 24.34,
+      "Responding": true
+    },
+    {
+      "RelativeSeconds": 50.02,
+      "NormalizedCpuPercent": 0.0,
+      "WorkingSetMiB": 66.445,
+      "PrivateMemoryMiB": 24.34,
+      "Responding": true
+    },
+    {
+      "RelativeSeconds": 52.023,
+      "NormalizedCpuPercent": 0.0244,
+      "WorkingSetMiB": 66.445,
+      "PrivateMemoryMiB": 24.34,
+      "Responding": true
+    },
+    {
+      "RelativeSeconds": 54.014,
+      "NormalizedCpuPercent": 0.0,
+      "WorkingSetMiB": 66.445,
+      "PrivateMemoryMiB": 24.34,
+      "Responding": true
+    },
+    {
+      "RelativeSeconds": 56.01,
+      "NormalizedCpuPercent": 0.0245,
+      "WorkingSetMiB": 66.445,
+      "PrivateMemoryMiB": 24.34,
+      "Responding": true
+    },
+    {
+      "RelativeSeconds": 58.013,
+      "NormalizedCpuPercent": 0.0244,
+      "WorkingSetMiB": 66.445,
+      "PrivateMemoryMiB": 24.34,
+      "Responding": true
+    },
+    {
+      "RelativeSeconds": 60.006,
+      "NormalizedCpuPercent": 0.0245,
+      "WorkingSetMiB": 66.445,
+      "PrivateMemoryMiB": 24.34,
+      "Responding": true
+    },
+    {
+      "RelativeSeconds": 62.014,
+      "NormalizedCpuPercent": 0.0,
+      "WorkingSetMiB": 66.445,
+      "PrivateMemoryMiB": 24.34,
+      "Responding": true
+    },
+    {
+      "RelativeSeconds": 64.009,
+      "NormalizedCpuPercent": 0.0,
+      "WorkingSetMiB": 66.445,
+      "PrivateMemoryMiB": 24.34,
+      "Responding": true
+    },
+    {
+      "RelativeSeconds": 66.019,
+      "NormalizedCpuPercent": 0.0243,
+      "WorkingSetMiB": 66.445,
+      "PrivateMemoryMiB": 24.34,
+      "Responding": true
+    },
+    {
+      "RelativeSeconds": 68.02,
+      "NormalizedCpuPercent": 0.0,
+      "WorkingSetMiB": 66.445,
+      "PrivateMemoryMiB": 24.34,
+      "Responding": true
+    },
+    {
+      "RelativeSeconds": 70.015,
+      "NormalizedCpuPercent": 0.0,
+      "WorkingSetMiB": 66.445,
+      "PrivateMemoryMiB": 24.34,
+      "Responding": true
+    },
+    {
+      "RelativeSeconds": 72.005,
+      "NormalizedCpuPercent": 0.0,
+      "WorkingSetMiB": 66.445,
+      "PrivateMemoryMiB": 24.34,
+      "Responding": true
+    },
+    {
+      "RelativeSeconds": 74.02,
+      "NormalizedCpuPercent": 0.0,
+      "WorkingSetMiB": 66.445,
+      "PrivateMemoryMiB": 24.34,
+      "Responding": true
+    },
+    {
+      "RelativeSeconds": 76.016,
+      "NormalizedCpuPercent": 0.0245,
+      "WorkingSetMiB": 66.445,
+      "PrivateMemoryMiB": 24.34,
+      "Responding": true
+    },
+    {
+      "RelativeSeconds": 78.012,
+      "NormalizedCpuPercent": 0.0245,
+      "WorkingSetMiB": 66.445,
+      "PrivateMemoryMiB": 24.34,
+      "Responding": true
+    },
+    {
+      "RelativeSeconds": 80.01,
+      "NormalizedCpuPercent": 0.0244,
+      "WorkingSetMiB": 66.445,
+      "PrivateMemoryMiB": 24.34,
+      "Responding": true
+    },
+    {
+      "RelativeSeconds": 82.004,
+      "NormalizedCpuPercent": 0.0245,
+      "WorkingSetMiB": 66.445,
+      "PrivateMemoryMiB": 24.34,
+      "Responding": true
+    },
+    {
+      "RelativeSeconds": 84.017,
+      "NormalizedCpuPercent": 0.0243,
+      "WorkingSetMiB": 66.445,
+      "PrivateMemoryMiB": 24.34,
+      "Responding": true
+    },
+    {
+      "RelativeSeconds": 86.014,
+      "NormalizedCpuPercent": 0.0245,
+      "WorkingSetMiB": 66.445,
+      "PrivateMemoryMiB": 24.34,
+      "Responding": true
+    },
+    {
+      "RelativeSeconds": 88.007,
+      "NormalizedCpuPercent": 0.0245,
+      "WorkingSetMiB": 66.445,
+      "PrivateMemoryMiB": 24.34,
+      "Responding": true
+    },
+    {
+      "RelativeSeconds": 90.004,
+      "NormalizedCpuPercent": 0.0,
+      "WorkingSetMiB": 66.445,
+      "PrivateMemoryMiB": 24.34,
+      "Responding": true
+    },
+    {
+      "RelativeSeconds": 92.015,
+      "NormalizedCpuPercent": 0.0243,
+      "WorkingSetMiB": 66.445,
+      "PrivateMemoryMiB": 24.34,
+      "Responding": true
+    },
+    {
+      "RelativeSeconds": 94.014,
+      "NormalizedCpuPercent": 0.0,
+      "WorkingSetMiB": 66.445,
+      "PrivateMemoryMiB": 24.34,
+      "Responding": true
+    },
+    {
+      "RelativeSeconds": 96.008,
+      "NormalizedCpuPercent": 0.0,
+      "WorkingSetMiB": 66.445,
+      "PrivateMemoryMiB": 24.34,
+      "Responding": true
+    },
+    {
+      "RelativeSeconds": 98.012,
+      "NormalizedCpuPercent": 0.0,
+      "WorkingSetMiB": 66.445,
+      "PrivateMemoryMiB": 24.34,
+      "Responding": true
+    },
+    {
+      "RelativeSeconds": 100.008,
+      "NormalizedCpuPercent": 0.0,
+      "WorkingSetMiB": 66.445,
+      "PrivateMemoryMiB": 24.34,
+      "Responding": true
+    },
+    {
+      "RelativeSeconds": 102.002,
+      "NormalizedCpuPercent": 0.0245,
+      "WorkingSetMiB": 66.445,
+      "PrivateMemoryMiB": 24.34,
+      "Responding": true
+    },
+    {
+      "RelativeSeconds": 104.017,
+      "NormalizedCpuPercent": 0.0,
+      "WorkingSetMiB": 66.445,
+      "PrivateMemoryMiB": 24.34,
+      "Responding": true
+    },
+    {
+      "RelativeSeconds": 106.012,
+      "NormalizedCpuPercent": 0.0,
+      "WorkingSetMiB": 66.445,
+      "PrivateMemoryMiB": 24.34,
+      "Responding": true
+    },
+    {
+      "RelativeSeconds": 108.008,
+      "NormalizedCpuPercent": 0.0,
+      "WorkingSetMiB": 66.445,
+      "PrivateMemoryMiB": 24.34,
+      "Responding": true
+    },
+    {
+      "RelativeSeconds": 110.014,
+      "NormalizedCpuPercent": 0.0243,
+      "WorkingSetMiB": 66.445,
+      "PrivateMemoryMiB": 24.34,
+      "Responding": true
+    },
+    {
+      "RelativeSeconds": 112.014,
+      "NormalizedCpuPercent": 0.0244,
+      "WorkingSetMiB": 66.445,
+      "PrivateMemoryMiB": 24.34,
+      "Responding": true
+    },
+    {
+      "RelativeSeconds": 114.011,
+      "NormalizedCpuPercent": 0.0244,
+      "WorkingSetMiB": 66.445,
+      "PrivateMemoryMiB": 24.34,
+      "Responding": true
+    },
+    {
+      "RelativeSeconds": 116.008,
+      "NormalizedCpuPercent": 0.0,
+      "WorkingSetMiB": 66.445,
+      "PrivateMemoryMiB": 24.34,
+      "Responding": true
+    },
+    {
+      "RelativeSeconds": 118.005,
+      "NormalizedCpuPercent": 0.0,
+      "WorkingSetMiB": 66.445,
+      "PrivateMemoryMiB": 24.34,
+      "Responding": true
+    },
+    {
+      "RelativeSeconds": 120.024,
+      "NormalizedCpuPercent": 0.0,
+      "WorkingSetMiB": 66.445,
+      "PrivateMemoryMiB": 24.34,
+      "Responding": true
+    }
+  ],
+  "Boundaries": {
+    "UniversalPerformanceClaim": false,
+    "PromotionAuthorized": false,
+    "ProcessIdExported": false,
+    "ExecutablePathExported": false,
+    "MachineOrUserIdentityExported": false,
+    "NetworkAccess": false,
+    "HardwareWrites": false,
+    "GpuSettingsChanged": false,
+    "ProcessControl": false
+  }
+}

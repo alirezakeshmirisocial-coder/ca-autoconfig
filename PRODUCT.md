@@ -46,6 +46,7 @@ The product name is **CA AutoConfig**. Public language is direct, technical, evi
 ## Evidence on Hand
 
 - Live maintainer evidence: Windows 10 Pro for Workstations, mixed-DPI three-display topology, two RTX 3090 cards, current 280 W / 1700 MHz configured profile, and an installed self-contained HUD.
+- A bounded 120-second observation of the installed `v0.2.5-alpha.2` HUD retained 60 responsive samples and publishes normalized CPU plus memory samples without PID/path/identity. This is one idle-host measurement, not a universal footprint promise or a comparison with the current release.
 - Deterministic evidence: telemetry failure/identity cases, benchmark schema/report/card tests, Ollama/llama.cpp/ComfyUI fixture adapters, and adaptive thermal-policy simulations.
 - Public assets: application-only HUD demo, architecture/privacy/security documents, evidence-tiered hardware matrix, checksummed prereleases, and a focused design-partner intake.
 - No accepted external hardware reproduction, real workload power curve, customer testimonial, or creator reproduction exists yet. Future work must not imply otherwise.

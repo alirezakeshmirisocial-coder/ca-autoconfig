@@ -50,7 +50,9 @@ Contributors can build and smoke-test the same app from source:
 .\Invoke-RepositoryChecks.ps1 -Suite Full
 ```
 
-The full repository runner requires PowerShell 7 and the .NET 8 SDK and fails closed if either is missing. `-Suite PowerShell` is an explicitly incomplete 14-check fallback for machines without the SDK; its summary cannot claim complete validation.
+The full repository runner requires PowerShell 7 and the .NET 8 SDK and fails closed if either is missing. `-Suite PowerShell` is an explicitly incomplete 15-check fallback for machines without the SDK; its summary cannot claim complete validation.
+
+Maintainers can measure the already-running HUD without controlling it or exposing its PID/path using `.\tools\Measure-HudOverhead.ps1 -DurationSeconds 120 -IntervalSeconds 2 -ResultPath .\hud-overhead.json`. The report keeps normalized CPU, memory, responsiveness, and relative samples, but never converts one machine's result into a universal performance claim. One [120-second maintainer observation](docs/evidence/hud-overhead-120s-2026-10-10.json) of installed `v0.2.5-alpha.2` retained 60/60 responsive samples at 0.0114% mean and 0.0245% p95 CPU normalized across 32 logical processors, with a 66.445 MiB working set; this is one idle host, not a release-wide guarantee.
 
 Maintainers can prepare an offline, disposable install/task/uninstall check with the [Windows Sandbox harness](docs/CLEAN_MACHINE_SANDBOX.md). The generator does not enable Sandbox or claim a pass until a real result JSON exists.
 
