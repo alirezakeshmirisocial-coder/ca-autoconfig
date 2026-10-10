@@ -13,14 +13,15 @@ function Assert-True {
 $full = @(& $runner -Suite Full -ListOnly)
 $powerShell = @(& $runner -Suite PowerShell -ListOnly)
 
-Assert-True ($full.Count -eq 18) 'Full suite does not contain exactly 18 named checks.'
-Assert-True ($powerShell.Count -eq 15) 'PowerShell suite does not contain exactly 15 named checks.'
+Assert-True ($full.Count -eq 19) 'Full suite does not contain exactly 19 named checks.'
+Assert-True ($powerShell.Count -eq 16) 'PowerShell suite does not contain exactly 16 named checks.'
 Assert-True (@($full | Where-Object { $_.Kind -eq 'DotNetProject' }).Count -eq 1) 'Full suite does not contain the compiled telemetry project.'
 Assert-True (@($powerShell | Where-Object { $_.FullOnly }).Count -eq 0) 'PowerShell suite included a Full-only check.'
 Assert-True (@($full | Where-Object { $_.Name -eq 'Compiled desktop smoke' }).Count -eq 1) 'Full suite omitted the compiled desktop smoke test.'
 Assert-True (@($full | Where-Object { $_.Name -eq 'Privileged helper safety' }).Count -eq 1) 'Full suite omitted the privileged helper safety test.'
 Assert-True (@($powerShell | Where-Object { $_.Name -eq 'Display diagnostics preflight' }).Count -eq 1) 'PowerShell suite omitted the display preflight.'
 Assert-True (@($powerShell | Where-Object { $_.Name -eq 'HUD overhead evidence policy' }).Count -eq 1) 'PowerShell suite omitted the HUD overhead policy test.'
+Assert-True (@($powerShell | Where-Object { $_.Name -eq 'Static landing-page policy' }).Count -eq 1) 'PowerShell suite omitted the landing-page policy test.'
 Assert-True (@($powerShell | Where-Object { $_.Name -eq 'Repository-check orchestration' }).Count -eq 1) 'PowerShell suite omitted its orchestration policy test.'
 
 foreach ($step in $full) {

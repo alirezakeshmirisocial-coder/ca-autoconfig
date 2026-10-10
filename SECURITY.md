@@ -37,3 +37,5 @@ We aim to acknowledge a complete report within three business days. A fix and di
 - The RGB-camera presence feature is not liveness detection and is not a replacement for Windows Hello, BitLocker, or a strong Windows credential.
 
 GitHub default CodeQL analysis covers the detected C# and Python surfaces on repository changes and weekly. A green CodeQL run is one security signal; it does not replace manual privilege-boundary review, Windows build/package tests, signing, clean-machine installation, or responsible vulnerability reporting.
+
+The project homepage is static HTML/CSS with a restrictive meta CSP. It loads no scripts, analytics, cookies, third-party fonts, forms, or remote runtime assets; links navigate only when a visitor activates them.

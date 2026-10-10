@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="CA AutoConfig is a tiny click-through Windows HUD and evidence-gated NVIDIA power companion for local AI workstations.">
+  <meta name="referrer" content="no-referrer">
+  <meta name="theme-color" content="#111821">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self'; base-uri 'none'; form-action 'none'; upgrade-insecure-requests">
+  <link rel="canonical" href="https://alirezakeshmirisocial-coder.github.io/ca-autoconfig/">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="CA AutoConfig — keep the workstation honest">
+  <meta property="og:description" content="A click-through Windows HUD that verifies NVIDIA limits and makes local-AI power evidence reproducible.">
+  <meta property="og:url" content="https://alirezakeshmirisocial-coder.github.io/ca-autoconfig/">
+  <meta property="og:image" content="https://alirezakeshmirisocial-coder.github.io/ca-autoconfig/assets/hud-alpha.png">
+  <meta property="og:image:alt" content="CA AutoConfig HUD showing CPU, memory, storage and two RTX 3090 cards">
+  <title>CA AutoConfig — Windows HUD for local AI</title>
+  <link rel="stylesheet" href="site.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="site-header">
+    <a class="brand" href="#top" aria-label="CA AutoConfig home">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <span>CA AutoConfig</span>
+    </a>
+    <nav aria-label="Primary navigation">
+      <a href="#how-it-works">How it works</a>
+      <a href="#evidence">Evidence</a>
+      <a href="#safety">Safety</a>
+      <a href="#install">Install</a>
+    </nav>
+    <a class="source-link" href="https://github.com/alirezakeshmirisocial-coder/ca-autoconfig">Source on GitHub</a>
+  </header>
+
+  <main id="main">
+    <section class="hero" id="top">
+      <div class="hero-copy">
+        <p class="release-state"><span aria-hidden="true"></span>Windows / NVIDIA public alpha</p>
+        <h1>Keep the workstation honest.</h1>
+        <p class="hero-lede">A tiny click-through HUD that verifies whether your GPU profile survived this boot, keeps both cards readable, and helps you measure power limits before you trust them.</p>
+        <div class="hero-actions">
+          <a class="primary-action" href="https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/releases/tag/v0.2.6-alpha.4">Download the latest alpha</a>
+          <a class="text-action" href="https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/blob/main/docs/ARCHITECTURE.md">Read the architecture</a>
+        </div>
+        <p class="alpha-note">Unsigned pre-release. Windows 10/11 and NVIDIA are the current supported path. GPU changes are separate, explicit and elevated.</p>
+      </div>
+
+      <figure class="hud-stage">
+        <div class="stage-status" aria-hidden="true">
+          <span>profile</span><strong>ACTIVE</strong><span>1700 MHz / 280 W</span>
+        </div>
+        <img src="assets/hud-alpha.png" width="405" height="415" alt="CA AutoConfig HUD with a small lock control, CPU, RAM and storage bars, and telemetry for two RTX 3090 GPUs">
+        <figcaption>The lock pill stays clickable. Everything else can pass clicks through to your work.</figcaption>
+      </figure>
+    </section>
+
+    <section class="proof-strip" aria-label="Current product boundaries">
+      <div><strong>0</strong><span>application network clients</span></div>
+      <div><strong>60 / 60</strong><span>responsive samples in the first published footprint run</span></div>
+      <div><strong>16 / 16</strong><span>available local check groups passing</span></div>
+      <div><strong>Apache-2.0</strong><span>source and methods in public</span></div>
+    </section>
+
+    <section class="question-trace" id="how-it-works">
+      <div class="section-intro">
+        <h2>Four questions. One quiet surface.</h2>
+        <p>CA AutoConfig connects state, placement and evidence without turning the desktop into a control room.</p>
+      </div>
+      <ol class="trace-list">
+        <li>
+          <span class="trace-index">01</span>
+          <div><h3>Did the profile apply?</h3><p>The indicator stays red when the current boot does not match the UUID-pinned power and clock profile.</p></div>
+        </li>
+        <li>
+          <span class="trace-index">02</span>
+          <div><h3>What is each card doing?</h3><p>CUDA/SM load, VRAM, watts/cap, temperature and graphics clock remain separate per GPU.</p></div>
+        </li>
+        <li>
+          <span class="trace-index">03</span>
+          <div><h3>Where should it live?</h3><p>A visual monitor map reads the Windows topology. Unlock, drag, set opacity, choose a shortcut, then return to click-through mode.</p></div>
+        </li>
+        <li>
+          <span class="trace-index">04</span>
+          <div><h3>What does a lower limit cost?</h3><p>Ollama, llama.cpp and ComfyUI adapters keep throughput, power windows and failures explicit before any candidate becomes advice.</p></div>
+        </li>
+      </ol>
+    </section>
+
+    <section class="evidence-section" id="evidence">
+      <div class="section-intro">
+        <h2>Evidence first. Settings second.</h2>
+        <p>The repository publishes raw methods and failed gates. A fixture can test the math; it cannot become hardware proof.</p>
+      </div>
+      <div class="measurement-ledger">
+        <div class="ledger-heading">
+          <p>Installed HUD / idle observation</p>
+          <a href="https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/blob/main/docs/evidence/hud-overhead-120s-2026-10-10.json">Inspect all 60 samples</a>
+        </div>
+        <dl>
+          <div><dt>Mean CPU</dt><dd>0.0114%</dd></div>
+          <div><dt>p95 CPU</dt><dd>0.0245%</dd></div>
+          <div><dt>Working set</dt><dd>66.445 MiB</dd></div>
+          <div><dt>Non-responsive</dt><dd>0 / 60</dd></div>
+        </dl>
+        <p class="evidence-caveat">One 120-second idle run of installed v0.2.5-alpha.2 on a 32-logical-processor maintainer machine. This is not a universal footprint promise or a current-release comparison.</p>
+      </div>
+      <div class="evidence-links">
+        <a href="https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/blob/main/docs/HARDWARE_MATRIX.md"><span>Compatibility</span>Hardware matrix</a>
+        <a href="https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/blob/main/benchmark/POWER_CURVE_METHOD.md"><span>Method</span>Power-curve protocol</a>
+        <a href="https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/issues/new?template=display-result.yml"><span>Contribute</span>Submit a display report</a>
+      </div>
+    </section>
+
+    <section class="safety-section" id="safety">
+      <div class="section-intro">
+        <h2>Unknown is not green.</h2>
+        <p>The normal HUD is unprivileged and read-only. Optional GPU writes live behind a separate, narrow path.</p>
+      </div>
+      <div class="safety-contract">
+        <div><h3>Normal-user monitoring</h3><p>No application analytics, update client or hidden upload. Missing telemetry stays unknown.</p></div>
+        <div><h3>Explicit hardware changes</h3><p>Applying a profile requires exact targets and values, hardware-risk acknowledgement and UAC.</p></div>
+        <div><h3>Board-aware boundaries</h3><p>The advisor remains inside driver-reported ranges and never raises an existing lower cap silently.</p></div>
+        <div><h3>Exact rollback</h3><p>The protected helper records pre-change power values and refuses to guess after identity or state mismatch.</p></div>
+      </div>
+    </section>
+
+    <section class="install-section" id="install">
+      <div>
+        <h2>Install the HUD. Keep mutation optional.</h2>
+        <p>Download the ZIP, checksum and standalone verifier from the latest release. Verify before extraction, then install the standard-user desktop app.</p>
+      </div>
+      <pre aria-label="PowerShell installation commands"><code>.\Verify-DesktopPackage.ps1 -PackagePath .\CA-AutoConfig-Desktop-v0.2.6-alpha.4-win-x64.zip -ExpectedVersion 0.2.6-alpha.4
+.\Install-DesktopApp.ps1</code></pre>
+      <div class="install-actions">
+        <a class="primary-action" href="https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/releases/tag/v0.2.6-alpha.4">Open release v0.2.6-alpha.4</a>
+        <a class="text-action" href="https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/discussions/9">Join one focused alpha test</a>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p><strong>CA AutoConfig</strong> is open source under Apache-2.0. This page uses no scripts, cookies, analytics or third-party fonts.</p>
+    <nav aria-label="Footer navigation">
+      <a href="https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/blob/main/PRIVACY.md">Privacy</a>
+      <a href="https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/blob/main/SECURITY.md">Security</a>
+      <a href="https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/blob/main/ROADMAP.md">Roadmap</a>
+    </nav>
+  </footer>
+</body>
+</html>
