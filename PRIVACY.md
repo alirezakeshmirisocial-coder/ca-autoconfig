@@ -18,4 +18,6 @@ The HUD and GPU helper make no network requests. The Ollama benchmark adapter ca
 
 ## Public reports
 
-Before sharing a log, screenshot, or benchmark, remove usernames, computer names, GPU UUIDs, monitor contents, personal paths, webhook addresses, tokens, and biometric material. Hardware models, driver versions, supported power ranges, anonymized temperatures, watts, and workload throughput are generally useful without those identifiers.
+The Settings window can copy a diagnostic block only after an explicit click. It writes to the local Windows clipboard and does not transmit or save the text. The block includes app/Windows version, architecture, shortcut, display topology and scale, profile status, and current hardware telemetry. It does not source usernames, computer names, GPU UUIDs, local paths, prompts, outputs, workflows, or image content, and it defensively redacts UUID/path patterns from assembled lines.
+
+Before sharing any copied diagnostic, log, screenshot, or benchmark, inspect it and remove usernames, computer names, GPU UUIDs, monitor contents, personal paths, webhook addresses, tokens, and biometric material. Hardware models, driver versions, supported power ranges, anonymized temperatures, watts, and workload throughput are generally useful without those identifiers.

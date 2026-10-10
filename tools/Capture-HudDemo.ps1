@@ -190,7 +190,7 @@ try {
     } while ($settings -eq [IntPtr]::Zero -and [DateTime]::UtcNow -lt $deadline)
     if ($settings -eq [IntPtr]::Zero) { throw 'The HUD settings window did not open.' }
     $settingsCapture = [CAHudDemoCapture]::Capture($settings); $captures.Add($settingsCapture)
-    $frames.Add([CAHudDemoCapture]::Compose($settingsCapture, 'Your workstation, your layout', 'Monitor map + shortcut', 'Choose a real display panel, opacity, and hotkey; inspect read-only power starting points.'))
+    $frames.Add([CAHudDemoCapture]::Compose($settingsCapture, 'Your workstation, your layout', 'Monitor map + shortcut', 'Choose a display, opacity, and hotkey; inspect limits and copy a sanitized report.'))
 
     $outputDirectory = Split-Path -Parent $OutputPath
     New-Item -ItemType Directory -Force -Path $outputDirectory, $FrameDirectory | Out-Null

@@ -198,6 +198,58 @@ namespace CA.SystemOverlay
         }
     }
 
+    internal static class PrivacySafeDiagnostics
+    {
+        public static string Build(
+            string appVersion,
+            string windowsVersion,
+            string architecture,
+            string shortcut,
+            string selectedDisplay,
+            string profileStatus,
+            DateTime capturedUtc,
+            string[] displayLines,
+            string[] gpuLines)
+        {
+            StringBuilder report = new StringBuilder();
+            report.AppendLine("CA AutoConfig diagnostics (privacy-safe)");
+            report.AppendLine("App: " + SafeLine(appVersion));
+            report.AppendLine("Captured UTC: " + capturedUtc.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture));
+            report.AppendLine("Windows: " + SafeLine(windowsVersion) + " · " + SafeLine(architecture));
+            report.AppendLine("Shortcut: " + SafeLine(shortcut));
+            report.AppendLine("Selected display: " + SafeLine(selectedDisplay));
+            report.AppendLine("GPU profile: " + SafeLine(profileStatus));
+            report.AppendLine();
+            report.AppendLine("Displays:");
+            AppendLines(report, displayLines);
+            report.AppendLine("GPUs:");
+            AppendLines(report, gpuLines);
+            report.AppendLine("Privacy: excludes usernames, machine names, GPU UUIDs, paths, prompts, outputs, workflows, and image content.");
+            return report.ToString().TrimEnd();
+        }
+
+        private static void AppendLines(StringBuilder report, string[] lines)
+        {
+            if (lines == null || lines.Length == 0)
+            {
+                report.AppendLine("- None reported");
+                return;
+            }
+            foreach (string line in lines)
+                report.AppendLine("- " + SafeLine(line));
+        }
+
+        private static string SafeLine(string value)
+        {
+            string clean = String.IsNullOrWhiteSpace(value) ? "unknown" : Regex.Replace(value, @"[\r\n\t]+", " ").Trim();
+            clean = Regex.Replace(clean, @"(?i)\bGPU-[0-9a-f-]{12,}\b", "[GPU UUID omitted]");
+            clean = Regex.Replace(clean, @"(?i)\b[A-Z]:\\[^;\r\n]+", "[local path omitted]");
+            if (clean.Length > 240)
+                clean = clean.Substring(0, 237) + "...";
+            return clean;
+        }
+    }
+
     internal sealed class NvidiaTelemetryResult
     {
         public bool Success;
@@ -1003,7 +1055,9 @@ namespace CA.SystemOverlay
         private readonly NumericUpDown _opacity;
         private readonly Label _selectionSummary;
         private readonly Label _advisor;
+        private readonly Button _copyDiagnostics;
         private readonly System.Windows.Forms.Timer _refreshTimer;
+        private DateTime _copyFeedbackUntilUtc;
 
         [StructLayout(LayoutKind.Sequential)]
         private struct NativePoint
@@ -1087,7 +1141,12 @@ namespace CA.SystemOverlay
             _advisor = NewLabel(BuildPowerAdvisor(_metrics.Latest), 26, 511, 648, 66, 9.0f, FontStyle.Regular, Color.FromArgb(214, 221, 230));
             _advisor.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             Controls.Add(_advisor);
-            Controls.Add(NewLabel("Starting points stay inside NVIDIA's reported range and never exceed the default. Benchmark your real AI workload before applying a change.", 26, 585, 480, 34, 8.2f, FontStyle.Regular, Color.FromArgb(132, 145, 162)));
+            Controls.Add(NewLabel("Starting points stay inside NVIDIA's reported range and never exceed the default. Benchmark your real AI workload before applying a change.", 26, 585, 648, 34, 8.2f, FontStyle.Regular, Color.FromArgb(132, 145, 162)));
+
+            _copyDiagnostics = NewButton("Copy diagnostics", 26, 628, 154, 34, false);
+            _copyDiagnostics.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
+            _copyDiagnostics.Click += CopyDiagnosticsClicked;
+            Controls.Add(_copyDiagnostics);
 
             Button cancel = NewButton("Cancel", 500, 628, 82, 34, false);
             cancel.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
@@ -1102,7 +1161,16 @@ namespace CA.SystemOverlay
 
             _refreshTimer = new System.Windows.Forms.Timer();
             _refreshTimer.Interval = 2000;
-            _refreshTimer.Tick += delegate { _advisor.Text = BuildPowerAdvisor(_metrics.Latest); };
+            _refreshTimer.Tick += delegate
+            {
+                _advisor.Text = BuildPowerAdvisor(_metrics.Latest);
+                if (_copyFeedbackUntilUtc != DateTime.MinValue && DateTime.UtcNow >= _copyFeedbackUntilUtc)
+                {
+                    _copyDiagnostics.Text = "Copy diagnostics";
+                    _copyDiagnostics.ForeColor = Color.White;
+                    _copyFeedbackUntilUtc = DateTime.MinValue;
+                }
+            };
             _refreshTimer.Start();
             ApplyDisplayScale();
         }
@@ -1141,6 +1209,134 @@ namespace CA.SystemOverlay
             _working.HotkeyKey = _hotkey.HotkeyKey;
             DialogResult = DialogResult.OK;
             Close();
+        }
+
+        private void CopyDiagnosticsClicked(object sender, EventArgs e)
+        {
+            try
+            {
+                Clipboard.SetText(BuildPrivacySafeDiagnostics());
+                _copyDiagnostics.Text = "Copied safely";
+                _copyDiagnostics.ForeColor = Color.FromArgb(143, 224, 170);
+                _copyFeedbackUntilUtc = DateTime.UtcNow.AddSeconds(2.5);
+            }
+            catch
+            {
+                MessageBox.Show(this, "The Windows clipboard is busy. Try Copy diagnostics again.", "Could not copy diagnostics", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+        }
+
+        private string BuildPrivacySafeDiagnostics()
+        {
+            MetricSnapshot snapshot = _metrics.Latest;
+            List<string> displays = new List<string>();
+            Screen[] screens = Screen.AllScreens;
+            for (int index = 0; index < screens.Length; index++)
+            {
+                Screen screen = screens[index];
+                int scalePercent = GetDisplayScalePercent(screen);
+                string scale = scalePercent > 0 ? scalePercent.ToString(CultureInfo.InvariantCulture) + "%" : "unknown scale";
+                displays.Add(String.Format(
+                    CultureInfo.InvariantCulture,
+                    "Display {0}: {1}x{2} at ({3},{4}); {5}{6}{7}",
+                    index + 1,
+                    screen.Bounds.Width,
+                    screen.Bounds.Height,
+                    screen.Bounds.Left,
+                    screen.Bounds.Top,
+                    scale,
+                    screen.Primary ? "; primary" : String.Empty,
+                    String.Equals(screen.DeviceName, _monitorMap.SelectedDeviceName, StringComparison.OrdinalIgnoreCase) ? "; selected" : String.Empty));
+            }
+
+            List<string> gpus = new List<string>();
+            if (snapshot != null)
+            {
+                foreach (GpuMetric gpu in snapshot.Gpus)
+                {
+                    string suggestion = gpu.SuggestedPowerLimitWatts > 0
+                        ? gpu.SuggestedPowerLimitWatts.ToString("0", CultureInfo.InvariantCulture) + " W starting point"
+                        : "no starting point";
+                    gpus.Add(String.Format(
+                        CultureInfo.InvariantCulture,
+                        "GPU {0}: {1}; CUDA/SM {2}; VRAM {3}; power {4}; vendor range {5}; temperature {6}; clock {7}; {8}",
+                        gpu.Index,
+                        gpu.Name,
+                        FormatDiagnosticPercent(gpu.LoadPercent),
+                        FormatDiagnosticPercent(gpu.VramPercent),
+                        FormatDiagnosticPower(gpu.PowerDrawWatts, gpu.PowerLimitWatts, gpu.DefaultPowerLimitWatts),
+                        FormatDiagnosticRange(gpu.MinimumPowerLimitWatts, gpu.MaximumPowerLimitWatts),
+                        gpu.TemperatureC >= 0 ? gpu.TemperatureC.ToString(CultureInfo.InvariantCulture) + " C" : "unknown",
+                        gpu.ClockMHz >= 0 ? gpu.ClockMHz.ToString(CultureInfo.InvariantCulture) + " MHz" : "unknown",
+                        suggestion));
+                }
+            }
+
+            string version = "unknown";
+            try
+            {
+                version = FileVersionInfo.GetVersionInfo(Application.ExecutablePath).ProductVersion;
+                if (String.IsNullOrWhiteSpace(version))
+                    version = typeof(SettingsForm).Assembly.GetName().Version.ToString();
+            }
+            catch { version = typeof(SettingsForm).Assembly.GetName().Version.ToString(); }
+
+            return PrivacySafeDiagnostics.Build(
+                version,
+                Environment.OSVersion.VersionString,
+                RuntimeInformation.OSArchitecture.ToString(),
+                HotkeyCaptureBox.FormatHotkey(_hotkey.HotkeyModifiers, _hotkey.HotkeyKey),
+                SelectedDiagnosticDisplaySummary(),
+                snapshot == null ? "COLLECTING" : snapshot.GpuLimitDetail,
+                snapshot == null ? DateTime.UtcNow : snapshot.CapturedUtc,
+                displays.ToArray(),
+                gpus.ToArray());
+        }
+
+        private string SelectedDiagnosticDisplaySummary()
+        {
+            Screen[] screens = Screen.AllScreens;
+            for (int index = 0; index < screens.Length; index++)
+            {
+                Screen screen = screens[index];
+                if (String.Equals(screen.DeviceName, _monitorMap.SelectedDeviceName, StringComparison.OrdinalIgnoreCase))
+                    return String.Format(CultureInfo.InvariantCulture, "Display {0} · {1}x{2}", index + 1, screen.Bounds.Width, screen.Bounds.Height);
+            }
+            return "disconnected display";
+        }
+
+        private static int GetDisplayScalePercent(Screen screen)
+        {
+            try
+            {
+                NativePoint point = new NativePoint { X = screen.Bounds.Left + 1, Y = screen.Bounds.Top + 1 };
+                IntPtr monitor = MonitorFromPoint(point, 2);
+                uint dpiX;
+                uint dpiY;
+                if (monitor != IntPtr.Zero && GetDpiForMonitor(monitor, 0, out dpiX, out dpiY) == 0 && dpiX >= 96)
+                    return (int)Math.Round(100.0 * dpiX / 96.0);
+            }
+            catch { }
+            return -1;
+        }
+
+        private static string FormatDiagnosticPercent(int value)
+        {
+            return value >= 0 ? value.ToString(CultureInfo.InvariantCulture) + "%" : "unknown";
+        }
+
+        private static string FormatDiagnosticPower(double draw, double limit, double defaultLimit)
+        {
+            if (draw < 0 || limit < 0 || defaultLimit < 0)
+                return "unknown";
+            return String.Format(CultureInfo.InvariantCulture, "{0:0}/{1:0} W (default {2:0} W)", draw, limit, defaultLimit);
+        }
+
+        private static string FormatDiagnosticRange(double minimum, double maximum)
+        {
+            if (minimum < 0 || maximum < 0)
+                return "unknown";
+            return String.Format(CultureInfo.InvariantCulture, "{0:0}-{1:0} W", minimum, maximum);
         }
 
         private static string BuildPowerAdvisor(MetricSnapshot snapshot)

@@ -12,12 +12,12 @@ This matrix separates live maintainer checks, deterministic fixtures, and extern
 
 ## Maintainer workstation
 
-Last checked: 2026-10-10 with `v0.2.3-alpha.1`.
+Last checked: 2026-10-10 with `v0.2.3-alpha.2`.
 
 | Surface | Environment | Evidence | Result and boundary |
 | --- | --- | --- | --- |
 | Compiled HUD | Windows 10 Pro for Workstations 22H2, build 19045, x64 | Maintainer live | Self-contained app starts from Logon/SessionUnlock as a normal user; one process observed. |
-| Display placement | Three displays: 1920×1080 primary, 1920×1080 secondary, 1536×864 secondary | Maintainer live | Third enumerated display selected at lower-left; heterogeneous resolution is covered, but per-display DPI scaling was not independently recorded. |
+| Display placement | Three displays: 3840×2160 at 200% primary, 1920×1080 at 100%, 1920×1080 at 125% | Maintainer live | Third enumerated display selected below the second at lower-left. Mixed resolution, mixed DPI, selection, startup, and session-unlock placement are covered on this topology only. |
 | NVIDIA telemetry | 2× GeForce RTX 3090 24 GiB, driver 581.57 | Maintainer live | Both rows report load, VRAM, watts/cap, temperature, and graphics clock; missing/malformed sources are fixture-tested to remain unknown/red. |
 | GPU profile identity | Same dual RTX 3090 system | Maintainer live + deterministic fixture | Apply/reset was exercised live; installed 280 W / 1700 MHz ceiling settles at 1695 MHz. Stable UUID targeting is used internally, but UUIDs are never published. Index reorder/replacement cases are deterministic fixtures. |
 | Board power ranges | Card 0: 100/420/500 W min/default/max; card 1: 100/370/380 W | Maintainer live | These values demonstrate why limits cannot be universal. `280 W` is only this workstation's approved test profile. |

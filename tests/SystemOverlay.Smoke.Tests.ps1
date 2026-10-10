@@ -42,7 +42,9 @@ foreach ($requiredFragment in @(
     'RecordedNvidiaTelemetrySource',
     'GPU TELEMETRY PARTIAL',
     'CalculateSafeStartingPoint',
-    'Starting points stay inside NVIDIA''s reported range'
+    'Starting points stay inside NVIDIA''s reported range',
+    'Copy diagnostics',
+    'PrivacySafeDiagnostics'
 )) {
     Assert-True ($sourceText.Contains($requiredFragment)) "Missing overlay feature marker: $requiredFragment"
 }
@@ -107,10 +109,30 @@ $recordedSourceType = $assembly.GetType('CA.SystemOverlay.RecordedNvidiaTelemetr
 $providerType = $assembly.GetType('CA.SystemOverlay.MetricsProvider', $true)
 $snapshotType = $assembly.GetType('CA.SystemOverlay.MetricSnapshot', $true)
 $gpuMetricType = $assembly.GetType('CA.SystemOverlay.GpuMetric', $true)
+$diagnosticsType = $assembly.GetType('CA.SystemOverlay.PrivacySafeDiagnostics', $true)
 $recordedConstructor = $recordedSourceType.GetConstructor($constructorFlags, $null, [Type[]]@([bool], [bool], [bool], [string]), $null)
 $providerConstructor = $providerType.GetConstructor($constructorFlags, $null, [Type[]]@($sourceInterface, [string], [DateTime]), $null)
 $collectGpu = $providerType.GetMethod('CollectGpuSnapshotOnce', $constructorFlags)
 Assert-True ($null -ne $recordedConstructor -and $null -ne $providerConstructor -and $null -ne $collectGpu) 'Simulated NVIDIA provider test surface is missing.'
+
+$diagnosticsBuild = $diagnosticsType.GetMethod('Build')
+Assert-True ($null -ne $diagnosticsBuild) 'Privacy-safe diagnostics builder is missing.'
+$diagnostics = [string]$diagnosticsBuild.Invoke($null, [object[]]@(
+    '0.2.3-alpha.2',
+    'Windows 10.0.19045',
+    'X64',
+    'Ctrl + Alt + L',
+    'Display 3',
+    'ACTIVE',
+    [DateTime]::Parse('2026-10-10T12:00:00Z').ToUniversalTime(),
+    [string[]]@('Display 1: 1920x1080; primary', 'Display 3: 1536x864; selected'),
+    [string[]]@('GPU 0: RTX 3090; GPU-00000000-0000-0000-0000-000000000000; C:\Users\Alice\secret.gguf')
+))
+Assert-True ($diagnostics.Contains('Display 3: 1536x864; selected')) 'Diagnostics omitted display topology.'
+Assert-True ($diagnostics.Contains('RTX 3090')) 'Diagnostics omitted the public GPU model.'
+Assert-True (-not $diagnostics.Contains('GPU-00000000-0000-0000-0000-000000000000')) 'Diagnostics exposed a GPU UUID.'
+Assert-True (-not $diagnostics.Contains('Alice')) 'Diagnostics exposed a personal path.'
+Assert-True ($diagnostics.Contains('[GPU UUID omitted]') -and $diagnostics.Contains('[local path omitted]')) 'Diagnostics did not label privacy redactions.'
 
 function Get-FieldValue {
     param($Object, [Type]$Type, [string]$Name)

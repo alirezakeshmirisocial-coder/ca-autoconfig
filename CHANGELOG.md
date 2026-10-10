@@ -4,8 +4,13 @@ This project follows semantic versioning after `v1.0.0`. Pre-1.0 releases may ch
 
 ## Unreleased
 
+## v0.2.3-alpha.2 — Privacy-safe diagnostics and test intake
+
+- Added one-click privacy-safe diagnostics in Settings with inline copied feedback, display/DPI topology, profile state, telemetry and advisor values, and defensive UUID/path redaction.
 - Added an evidence-tiered public hardware/workflow matrix that distinguishes live maintainer checks, deterministic fixtures, unsupported surfaces, and zero external reproductions.
 - Fixed issue-form labels to match repository labels, added privacy-aware contact routing, and required hardware submissions to retain failed/incomplete runs.
+- Opened a focused design-partner intake with three bounded test cohorts and no star requirement.
+- Regenerated the application-only demo and corrected the maintainer display evidence with DPI-aware values.
 
 ## v0.2.3-alpha.1 — ComfyUI image-efficiency adapter
 

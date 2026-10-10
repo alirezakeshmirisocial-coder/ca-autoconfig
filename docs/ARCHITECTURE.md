@@ -24,7 +24,7 @@ flowchart LR
 
 The desktop process is single-instance per user session through the `Local\CA-SystemOverlay` mutex. A second invocation with `--open-settings` signals `Local\CA-SystemOverlay-OpenSettings` and exits instead of creating another HUD.
 
-The metrics collector runs off the UI thread and suppresses overlapping collections. Its normal interval is two seconds. NVIDIA access is behind an internal telemetry-source boundary: production uses a process-backed `nvidia-smi` source, while tests inject a deterministic recorded source with no process or hardware access. Missing, timed-out, failed, empty, partial, malformed, and explicit-`N/A` responses have separate fail-closed outcomes. The app reads Windows CPU, memory, disk, and monitor data plus NVIDIA telemetry; it contains no network client and does not write GPU settings.
+The metrics collector runs off the UI thread and suppresses overlapping collections. Its normal interval is two seconds. NVIDIA access is behind an internal telemetry-source boundary: production uses a process-backed `nvidia-smi` source, while tests inject a deterministic recorded source with no process or hardware access. Missing, timed-out, failed, empty, partial, malformed, and explicit-`N/A` responses have separate fail-closed outcomes. The app reads Windows CPU, memory, disk, and monitor data plus NVIDIA telemetry; it contains no network client and does not write GPU settings. An explicit **Copy diagnostics** click assembles a sanitized report and writes it only to the local clipboard.
 
 ## HUD interaction model
 
@@ -123,7 +123,7 @@ See [PRIVACY.md](../PRIVACY.md), [SECURITY.md](../SECURITY.md), and the [adaptiv
 
 | Boundary | Allowed today | Deliberately excluded |
 | --- | --- | --- |
-| HUD process | Read telemetry; draw UI; save user settings; register a hotkey | Administrator elevation; GPU writes; camera access; network telemetry |
+| HUD process | Read telemetry; draw UI; save user settings; register a hotkey; copy an explicitly requested sanitized diagnostic to the local clipboard | Administrator elevation; GPU writes; camera access; network telemetry; automatic report upload |
 | Settings event | Ask the existing user-session process to open its settings window | Arbitrary commands or payloads |
 | GPU installer | Validate explicit values; request UAC; install one fixed task action | Silent elevation; inferred GPU targets; universal power presets |
 | GPU task | Run the protected apply script as SYSTEM; write result/log files | User-controlled command lines; hidden profile changes |
@@ -149,7 +149,7 @@ See [PRIVACY.md](../PRIVACY.md), [SECURITY.md](../SECURITY.md), and the [adaptiv
 | Surface | Verification |
 | --- | --- |
 | Unlock guard | `tests/Guard.Smoke.Tests.ps1` exercises success, timeout-with-lock-suppressed, and fail-open collision behavior. |
-| HUD core | `tests/SystemOverlay.Smoke.Tests.ps1` compiles the shared source, round-trips settings, validates live multi-GPU telemetry, and exercises 13 deterministic NVIDIA identity/state/success/failure cases. |
+| HUD core | `tests/SystemOverlay.Smoke.Tests.ps1` compiles the shared source, round-trips settings, verifies diagnostic UUID/path redaction, validates live multi-GPU telemetry, and exercises 13 deterministic NVIDIA identity/state/success/failure cases. |
 | Compiled app | `tests/DesktopApp.Smoke.Tests.ps1` builds and launches the .NET entry point in a no-hardware-write smoke mode. |
 | Privileged helper | `tests/GpuLimits.Safety.Tests.ps1` checks explicit targets, preflight-before-write, rollback, ACL intent, and safe combined-installer defaults without changing hardware. |
 | Power-curve lab | `benchmark/Run-Tests.ps1` runs 19 schema/report tests, nine Ollama tests, nine llama-bench tests, and eight ComfyUI tests in both PowerShell runtimes, including unit-aware efficiency, workload isolation, cache rejection, remote-endpoint rejection, concurrent fixture telemetry, privacy omission, and failed-run preservation. |

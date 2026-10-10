@@ -1,13 +1,13 @@
 # CA AutoConfig
 
-[![Latest release](https://img.shields.io/github/v/release/alirezakeshmirisocial-coder/ca-autoconfig?include_prereleases&label=alpha)](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/releases/tag/v0.2.3-alpha.1)
+[![Latest release](https://img.shields.io/github/v/release/alirezakeshmirisocial-coder/ca-autoconfig?include_prereleases&label=alpha)](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/releases)
 [![License](https://img.shields.io/github/license/alirezakeshmirisocial-coder/ca-autoconfig)](LICENSE)
 [![GitHub stars](https://img.shields.io/github/stars/alirezakeshmirisocial-coder/ca-autoconfig?style=flat)](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/stargazers)
 [![Discussions](https://img.shields.io/github/discussions/alirezakeshmirisocial-coder/ca-autoconfig)](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/discussions)
 
 CA AutoConfig is a lightweight Windows HUD and conservative GPU power companion for local-AI and multi-GPU workstations. It keeps essential CPU, memory, storage, CUDA/SM, VRAM, temperature, and board-power information visible without stealing focus from the applications underneath it.
 
-[Latest alpha](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/releases/tag/v0.2.3-alpha.1) · [Join one focused alpha test](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/discussions/9) · [Desktop preview](docs/DESKTOP_PREVIEW.md) · [Hardware matrix](docs/HARDWARE_MATRIX.md) · [Power-curve lab](benchmark/POWER_CURVE_METHOD.md) · [Architecture](docs/ARCHITECTURE.md) · [Roadmap](ROADMAP.md) · [Contributor issues](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/milestone/1) · [Discussions](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/discussions) · [Growth scorecard](docs/launch/GROWTH_SCORECARD.md)
+[Latest alpha](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/releases/tag/v0.2.3-alpha.2) · [Join one focused alpha test](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/discussions/9) · [Desktop preview](docs/DESKTOP_PREVIEW.md) · [Hardware matrix](docs/HARDWARE_MATRIX.md) · [Power-curve lab](benchmark/POWER_CURVE_METHOD.md) · [Architecture](docs/ARCHITECTURE.md) · [Roadmap](ROADMAP.md) · [Contributor issues](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/milestone/1) · [Discussions](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/discussions) · [Growth scorecard](docs/launch/GROWTH_SCORECARD.md)
 
 ![Three-step CA AutoConfig demo showing the locked HUD, edit mode, and monitor and shortcut settings](docs/assets/hud-demo.gif)
 
@@ -42,7 +42,7 @@ The original `Install-SystemOverlay.ps1` PowerShell-hosted path remains availabl
 
 The elevated GPU helper is deliberately separate and opt-in. It requires explicit GPU indices, clock, power, and risk acknowledgement. Indices are used only to select cards during installation; the installed task resolves and pins their stable NVIDIA UUIDs, then preflights every target before changing one. The `280 W / 1700 MHz` values used on the maintainer's workstation are not universal recommendations. Treat advisor values as benchmark candidates for your exact board and workload.
 
-If you run local AI on Windows, the most useful contribution right now is a privacy-safe [hardware or monitor report](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/issues/new/choose). A star helps discovery, but reproducible results and focused pull requests are more valuable to the project.
+If you run local AI on Windows, the most useful contribution right now is a privacy-safe [hardware or monitor report](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/issues/new/choose). The Settings window can copy a sanitized diagnostic block for that report. No star is required; reproducible results and focused pull requests are what move the project forward.
 
 ## Read-only power-curve lab
 

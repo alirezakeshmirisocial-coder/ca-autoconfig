@@ -10,7 +10,7 @@ The public objective is 5,000 genuine GitHub stars. That is an outcome to work t
 | Forks | 0 |
 | Watchers | 0 |
 | Open issues | 4 |
-| Releases | 10 |
+| Releases | 11 |
 | 14-day unique visitors | 0 |
 | 14-day unique cloners | 0 |
 | Latest release ZIP downloads | 0 |
@@ -63,5 +63,6 @@ No tracking is added to the desktop app. GitHub's aggregate repository/release c
 | 2026-10-10 | GitHub release + project Discussion | `v0.2.2-alpha.2` offline llama.cpp adapter | 0 | 0 | 0 | 0 | Exact pp/tg validation and workload-isolated reporting released; no external community post, model download, or vote solicitation. |
 | 2026-10-10 | GitHub release + project Discussion | `v0.2.3-alpha.1` ComfyUI image adapter | 0 | 0 | 0 | 0 | Schema-v2 image/J and privacy-safe local workflow adapter released; no real diffusion result, external post, or vote solicitation. |
 | 2026-10-10 | Project Discussion | 20-seat focused alpha intake | 0 | 0 | 0 | 0 | Three narrowly defined cohorts opened; no participant, report, external post, or vote solicitation yet. |
+| 2026-10-10 | GitHub release + project intake | `v0.2.3-alpha.2` privacy-safe diagnostics | 0 | 0 | 0 | 0 | One-click sanitized reporting and evidence-tiered matrix released; no external reproduction or vote solicitation. |
 
 Add a row after a legitimate launch or collaboration. Never use referral tags to track people inside the application, buy traffic, solicit votes, or attribute normal organic traffic to a campaign without evidence.
