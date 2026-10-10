@@ -18,7 +18,7 @@ Run the complete fail-closed suite on a Windows machine with PowerShell 7 and th
 .\Invoke-RepositoryChecks.ps1 -Suite Full
 ```
 
-If the .NET SDK is unavailable, `-Suite PowerShell` runs only the 16 SDK-independent checks and reports `PASSED_POWERSHELL_SUITE_ONLY`; it is never labeled complete repository validation. The runner starts each test in a fresh process and does not apply GPU settings, initiate sleep, or post externally.
+If the .NET SDK is unavailable, `-Suite PowerShell` runs only the 17 SDK-independent checks and reports `PASSED_POWERSHELL_SUITE_ONLY`; it is never labeled complete repository validation. The runner starts each test in a fresh process and does not apply GPU settings, initiate sleep, or post externally.
 
 ```powershell
 .\tests\SystemOverlay.Smoke.Tests.ps1
@@ -34,6 +34,7 @@ If the .NET SDK is unavailable, `-Suite PowerShell` runs only the 16 SDK-indepen
 .\tests\DisplayDiagnostics.Tests.ps1
 .\tests\HudOverhead.Tests.ps1
 .\tests\LandingPage.Tests.ps1
+.\tests\QuickStart.Tests.ps1
 .\tests\RepositoryChecks.Tests.ps1
 dotnet run --project .\src\CAAutoConfig.Telemetry.Tests\CAAutoConfig.Telemetry.Tests.csproj -c Release
 .\tests\GpuLimits.Safety.Tests.ps1

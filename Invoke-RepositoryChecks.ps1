@@ -29,6 +29,7 @@ $steps = @(
     [pscustomobject]@{ Name = 'Display diagnostics preflight'; Kind = 'PowerShell'; RelativePath = 'tests\DisplayDiagnostics.Tests.ps1'; FullOnly = $false },
     [pscustomobject]@{ Name = 'HUD overhead evidence policy'; Kind = 'PowerShell'; RelativePath = 'tests\HudOverhead.Tests.ps1'; FullOnly = $false },
     [pscustomobject]@{ Name = 'Static landing-page policy'; Kind = 'PowerShell'; RelativePath = 'tests\LandingPage.Tests.ps1'; FullOnly = $false },
+    [pscustomobject]@{ Name = 'Release quick-start policy'; Kind = 'PowerShell'; RelativePath = 'tests\QuickStart.Tests.ps1'; FullOnly = $false },
     [pscustomobject]@{ Name = 'Repository-check orchestration'; Kind = 'PowerShell'; RelativePath = 'tests\RepositoryChecks.Tests.ps1'; FullOnly = $false },
     [pscustomobject]@{ Name = 'Windows GPU counter mapping'; Kind = 'DotNetProject'; RelativePath = 'src\CAAutoConfig.Telemetry.Tests\CAAutoConfig.Telemetry.Tests.csproj'; FullOnly = $true },
     [pscustomobject]@{ Name = 'Privileged helper safety'; Kind = 'PowerShell'; RelativePath = 'tests\GpuLimits.Safety.Tests.ps1'; FullOnly = $true },

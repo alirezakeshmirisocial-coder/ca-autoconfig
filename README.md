@@ -16,6 +16,16 @@ CA AutoConfig is an open-source, lightweight Windows HUD and conservative GPU po
 
 > Status: compiled public alpha. Windows and NVIDIA are the first supported platform; the face-presence experiment remains optional and is not a replacement for Windows Hello.
 
+## Install in about two minutes
+
+The default self-contained install needs no .NET runtime, no administrator rights, no camera, and makes no GPU changes. The current alpha is unsigned, so verify it before extraction:
+
+1. Download the exact [ZIP](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/releases/download/v0.2.6-alpha.4/CA-AutoConfig-Desktop-v0.2.6-alpha.4-win-x64.zip), [SHA-256 file](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/releases/download/v0.2.6-alpha.4/CA-AutoConfig-Desktop-v0.2.6-alpha.4-win-x64.sha256), and [offline verifier](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/releases/download/v0.2.6-alpha.4/Verify-DesktopPackage.ps1) into one directory.
+2. Follow the [verify, extract, install, first-minute, and removal quick start](docs/QUICKSTART.md). The published ZIP SHA-256 is `0a71a120139bf10e36bdad1c816cbd07b9fbcac9651ef498ba214862b32f3b6d`.
+3. Unlock with the tiny control or `Ctrl+Alt+L`, choose a monitor on the visual map, drag the HUD, set your shortcut and opacity, then lock it again.
+
+The red profile indicator is a warning that the current-boot GPU limit was not verified; the HUD never fixes that by silently applying a setting.
+
 ## Current HUD features
 
 - A tiny lock control remains clickable while the rest of the HUD is click-through. Click it or press `Ctrl+Alt+L` to enter edit mode; drag the HUD, then lock it again.
@@ -30,18 +40,6 @@ CA AutoConfig is an open-source, lightweight Windows HUD and conservative GPU po
 - An isolated adaptive-cooling policy now simulates fan and power advice from ambient temperature, inlet temperature, card heat, neighboring-system heat, fan telemetry, and a matched clean baseline. It is deliberately advice-only until physical tach validation and a crash-safe vendor-auto restore path exist.
 - The configured startup profile is pinned to stable NVIDIA GPU UUIDs and verified against current-boot state plus live data. A reordered, missing, replaced, failed, or mismatched target remains clearly red.
 
-The preferred release is a self-contained .NET 8 app: it does not require a separate runtime or PowerShell source compilation. Download the ZIP, `.sha256`, and standalone `Verify-DesktopPackage.ps1` assets. Verify the checksum, safe archive paths, size, required files, and declared version before extraction:
-
-```powershell
-.\Verify-DesktopPackage.ps1 -PackagePath .\CA-AutoConfig-Desktop-v0.2.6-alpha.4-win-x64.zip -ExpectedVersion 0.2.6-alpha.4
-```
-
-Then extract the ZIP and run:
-
-```powershell
-.\Install-DesktopApp.ps1
-```
-
 Contributors can build and smoke-test the same app from source:
 
 ```powershell
@@ -50,7 +48,7 @@ Contributors can build and smoke-test the same app from source:
 .\Invoke-RepositoryChecks.ps1 -Suite Full
 ```
 
-The full repository runner requires PowerShell 7 and the .NET 8 SDK and fails closed if either is missing. `-Suite PowerShell` is an explicitly incomplete 16-check fallback for machines without the SDK; its summary cannot claim complete validation.
+The full repository runner requires PowerShell 7 and the .NET 8 SDK and fails closed if either is missing. `-Suite PowerShell` is an explicitly incomplete 17-check fallback for machines without the SDK; its summary cannot claim complete validation.
 
 Maintainers can measure the already-running HUD without controlling it or exposing its PID/path using `.\tools\Measure-HudOverhead.ps1 -DurationSeconds 120 -IntervalSeconds 2 -ResultPath .\hud-overhead.json`. The report keeps normalized CPU, memory, responsiveness, and relative samples, but never converts one machine's result into a universal performance claim. One [120-second maintainer observation](docs/evidence/hud-overhead-120s-2026-10-10.json) of installed `v0.2.5-alpha.2` retained 60/60 responsive samples at 0.0114% mean and 0.0245% p95 CPU normalized across 32 logical processors, with a 66.445 MiB working set; this is one idle host, not a release-wide guarantee.
 
