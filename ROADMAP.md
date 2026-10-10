@@ -32,6 +32,17 @@ The product direction is a tiny, trustworthy Windows HUD and safe power optimize
 - [ ] Require explicit confirmation, administrator elevation, and a tested one-click rollback.
 - [ ] Export an anonymized JSON benchmark and shareable AI Power Curve card.
 
+## Milestone 3.5 — Adaptive cooling, simulation first
+
+- [x] Specify a deterministic ambient-aware fan/power policy with explicit safety precedence.
+- [x] Cover 40°C ambient, poor ventilation, multi-GPU heat soak, sensor loss, fan stalls, maintenance drift, hysteresis, dwell, and slew limits with synthetic tests.
+- [x] Keep the prototype isolated and advice-only: no device writes, no hidden actuator, and `CanApply` always false.
+- [ ] Add a read-only telemetry adapter with per-reading timestamp, units, provenance, and capability discovery.
+- [ ] Build verified per-board profiles keyed by GPU UUID, board/VBIOS/driver, fan topology, and cooling configuration.
+- [ ] Validate physical tachometry; intended fan speed alone must never clear a fan-fault latch.
+- [ ] Replay long-duration real traces across hot rooms, restricted airflow, dual-GPU loads, and cleaned/degraded baselines.
+- [ ] Before any opt-in live mode, implement an independent watchdog and verify vendor-auto restoration after crash, sleep, driver reset, sensor loss, and controller conflict.
+
 ## Milestone 4 — Community launch
 
 - [ ] Complete repository community-health files, issue forms, Discussions, and a public hardware matrix.

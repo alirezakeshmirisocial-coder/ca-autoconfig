@@ -8,8 +8,6 @@ CA AutoConfig is a lightweight Windows HUD and conservative GPU power companion 
 
 > Status: personal alpha moving toward an open-source public preview. Windows and NVIDIA are the first supported platform; the face-presence experiment remains optional and is not a replacement for Windows Hello.
 
-![CA AutoConfig HUD showing GPU-limit, CPU, memory, and storage status](docs/assets/hud-alpha.png)
-
 ## Current HUD features
 
 - A tiny lock control remains clickable while the rest of the HUD is click-through. Click it or press `Ctrl+Alt+L` to enter edit mode; drag the HUD, then lock it again.

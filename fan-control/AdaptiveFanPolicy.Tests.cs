@@ -290,6 +290,23 @@ namespace CA.FanControlTests
                 Recommendation r = AdaptiveFanPolicy.Evaluate(p, s, null);
                 Assert(r.State == ControlState.Observing && r.AmbientC == 25, "A fresh ambient sensor provides an explicit fallback.");
             });
+            Case("zero-RPM cannot clear a latched physical fan fault", delegate {
+                DeviceProfile p = Profile(); Recommendation r = Ready(p);
+                r = Run(p, delegate(double t) { Snapshot s = Normal(t); s.Fans[0].Rpm.Value = 0; return s; }, 334, r.Next, 322);
+                r = Run(p, delegate(double t) {
+                    Snapshot s = Sample(t, 40, 25, 27, 0, 0); s.BoardPowerW.Value = 20; s.HotspotC.Value = 48;
+                    s.MemoryC.Value = 45; s.AcknowledgeFault = true; return s;
+                }, 500, r.Next, 336);
+                Assert(r.State == ControlState.FanFault && r.StopWorkload, "Fault recovery needs observed physical rotation.");
+            });
+            Case("confidence gate has a stable inclusive boundary", delegate {
+                DeviceProfile p = Profile(); p.HotspotExpected = false; p.MemoryExpected = false;
+                Recommendation r = Run(p, delegate(double t) {
+                    Snapshot s = Normal(t); s.HotspotC = null; s.MemoryC = null; s.InletC = null; return s;
+                }, 320, null, 0);
+                Near(r.Confidence, 0.75, 0.000001, "Confidence deductions use a reproducible precision.");
+                Assert(r.Next.CalibrationComplete && r.FanPercent.HasValue, "An exact 0.75 score passes the stated gate.");
+            });
             return Passed.ToArray();
         }
     }
