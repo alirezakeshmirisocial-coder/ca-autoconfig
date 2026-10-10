@@ -25,7 +25,7 @@ This zero baseline is useful: it means future attribution is not mixed with an e
 | Stage | Exit condition | Current status |
 | --- | --- | --- |
 | Product proof | Compiled demo, architecture, repeatable tests, checksum release | Complete |
-| Measurement proof | One real, repeated, raw-data power curve | Blocked on an installed workload/model and repeated runs |
+| Measurement proof | One real, repeated, raw-data power curve | Ollama adapter shipped; blocked on an installed model and repeated runs |
 | Design partners | 10 external Windows/NVIDIA testers, 5 reports, 3 GPU families | Not started |
 | Community launch | Human-authored, rules-compliant benchmark post; active response coverage | Not ready |
 | Repeatable distribution | Workload adapters, compatibility matrix, creator reproductions | Planned |
@@ -59,5 +59,6 @@ No tracking is added to the desktop app. GitHub's aggregate repository/release c
 | --- | --- | --- | ---: | ---: | ---: | ---: | --- |
 | 2026-10-10 | Baseline | `v0.2.1-alpha.1` | 0 | 0 | 0 | 0 | Pre-distribution baseline; no external launch posted. |
 | 2026-10-10 | GitHub release + project Discussion | `v0.2.1-alpha.3` UUID hardening | 0 | 0 | 0 | 0 | First-party release announcement only; no Reddit/HN/community post and no vote solicitation. |
+| 2026-10-10 | GitHub release + project Discussion | `v0.2.2-alpha.1` Ollama adapter | 0 | 0 | 0 | 0 | Workload adapter released and issue #4 updated; still no external community post or vote solicitation. |
 
 Add a row after a legitimate launch or collaboration. Never use referral tags to track people inside the application, buy traffic, solicit votes, or attribute normal organic traffic to a campaign without evidence.
