@@ -40,6 +40,6 @@ No external hardware reproduction has been accepted yet. That zero is intentiona
 
 ## Add a reproducible row
 
-Use the [hardware-result form](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/issues/new?template=hardware-result.yml) or join [Discussions](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/discussions). Include the release, Windows build, GPU board/model and driver, display layout, exact public workload protocol, warm-up and repetition count, and every failure or reset. Attach schema-v1/v2 exports when relevant.
+Choose one test in the [design-partner intake](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/discussions/9), use the [hardware-result form](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/issues/new?template=hardware-result.yml), or join [Discussions](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/discussions). Include the release, Windows build, GPU board/model and driver, display layout, exact public workload protocol, warm-up and repetition count, and every failure or reset. Attach schema-v1/v2 exports when relevant.
 
 Remove usernames, machine names, GPU UUIDs, serials, personal paths, private prompts/workflows, tokens, and image content. Do not share a raw command if it contains private paths. Reports are reviewed before this table changes; stars are never a condition for inclusion.
