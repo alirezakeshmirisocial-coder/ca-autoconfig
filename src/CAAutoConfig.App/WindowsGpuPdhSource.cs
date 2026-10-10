@@ -21,9 +21,10 @@ namespace CA.SystemOverlay
     // Research-only PDH source. It is deliberately separate from the WMI
     // implementation so sustained evidence can compare the two paths without
     // silently falling back or masking an invalid sample.
-    internal sealed class PdhWindowsGpuCounterSource : IWindowsGpuCounterSource
+    internal sealed class PdhWindowsGpuCounterSource : IWindowsGpuCounterSource, IDisposable
     {
         private readonly IPdhGpuCounterReader _reader;
+        private int _disposed;
 
         internal PdhWindowsGpuCounterSource()
             : this(new NativePdhGpuCounterReader())
@@ -41,6 +42,11 @@ namespace CA.SystemOverlay
         {
             observations = new List<WindowsGpuCounterObservation>();
             reasonCode = String.Empty;
+            if (Volatile.Read(ref _disposed) != 0)
+            {
+                reasonCode = "pdh-source-disposed";
+                return false;
+            }
             List<PdhGpuCounterSample> samples;
             if (!_reader.TryRead(out samples, out reasonCode))
             {
@@ -137,9 +143,21 @@ namespace CA.SystemOverlay
                 return "pdh-" + family + "-data-invalid";
             return "pdh-" + family + "-counter-status-invalid";
         }
+
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _disposed, 1) != 0)
+                return;
+            IDisposable disposable = _reader as IDisposable;
+            if (disposable != null)
+                disposable.Dispose();
+        }
     }
 
-    internal sealed class NativePdhGpuCounterReader : IPdhGpuCounterReader
+    // PDH stores the previous and current raw values on the query. Keep one
+    // query for the bounded polling lifetime, collect the baseline only once,
+    // and close/reset on a fatal query or array error.
+    internal sealed class NativePdhGpuCounterReader : IPdhGpuCounterReader, IDisposable
     {
         internal const uint ValidData = 0x00000000;
         internal const uint NewData = 0x00000001;
@@ -155,61 +173,119 @@ namespace CA.SystemOverlay
         private const uint MaximumItemCount = 32768;
         private const string EnginePath = @"\GPU Engine(*)\Utilization Percentage";
         private const string MemoryPath = @"\GPU Adapter Memory(*)\Dedicated Usage";
+        private readonly object _sync = new object();
+        private IntPtr _query;
+        private IntPtr _engineCounter;
+        private IntPtr _memoryCounter;
+        private bool _hasBaseline;
+        private bool _disposed;
 
         public bool TryRead(out List<PdhGpuCounterSample> samples, out string reasonCode)
         {
             samples = new List<PdhGpuCounterSample>();
             reasonCode = String.Empty;
-            IntPtr query = IntPtr.Zero;
-            try
+            lock (_sync)
             {
-                uint status = PdhOpenQueryW(null, UIntPtr.Zero, out query);
-                if (status != ErrorSuccess || query == IntPtr.Zero)
-                    return Fail(samples, out reasonCode, "pdh-query-open-failed");
+                if (_disposed)
+                    return Fail(samples, out reasonCode, "pdh-reader-disposed");
+                try
+                {
+                    if (!EnsureQueryLocked(out reasonCode))
+                        return Fail(samples, out reasonCode, reasonCode);
 
-                IntPtr engineCounter;
-                status = PdhAddEnglishCounterW(query, EnginePath, UIntPtr.Zero, out engineCounter);
-                if (status != ErrorSuccess || engineCounter == IntPtr.Zero)
-                    return Fail(samples, out reasonCode, "pdh-engine-counter-add-failed");
+                    uint status;
+                    if (!_hasBaseline)
+                    {
+                        status = PdhCollectQueryData(_query);
+                        if (status != ErrorSuccess)
+                            return ResetAndFail(samples, out reasonCode, "pdh-first-collection-failed");
+                        _hasBaseline = true;
+                        Thread.Sleep(SampleIntervalMilliseconds);
+                    }
 
-                IntPtr memoryCounter;
-                status = PdhAddEnglishCounterW(query, MemoryPath, UIntPtr.Zero, out memoryCounter);
-                if (status != ErrorSuccess || memoryCounter == IntPtr.Zero)
-                    return Fail(samples, out reasonCode, "pdh-memory-counter-add-failed");
+                    status = PdhCollectQueryData(_query);
+                    if (status != ErrorSuccess)
+                        return ResetAndFail(samples, out reasonCode, "pdh-next-collection-failed");
 
-                status = PdhCollectQueryData(query);
-                if (status != ErrorSuccess)
-                    return Fail(samples, out reasonCode, "pdh-first-collection-failed");
+                    if (!TryReadArray(_engineCounter, WindowsGpuCounterKind.EngineUtilizationPercent, samples, out reasonCode))
+                        return ResetAndFail(samples, out reasonCode, reasonCode);
+                    if (!TryReadArray(_memoryCounter, WindowsGpuCounterKind.DedicatedMemoryBytes, samples, out reasonCode))
+                        return ResetAndFail(samples, out reasonCode, reasonCode);
+                    if (samples.Count == 0)
+                        return ResetAndFail(samples, out reasonCode, "pdh-counter-query-empty");
+                    return true;
+                }
+                catch (DllNotFoundException)
+                {
+                    return ResetAndFail(samples, out reasonCode, "pdh-unavailable");
+                }
+                catch (EntryPointNotFoundException)
+                {
+                    return ResetAndFail(samples, out reasonCode, "pdh-unavailable");
+                }
+                catch
+                {
+                    return ResetAndFail(samples, out reasonCode, "pdh-counter-query-failed");
+                }
+            }
+        }
 
-                Thread.Sleep(SampleIntervalMilliseconds);
-                status = PdhCollectQueryData(query);
-                if (status != ErrorSuccess)
-                    return Fail(samples, out reasonCode, "pdh-second-collection-failed");
-
-                if (!TryReadArray(engineCounter, WindowsGpuCounterKind.EngineUtilizationPercent, samples, out reasonCode))
-                    return false;
-                if (!TryReadArray(memoryCounter, WindowsGpuCounterKind.DedicatedMemoryBytes, samples, out reasonCode))
-                    return false;
-                if (samples.Count == 0)
-                    return Fail(samples, out reasonCode, "pdh-counter-query-empty");
+        private bool EnsureQueryLocked(out string reasonCode)
+        {
+            reasonCode = String.Empty;
+            if (_query != IntPtr.Zero)
                 return true;
-            }
-            catch (DllNotFoundException)
+
+            uint status = PdhOpenQueryW(null, UIntPtr.Zero, out _query);
+            if (status != ErrorSuccess || _query == IntPtr.Zero)
             {
-                return Fail(samples, out reasonCode, "pdh-unavailable");
+                ResetQueryLocked();
+                reasonCode = "pdh-query-open-failed";
+                return false;
             }
-            catch (EntryPointNotFoundException)
+
+            status = PdhAddEnglishCounterW(_query, EnginePath, UIntPtr.Zero, out _engineCounter);
+            if (status != ErrorSuccess || _engineCounter == IntPtr.Zero)
             {
-                return Fail(samples, out reasonCode, "pdh-unavailable");
+                ResetQueryLocked();
+                reasonCode = "pdh-engine-counter-add-failed";
+                return false;
             }
-            catch
+
+            status = PdhAddEnglishCounterW(_query, MemoryPath, UIntPtr.Zero, out _memoryCounter);
+            if (status != ErrorSuccess || _memoryCounter == IntPtr.Zero)
             {
-                return Fail(samples, out reasonCode, "pdh-counter-query-failed");
+                ResetQueryLocked();
+                reasonCode = "pdh-memory-counter-add-failed";
+                return false;
             }
-            finally
+            return true;
+        }
+
+        private bool ResetAndFail<T>(List<T> values, out string reasonCode, string code)
+        {
+            ResetQueryLocked();
+            return Fail(values, out reasonCode, code);
+        }
+
+        private void ResetQueryLocked()
+        {
+            if (_query != IntPtr.Zero)
+                PdhCloseQuery(_query);
+            _query = IntPtr.Zero;
+            _engineCounter = IntPtr.Zero;
+            _memoryCounter = IntPtr.Zero;
+            _hasBaseline = false;
+        }
+
+        public void Dispose()
+        {
+            lock (_sync)
             {
-                if (query != IntPtr.Zero)
-                    PdhCloseQuery(query);
+                if (_disposed)
+                    return;
+                _disposed = true;
+                ResetQueryLocked();
             }
         }
 

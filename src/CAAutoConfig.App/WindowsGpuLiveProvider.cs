@@ -46,7 +46,15 @@ namespace CA.SystemOverlay
 
         internal static WindowsGpuLiveProbeResult RunPdh()
         {
-            return Run(new DxgiWindowsGpuAdapterSource(), new PdhWindowsGpuCounterSource(), "windows-pdh");
+            using (PdhWindowsGpuCounterSource source = new PdhWindowsGpuCounterSource())
+                return RunPdh(source);
+        }
+
+        internal static WindowsGpuLiveProbeResult RunPdh(PdhWindowsGpuCounterSource source)
+        {
+            if (source == null)
+                throw new ArgumentNullException("source");
+            return Run(new DxgiWindowsGpuAdapterSource(), source, "windows-pdh");
         }
 
         internal static WindowsGpuLiveProbeResult Run(IWindowsGpuAdapterSource adapterSource, IWindowsGpuCounterSource counterSource)

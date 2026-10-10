@@ -71,52 +71,55 @@ namespace CA.SystemOverlay
                 bool usePdh = String.Equals(providerName, "pdh", StringComparison.OrdinalIgnoreCase);
                 if (!usePdh && !String.Equals(providerName, "wmi", StringComparison.OrdinalIgnoreCase))
                     throw new ArgumentException("Windows GPU provider must be 'wmi' or 'pdh'.", "providerName");
-                Func<WindowsGpuLiveProbeResult> collector = usePdh
-                    ? new Func<WindowsGpuLiveProbeResult>(WindowsGpuLiveProbe.RunPdh)
-                    : new Func<WindowsGpuLiveProbeResult>(WindowsGpuLiveProbe.Run);
-                TimeSpan cpuStart;
-                TimeSpan cpuEnd;
-                Stopwatch elapsed = Stopwatch.StartNew();
-                WindowsGpuPollingSnapshot snapshot;
-                using (Process process = Process.GetCurrentProcess())
+                using (PdhWindowsGpuCounterSource pdhSource = usePdh ? new PdhWindowsGpuCounterSource() : null)
                 {
-                    process.Refresh();
-                    cpuStart = process.TotalProcessorTime;
-                    using (WindowsGpuPollingProvider provider = new WindowsGpuPollingProvider(
-                        collector,
-                        delegate { return DateTime.UtcNow; },
-                        TimeSpan.FromMilliseconds(Math.Max(8000, intervalMilliseconds * 4)),
-                        2))
+                    Func<WindowsGpuLiveProbeResult> collector = usePdh
+                        ? new Func<WindowsGpuLiveProbeResult>(delegate { return WindowsGpuLiveProbe.RunPdh(pdhSource); })
+                        : new Func<WindowsGpuLiveProbeResult>(WindowsGpuLiveProbe.Run);
+                    TimeSpan cpuStart;
+                    TimeSpan cpuEnd;
+                    Stopwatch elapsed = Stopwatch.StartNew();
+                    WindowsGpuPollingSnapshot snapshot;
+                    using (Process process = Process.GetCurrentProcess())
                     {
-                        provider.Start(intervalMilliseconds);
-                        Thread.Sleep(TimeSpan.FromSeconds(durationSeconds));
-                        snapshot = provider.GetSnapshot();
+                        process.Refresh();
+                        cpuStart = process.TotalProcessorTime;
+                        using (WindowsGpuPollingProvider provider = new WindowsGpuPollingProvider(
+                            collector,
+                            delegate { return DateTime.UtcNow; },
+                            TimeSpan.FromMilliseconds(Math.Max(8000, intervalMilliseconds * 4)),
+                            2))
+                        {
+                            provider.Start(intervalMilliseconds);
+                            Thread.Sleep(TimeSpan.FromSeconds(durationSeconds));
+                            snapshot = provider.GetSnapshot();
+                        }
+                        elapsed.Stop();
+                        process.Refresh();
+                        cpuEnd = process.TotalProcessorTime;
                     }
-                    elapsed.Stop();
-                    process.Refresh();
-                    cpuEnd = process.TotalProcessorTime;
-                }
 
-                double cpuPercent = 0;
-                if (elapsed.Elapsed.TotalMilliseconds > 0 && Environment.ProcessorCount > 0)
-                {
-                    cpuPercent = 100.0 * (cpuEnd - cpuStart).TotalMilliseconds /
-                        (elapsed.Elapsed.TotalMilliseconds * Environment.ProcessorCount);
+                    double cpuPercent = 0;
+                    if (elapsed.Elapsed.TotalMilliseconds > 0 && Environment.ProcessorCount > 0)
+                    {
+                        cpuPercent = 100.0 * (cpuEnd - cpuStart).TotalMilliseconds /
+                            (elapsed.Elapsed.TotalMilliseconds * Environment.ProcessorCount);
+                    }
+                    WindowsGpuPollingReportDocument document = Create(
+                        snapshot,
+                        DateTime.UtcNow,
+                        durationSeconds,
+                        intervalMilliseconds,
+                        elapsed.ElapsedMilliseconds,
+                        cpuPercent,
+                        usePdh ? "windows-pdh" : "windows-wmi-formatted");
+                    string fullPath = Path.GetFullPath(resultPath);
+                    string directory = Path.GetDirectoryName(fullPath);
+                    if (!String.IsNullOrWhiteSpace(directory))
+                        Directory.CreateDirectory(directory);
+                    File.WriteAllText(fullPath, Serialize(document), new UTF8Encoding(false));
+                    return 0;
                 }
-                WindowsGpuPollingReportDocument document = Create(
-                    snapshot,
-                    DateTime.UtcNow,
-                    durationSeconds,
-                    intervalMilliseconds,
-                    elapsed.ElapsedMilliseconds,
-                    cpuPercent,
-                    usePdh ? "windows-pdh" : "windows-wmi-formatted");
-                string fullPath = Path.GetFullPath(resultPath);
-                string directory = Path.GetDirectoryName(fullPath);
-                if (!String.IsNullOrWhiteSpace(directory))
-                    Directory.CreateDirectory(directory);
-                File.WriteAllText(fullPath, Serialize(document), new UTF8Encoding(false));
-                return 0;
             }
             catch
             {

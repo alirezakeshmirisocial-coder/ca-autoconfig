@@ -15,7 +15,8 @@ internal static class WindowsGpuPdhTests
             ("PDH source identifies a disappeared engine instance", DisappearedInstanceIsDistinguished),
             ("PDH source retains a native failure reason", NativeFailureIsRetained),
             ("PDH source rejects an empty successful collection", EmptyCollectionFailsClosed),
-            ("PDH source rejects a blank counter instance", BlankInstanceFailsClosed)
+            ("PDH source rejects a blank counter instance", BlankInstanceFailsClosed),
+            ("PDH source disposes its stateful reader", SourceDisposesReader)
         };
         int passed = 0;
         foreach (var test in tests)
@@ -113,6 +114,18 @@ internal static class WindowsGpuPdhTests
         Assert(reason == "pdh-engine-instance-invalid" && observations.Count == 1 && observations[0].Kind == WindowsGpuCounterKind.DedicatedMemoryBytes, "Blank instance was not isolated to its family.");
     }
 
+    private static void SourceDisposesReader()
+    {
+        FakeReader reader = new FakeReader(true, String.Empty, Samples());
+        PdhWindowsGpuCounterSource source = new PdhWindowsGpuCounterSource(reader);
+        source.Dispose();
+        source.Dispose();
+        List<WindowsGpuCounterObservation> observations;
+        string reason;
+        Assert(reader.DisposeCount == 1, "Stateful PDH reader was not disposed exactly once.");
+        Assert(!source.TryRead(out observations, out reason) && reason == "pdh-source-disposed", "Disposed source accepted another read.");
+    }
+
     private static List<PdhGpuCounterSample> Samples()
     {
         return new List<PdhGpuCounterSample>
@@ -140,11 +153,12 @@ internal static class WindowsGpuPdhTests
             throw new InvalidOperationException(message);
     }
 
-    private sealed class FakeReader : IPdhGpuCounterReader
+    private sealed class FakeReader : IPdhGpuCounterReader, IDisposable
     {
         private readonly bool _success;
         private readonly string _reason;
         private readonly List<PdhGpuCounterSample> _samples;
+        internal int DisposeCount { get; private set; }
 
         internal FakeReader(bool success, string reason, List<PdhGpuCounterSample> samples)
         {
@@ -158,6 +172,11 @@ internal static class WindowsGpuPdhTests
             samples = _samples;
             reasonCode = _reason;
             return _success;
+        }
+
+        public void Dispose()
+        {
+            DisposeCount++;
         }
     }
 }
