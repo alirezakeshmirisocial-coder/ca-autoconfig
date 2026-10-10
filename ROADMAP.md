@@ -15,13 +15,15 @@ The product direction is a tiny, trustworthy Windows HUD and safe power optimize
 
 ## Milestone 2 — Public technical preview
 
-- [ ] Move the HUD into a compiled .NET 8 application with a versioned settings schema.
+- [x] Move the HUD into a compiled .NET 8 application with a versioned, forward-write-protected settings schema.
 - [ ] Address GPUs by UUID rather than mutable numeric index.
 - [ ] Isolate the minimal elevated apply/reset helper behind an authenticated local boundary.
 - [ ] Add simulated NVIDIA/WDDM providers and unit tests for missing or malformed telemetry.
-- [ ] Package portable ZIP and installer releases with checksums and automated builds.
+- [x] Package a reproducible self-contained `win-x64` ZIP with a least-privilege installer and checksum.
+- [ ] Add CI-built artifacts, signing, clean-machine install/uninstall coverage, and an MSIX or equivalent upgrade path.
 - [x] Separate the optional camera/presence experiment and GPU mutation from the default HUD installation.
-- [ ] Add English screenshots, a short demo, architecture documentation, and a public privacy statement.
+- [x] Add an English screenshot and public privacy statement.
+- [ ] Add a short demo and architecture documentation.
 
 ## Milestone 3 — Workload-aware Power Advisor
 

@@ -7,27 +7,40 @@ using System.Globalization;
 using System.IO;
 using System.Management;
 using System.Runtime.InteropServices;
+using System.Runtime.Serialization;
+using System.Runtime.Serialization.Json;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Windows.Forms;
-using System.Web.Script.Serialization;
 using Microsoft.Win32;
 
 namespace CA.SystemOverlay
 {
+    [DataContract]
     internal sealed class OverlaySettings
     {
+        public const int CurrentSchemaVersion = 1;
+        [DataMember]
+        public int SchemaVersion { get; set; }
+        [DataMember]
         public string TargetDeviceName { get; set; }
+        [DataMember]
         public bool HasCustomPosition { get; set; }
+        [DataMember]
         public int PositionX { get; set; }
+        [DataMember]
         public int PositionY { get; set; }
+        [DataMember]
         public double Opacity { get; set; }
+        [DataMember]
         public int HotkeyModifiers { get; set; }
+        [DataMember]
         public int HotkeyKey { get; set; }
 
         public OverlaySettings()
         {
+            SchemaVersion = CurrentSchemaVersion;
             TargetDeviceName = String.Empty;
             Opacity = 0.82;
             HotkeyModifiers = 3; // Alt + Control
@@ -38,6 +51,7 @@ namespace CA.SystemOverlay
         {
             return new OverlaySettings
             {
+                SchemaVersion = SchemaVersion,
                 TargetDeviceName = TargetDeviceName,
                 HasCustomPosition = HasCustomPosition,
                 PositionX = PositionX,
@@ -52,7 +66,7 @@ namespace CA.SystemOverlay
     internal sealed class SettingsStore
     {
         private readonly string _path;
-        private readonly JavaScriptSerializer _serializer = new JavaScriptSerializer();
+        private bool _writeBlockedByNewerSchema;
 
         public SettingsStore(string path)
         {
@@ -61,11 +75,12 @@ namespace CA.SystemOverlay
 
         public OverlaySettings Load(string fallbackTargetDeviceName, double fallbackOpacity)
         {
+            _writeBlockedByNewerSchema = false;
             OverlaySettings settings = null;
             try
             {
                 if (File.Exists(_path))
-                    settings = _serializer.Deserialize<OverlaySettings>(File.ReadAllText(_path));
+                    settings = Deserialize(File.ReadAllText(_path));
             }
             catch
             {
@@ -74,6 +89,15 @@ namespace CA.SystemOverlay
 
             if (settings == null)
                 settings = new OverlaySettings();
+            if (settings.SchemaVersion > OverlaySettings.CurrentSchemaVersion)
+            {
+                _writeBlockedByNewerSchema = true;
+                settings = new OverlaySettings();
+            }
+            else if (settings.SchemaVersion <= 0)
+            {
+                settings.SchemaVersion = OverlaySettings.CurrentSchemaVersion;
+            }
             if (String.IsNullOrWhiteSpace(settings.TargetDeviceName))
                 settings.TargetDeviceName = fallbackTargetDeviceName ?? String.Empty;
             settings.Opacity = Math.Max(0.58, Math.Min(0.95, settings.Opacity <= 0 ? fallbackOpacity : settings.Opacity));
@@ -86,11 +110,14 @@ namespace CA.SystemOverlay
 
         public void Save(OverlaySettings settings)
         {
+            if (_writeBlockedByNewerSchema)
+                throw new InvalidOperationException("Settings were created by a newer CA AutoConfig version and will not be overwritten.");
+            settings.SchemaVersion = OverlaySettings.CurrentSchemaVersion;
             string directory = Path.GetDirectoryName(_path);
             if (!String.IsNullOrEmpty(directory))
                 Directory.CreateDirectory(directory);
             string temporary = _path + ".tmp";
-            File.WriteAllText(temporary, _serializer.Serialize(settings), new UTF8Encoding(false));
+            File.WriteAllText(temporary, Serialize(settings), new UTF8Encoding(false));
             if (File.Exists(_path))
             {
                 string backup = _path + ".bak";
@@ -101,6 +128,23 @@ namespace CA.SystemOverlay
             else
             {
                 File.Move(temporary, _path);
+            }
+        }
+
+        private static OverlaySettings Deserialize(string json)
+        {
+            DataContractJsonSerializer serializer = new DataContractJsonSerializer(typeof(OverlaySettings));
+            using (MemoryStream stream = new MemoryStream(Encoding.UTF8.GetBytes(json)))
+                return (OverlaySettings)serializer.ReadObject(stream);
+        }
+
+        private static string Serialize(OverlaySettings settings)
+        {
+            DataContractJsonSerializer serializer = new DataContractJsonSerializer(typeof(OverlaySettings));
+            using (MemoryStream stream = new MemoryStream())
+            {
+                serializer.WriteObject(stream, settings);
+                return Encoding.UTF8.GetString(stream.ToArray());
             }
         }
     }
@@ -402,6 +446,32 @@ namespace CA.SystemOverlay
             public double PowerLimitWatts;
         }
 
+        [DataContract]
+        private sealed class GpuLimitStateDocument
+        {
+            [DataMember(Name = "timestampUtc")]
+            public string TimestampUtc { get; set; }
+
+            [DataMember(Name = "status")]
+            public string Status { get; set; }
+
+            [DataMember(Name = "results")]
+            public GpuLimitStateResult[] Results { get; set; }
+        }
+
+        [DataContract]
+        private sealed class GpuLimitStateResult
+        {
+            [DataMember(Name = "index")]
+            public int Index { get; set; }
+
+            [DataMember(Name = "maxGraphicsClockMHz")]
+            public int MaxGraphicsClockMHz { get; set; }
+
+            [DataMember(Name = "powerLimitWatts")]
+            public double PowerLimitWatts { get; set; }
+        }
+
         private void VerifyAppliedLimits(MetricSnapshot snapshot)
         {
             string reason;
@@ -472,16 +542,17 @@ namespace CA.SystemOverlay
             {
                 if (!File.Exists(_gpuStatePath))
                     return false;
-                JavaScriptSerializer serializer = new JavaScriptSerializer();
-                Dictionary<string, object> state = serializer.DeserializeObject(File.ReadAllText(_gpuStatePath)) as Dictionary<string, object>;
-                if (state == null || !state.ContainsKey("status") || !String.Equals(Convert.ToString(state["status"], CultureInfo.InvariantCulture), "applied", StringComparison.OrdinalIgnoreCase))
+                DataContractJsonSerializer serializer = new DataContractJsonSerializer(typeof(GpuLimitStateDocument));
+                GpuLimitStateDocument state;
+                using (MemoryStream stream = new MemoryStream(Encoding.UTF8.GetBytes(File.ReadAllText(_gpuStatePath))))
+                    state = (GpuLimitStateDocument)serializer.ReadObject(stream);
+                if (state == null || !String.Equals(state.Status, "applied", StringComparison.OrdinalIgnoreCase))
                 {
                     reason = "LIMIT STATE IS NOT APPLIED";
                     return false;
                 }
-                string timestampValue = state.ContainsKey("timestampUtc") ? Convert.ToString(state["timestampUtc"], CultureInfo.InvariantCulture) : String.Empty;
                 DateTime appliedUtc;
-                if (!DateTime.TryParse(timestampValue, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out appliedUtc))
+                if (!DateTime.TryParse(state.TimestampUtc ?? String.Empty, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out appliedUtc))
                 {
                     reason = "LIMIT STATE INVALID";
                     return false;
@@ -490,23 +561,17 @@ namespace CA.SystemOverlay
                 if (appliedUtc < _bootUtc.AddMinutes(-2))
                     return false;
 
-                object resultsObject;
-                object[] results = state.TryGetValue("results", out resultsObject) ? resultsObject as object[] : null;
-                if (results == null || results.Length == 0)
+                if (state.Results == null || state.Results.Length == 0)
                 {
                     reason = "LIMIT PROFILE IS EMPTY";
                     return false;
                 }
-                foreach (object resultObject in results)
+                foreach (GpuLimitStateResult result in state.Results)
                 {
-                    Dictionary<string, object> result = resultObject as Dictionary<string, object>;
                     if (result == null)
                         continue;
-                    int index = ReadInt(result, "index", -1);
-                    int maxClock = ReadInt(result, "maxGraphicsClockMHz", -1);
-                    double powerLimit = ReadDouble(result, "powerLimitWatts", -1);
-                    if (index >= 0 && maxClock > 0 && powerLimit > 0)
-                        expected.Add(new ExpectedGpuLimit { Index = index, MaxClockMHz = maxClock, PowerLimitWatts = powerLimit });
+                    if (result.Index >= 0 && result.MaxGraphicsClockMHz > 0 && result.PowerLimitWatts > 0)
+                        expected.Add(new ExpectedGpuLimit { Index = result.Index, MaxClockMHz = result.MaxGraphicsClockMHz, PowerLimitWatts = result.PowerLimitWatts });
                 }
                 if (expected.Count == 0)
                 {
@@ -520,24 +585,6 @@ namespace CA.SystemOverlay
                 reason = "LIMIT STATE UNREADABLE";
                 return false;
             }
-        }
-
-        private static int ReadInt(Dictionary<string, object> values, string key, int fallback)
-        {
-            object value;
-            int parsed;
-            return values.TryGetValue(key, out value) && Int32.TryParse(Convert.ToString(value, CultureInfo.InvariantCulture), NumberStyles.Integer, CultureInfo.InvariantCulture, out parsed)
-                ? parsed
-                : fallback;
-        }
-
-        private static double ReadDouble(Dictionary<string, object> values, string key, double fallback)
-        {
-            object value;
-            double parsed;
-            return values.TryGetValue(key, out value) && Double.TryParse(Convert.ToString(value, CultureInfo.InvariantCulture), NumberStyles.Float, CultureInfo.InvariantCulture, out parsed)
-                ? parsed
-                : fallback;
         }
 
         private static double CalculateSafeStartingPoint(GpuMetric gpu)

@@ -1,5 +1,7 @@
 [CmdletBinding()]
-param()
+param(
+    [string]$CompiledExecutablePath = ''
+)
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
@@ -10,9 +12,12 @@ $sourceOverlay = Join-Path $PSScriptRoot 'SystemOverlay.cs'
 $sourceRunner = Join-Path $PSScriptRoot 'Start-SystemOverlay.ps1'
 $installedOverlay = Join-Path $installPath 'SystemOverlay.cs'
 $installedRunner = Join-Path $installPath 'Start-SystemOverlay.ps1'
+$installedExecutable = Join-Path $installPath 'CAAutoConfig.exe'
 $powerShellPath = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
+$compiledMode = -not [string]::IsNullOrWhiteSpace($CompiledExecutablePath)
 
-foreach ($path in @($sourceOverlay, $sourceRunner, $powerShellPath)) {
+$requiredPaths = if ($compiledMode) { @($CompiledExecutablePath) } else { @($sourceOverlay, $sourceRunner, $powerShellPath) }
+foreach ($path in $requiredPaths) {
     if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
         throw "Required System Overlay component is missing: $path"
     }
@@ -28,8 +33,13 @@ if ($null -ne $existing) {
 }
 
 New-Item -ItemType Directory -Force -Path $installPath | Out-Null
-Copy-Item -Force -LiteralPath $sourceOverlay -Destination $installedOverlay
-Copy-Item -Force -LiteralPath $sourceRunner -Destination $installedRunner
+if ($compiledMode) {
+    Copy-Item -Force -LiteralPath $CompiledExecutablePath -Destination $installedExecutable
+}
+else {
+    Copy-Item -Force -LiteralPath $sourceOverlay -Destination $installedOverlay
+    Copy-Item -Force -LiteralPath $sourceRunner -Destination $installedRunner
+}
 
 $screens = [System.Windows.Forms.Screen]::AllScreens
 $targetDeviceName = if ($screens.Count -ge 3) {
@@ -43,12 +53,21 @@ else {
 }
 $userName = [Security.Principal.WindowsIdentity]::GetCurrent().Name
 $escapedUser = [Security.SecurityElement]::Escape($userName)
-$escapedPowerShell = [Security.SecurityElement]::Escape($powerShellPath)
-$escapedRunner = [Security.SecurityElement]::Escape($installedRunner)
 $escapedTargetDevice = [Security.SecurityElement]::Escape($targetDeviceName)
 $escapedWorkingDirectory = [Security.SecurityElement]::Escape($installPath)
 $startLocal = (Get-Date).AddSeconds(-5).ToString('yyyy-MM-ddTHH:mm:ss')
-$arguments = "-NoProfile -STA -ExecutionPolicy Bypass -WindowStyle Hidden -File &quot;$escapedRunner&quot; -TargetDeviceName &quot;$escapedTargetDevice&quot;"
+if ($compiledMode) {
+    $command = [Security.SecurityElement]::Escape($installedExecutable)
+    $arguments = "--display &quot;$escapedTargetDevice&quot;"
+    $hostMode = '.NET 8 self-contained app'
+}
+else {
+    $escapedPowerShell = [Security.SecurityElement]::Escape($powerShellPath)
+    $escapedRunner = [Security.SecurityElement]::Escape($installedRunner)
+    $command = $escapedPowerShell
+    $arguments = "-NoProfile -STA -ExecutionPolicy Bypass -WindowStyle Hidden -File &quot;$escapedRunner&quot; -TargetDeviceName &quot;$escapedTargetDevice&quot;"
+    $hostMode = 'Windows PowerShell compatibility host'
+}
 
 $taskXml = @"
 <?xml version="1.0" encoding="UTF-16"?>
@@ -90,7 +109,7 @@ $taskXml = @"
   </Settings>
   <Actions Context="Author">
     <Exec>
-      <Command>$escapedPowerShell</Command>
+      <Command>$command</Command>
       <Arguments>$arguments</Arguments>
       <WorkingDirectory>$escapedWorkingDirectory</WorkingDirectory>
     </Exec>
@@ -119,6 +138,7 @@ $info = Get-ScheduledTaskInfo -TaskName $taskName
     State          = $task.State
     LastTaskResult = $info.LastTaskResult
     AutoStart      = 'Logon + SessionUnlock'
+    HostMode       = $hostMode
     TargetDevice   = $targetDeviceName
     Position       = 'Configurable (default lower-left)'
     ClickThrough   = 'Locked by default; tiny lock control remains interactive'

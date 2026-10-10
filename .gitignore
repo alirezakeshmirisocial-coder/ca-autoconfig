@@ -15,6 +15,7 @@ __pycache__/
 *.py[cod]
 
 # .NET and editor output
+.tools/
 bin/
 obj/
 .vs/

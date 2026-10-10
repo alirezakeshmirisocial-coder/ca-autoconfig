@@ -34,6 +34,7 @@ foreach ($requiredFragment in @(
     'internal sealed class HotkeyCaptureBox',
     'RegisterHotKey',
     'LockBoundsPhysical',
+    'CurrentSchemaVersion',
     'power.draw',
     'power.default_limit',
     'power.min_limit',
@@ -53,6 +54,7 @@ $settingsPath = Join-Path $temporaryRoot 'settings.json'
 try {
     New-Item -ItemType Directory -Force -Path $temporaryRoot | Out-Null
     $settings = [Activator]::CreateInstance($settingsType)
+    Assert-True ([int]$settingsType.GetProperty('SchemaVersion').GetValue($settings, $null) -eq 1) 'Settings schema version is not initialized.'
     $settingsType.GetProperty('TargetDeviceName').SetValue($settings, '\\.\DISPLAY_TEST', $null)
     $settingsType.GetProperty('HasCustomPosition').SetValue($settings, $true, $null)
     $settingsType.GetProperty('PositionX').SetValue($settings, 44, $null)
@@ -68,11 +70,26 @@ try {
     $storeType.GetMethod('Save').Invoke($store, @($settings)) | Out-Null
     Assert-True (Test-Path -LiteralPath $settingsPath -PathType Leaf) 'Settings were not persisted.'
     $loaded = $storeType.GetMethod('Load').Invoke($store, @('', 0.82))
+    Assert-True ([int]$settingsType.GetProperty('SchemaVersion').GetValue($loaded, $null) -eq 1) 'Settings schema version did not round-trip.'
     Assert-True ([string]$settingsType.GetProperty('TargetDeviceName').GetValue($loaded, $null) -eq '\\.\DISPLAY_TEST') 'Target display did not round-trip.'
     Assert-True ([int]$settingsType.GetProperty('PositionX').GetValue($loaded, $null) -eq 44) 'HUD X position did not round-trip.'
     Assert-True ([int]$settingsType.GetProperty('PositionY').GetValue($loaded, $null) -eq 88) 'HUD Y position did not round-trip.'
     Assert-True ([int]$settingsType.GetProperty('HotkeyModifiers').GetValue($loaded, $null) -eq 6) 'Shortcut modifiers did not round-trip.'
     Assert-True ([int]$settingsType.GetProperty('HotkeyKey').GetValue($loaded, $null) -eq [int][Windows.Forms.Keys]::H) 'Shortcut key did not round-trip.'
+
+    [IO.File]::WriteAllText($settingsPath, '{"SchemaVersion":99,"TargetDeviceName":"future-display"}', (New-Object Text.UTF8Encoding($false)))
+    $futureStore = $storeConstructor.Invoke([object[]](,[string]$settingsPath))
+    $futureLoaded = $storeType.GetMethod('Load').Invoke($futureStore, @('safe-fallback', 0.82))
+    Assert-True ([string]$settingsType.GetProperty('TargetDeviceName').GetValue($futureLoaded, $null) -eq 'safe-fallback') 'A newer schema did not fall back safely.'
+    $futureWriteBlocked = $false
+    try {
+        $storeType.GetMethod('Save').Invoke($futureStore, @($futureLoaded)) | Out-Null
+    }
+    catch {
+        $futureWriteBlocked = $_.Exception.InnerException.Message -match 'newer CA AutoConfig version'
+    }
+    Assert-True $futureWriteBlocked 'A newer settings schema could be overwritten.'
+    Assert-True ((Get-Content -Raw -LiteralPath $settingsPath) -match '"SchemaVersion":99') 'The newer settings file was modified.'
 }
 finally {
     if (Test-Path -LiteralPath $settingsPath -PathType Leaf) {

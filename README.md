@@ -1,17 +1,17 @@
 # CA AutoConfig
 
-[![Latest release](https://img.shields.io/github/v/release/alirezakeshmirisocial-coder/ca-autoconfig?include_prereleases&label=alpha)](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/releases/tag/v0.1.2-alpha)
+[![Latest release](https://img.shields.io/github/v/release/alirezakeshmirisocial-coder/ca-autoconfig?include_prereleases&label=alpha)](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/releases/tag/v0.2.0-alpha.1)
 [![License](https://img.shields.io/github/license/alirezakeshmirisocial-coder/ca-autoconfig)](LICENSE)
 [![GitHub stars](https://img.shields.io/github/stars/alirezakeshmirisocial-coder/ca-autoconfig?style=flat)](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/stargazers)
 [![Discussions](https://img.shields.io/github/discussions/alirezakeshmirisocial-coder/ca-autoconfig)](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/discussions)
 
 CA AutoConfig is a lightweight Windows HUD and conservative GPU power companion for local-AI and multi-GPU workstations. It keeps essential CPU, memory, storage, CUDA/SM, VRAM, temperature, and board-power information visible without stealing focus from the applications underneath it.
 
-[Latest alpha](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/releases/tag/v0.1.2-alpha) · [Roadmap](ROADMAP.md) · [Contributor issues](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/milestone/1) · [Discussions](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/discussions) · [Launch playbook](docs/launch/LAUNCH_PLAYBOOK.md)
+[Latest alpha](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/releases/tag/v0.2.0-alpha.1) · [Desktop preview](docs/DESKTOP_PREVIEW.md) · [Roadmap](ROADMAP.md) · [Contributor issues](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/milestone/1) · [Discussions](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/discussions) · [Launch playbook](docs/launch/LAUNCH_PLAYBOOK.md)
 
 ![CA AutoConfig HUD showing verified GPU limits, system load, storage, VRAM, power, and temperature](docs/assets/hud-alpha.png)
 
-> Status: personal alpha moving toward an open-source public preview. Windows and NVIDIA are the first supported platform; the face-presence experiment remains optional and is not a replacement for Windows Hello.
+> Status: compiled public alpha. Windows and NVIDIA are the first supported platform; the face-presence experiment remains optional and is not a replacement for Windows Hello.
 
 ## Current HUD features
 
@@ -23,17 +23,20 @@ CA AutoConfig is a lightweight Windows HUD and conservative GPU power companion 
 - An isolated adaptive-cooling policy now simulates fan and power advice from ambient temperature, inlet temperature, card heat, neighboring-system heat, fan telemetry, and a matched clean baseline. It is deliberately advice-only until physical tach validation and a crash-safe vendor-auto restore path exist.
 - The configured startup profile is verified from the current-boot state file and live GPU data. A failed or mismatched limit remains clearly red.
 
-Install or refresh the local HUD:
+The preferred release is a self-contained .NET 8 app: it does not require a separate runtime or PowerShell source compilation. Download and extract the desktop-preview ZIP, verify its checksum, then run:
 
 ```powershell
-.\Install-SystemOverlay.ps1
+.\Install-DesktopApp.ps1
 ```
 
-Run its smoke test:
+Contributors can build and smoke-test the same app from source:
 
 ```powershell
-.\tests\SystemOverlay.Smoke.Tests.ps1
+.\Build-DesktopApp.ps1 -SelfContained
+.\tests\DesktopApp.Smoke.Tests.ps1 -SelfContained
 ```
+
+The original `Install-SystemOverlay.ps1` PowerShell-hosted path remains available as a compatibility fallback.
 
 The elevated GPU helper is deliberately separate and opt-in. It requires explicit GPU indices, clock, power, and risk acknowledgement; it preflights every target before changing one. The `280 W / 1700 MHz` values used on the maintainer's workstation are not universal recommendations. Treat advisor values as benchmark candidates for your exact board and workload.
 

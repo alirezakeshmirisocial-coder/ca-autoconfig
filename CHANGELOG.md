@@ -4,6 +4,15 @@ This project follows semantic versioning after `v1.0.0`. Pre-1.0 releases may ch
 
 ## Unreleased
 
+## v0.2.0-alpha.1 — Compiled desktop preview
+
+- Added a self-contained .NET 8 Windows application that reuses the tested WinForms HUD implementation.
+- Added schema-v1 settings migration shared by the compiled and PowerShell hosts; newer settings schemas cannot be overwritten.
+- Added a least-privilege compiled-app installation path for Logon and SessionUnlock.
+- Added reproducible `win-x64` packaging, ZIP checksums, and headless framework-dependent/self-contained smoke tests.
+- Replaced the .NET Framework-only JSON dependency while retaining Windows PowerShell compatibility.
+- Verified a live compiled-HUD swap and restored/updated the existing scheduled task without touching GPU or camera tasks.
+
 ## v0.1.2-alpha — Public installer safety
 
 - Made camera monitoring and GPU mutation opt-in in the combined installer; its default path now installs only the HUD and control shortcut.

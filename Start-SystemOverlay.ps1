@@ -27,15 +27,16 @@ try {
     Add-Type -AssemblyName System.Windows.Forms
     Add-Type -AssemblyName System.Drawing
     Add-Type -AssemblyName System.Management
-    Add-Type -AssemblyName System.Web.Extensions
+    Add-Type -AssemblyName System.Runtime.Serialization
+    Add-Type -AssemblyName System.Xml
     if (-not ('CA.SystemOverlay.Program' -as [type])) {
-        $webExtensionsPath = [System.Web.Script.Serialization.JavaScriptSerializer].Assembly.Location
         Add-Type -Path $sourcePath -ReferencedAssemblies @(
             'System.dll',
             'System.Core.dll',
             'System.Drawing.dll',
             'System.Management.dll',
-            $webExtensionsPath,
+            'System.Runtime.Serialization.dll',
+            'System.Xml.dll',
             'System.Windows.Forms.dll'
         )
     }
