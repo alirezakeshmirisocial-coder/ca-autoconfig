@@ -9,7 +9,9 @@ CA AutoConfig is a lightweight Windows HUD and conservative GPU power companion 
 
 [Latest alpha](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/releases/tag/v0.2.0-alpha.1) · [Desktop preview](docs/DESKTOP_PREVIEW.md) · [Roadmap](ROADMAP.md) · [Contributor issues](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/milestone/1) · [Discussions](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/discussions) · [Launch playbook](docs/launch/LAUNCH_PLAYBOOK.md)
 
-![CA AutoConfig HUD showing verified GPU limits, system load, storage, VRAM, power, and temperature](docs/assets/hud-alpha.png)
+![Three-step CA AutoConfig demo showing the locked HUD, edit mode, and monitor and shortcut settings](docs/assets/hud-demo.gif)
+
+[Static HUD screenshot](docs/assets/hud-alpha.png) · the demo captures only CA AutoConfig windows, never desktop pixels.
 
 > Status: compiled public alpha. Windows and NVIDIA are the first supported platform; the face-presence experiment remains optional and is not a replacement for Windows Hello.
 

@@ -16,12 +16,21 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
       - name: Guard smoke tests
         shell: pwsh
         run: .\tests\Guard.Smoke.Tests.ps1
       - name: HUD compile and policy tests
         shell: pwsh
         run: .\tests\SystemOverlay.Smoke.Tests.ps1
+      - name: Compiled desktop smoke test
+        shell: pwsh
+        run: .\tests\DesktopApp.Smoke.Tests.ps1
+      - name: Privileged helper safety tests
+        shell: pwsh
+        run: .\tests\GpuLimits.Safety.Tests.ps1
       - name: Adaptive fan policy tests
         shell: pwsh
         run: .\fan-control\Run-Tests.ps1

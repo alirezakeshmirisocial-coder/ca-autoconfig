@@ -23,7 +23,8 @@ The product direction is a tiny, trustworthy Windows HUD and safe power optimize
 - [ ] Add CI-built artifacts, signing, clean-machine install/uninstall coverage, and an MSIX or equivalent upgrade path.
 - [x] Separate the optional camera/presence experiment and GPU mutation from the default HUD installation.
 - [x] Add an English screenshot and public privacy statement.
-- [ ] Add a short demo and architecture documentation.
+- [x] Add a short privacy-safe, app-window-only demo.
+- [ ] Add architecture documentation.
 
 ## Milestone 3 — Workload-aware Power Advisor
 
