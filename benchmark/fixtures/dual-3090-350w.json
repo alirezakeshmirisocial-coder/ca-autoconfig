@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "runId": "fixture-dual-3090-350w-r1",
+  "createdUtc": "2026-10-10T00:00:00Z",
+  "source": "fixture",
+  "privacy": {
+    "containsGpuUuid": false,
+    "containsMachineName": false,
+    "containsUserName": false,
+    "containsPaths": false,
+    "containsRawCommand": false
+  },
+  "workload": {
+    "class": "llama.cpp",
+    "name": "Synthetic dual-3090 llama.cpp fixture",
+    "model": "Example 70B",
+    "quantization": "Q4_K_M",
+    "backend": "CUDA"
+  },
+  "protocol": {
+    "warmupSeconds": 30,
+    "sampleSeconds": 60,
+    "intervalMilliseconds": 1000,
+    "repetition": 1
+  },
+  "result": {
+    "status": "passed",
+    "throughput": {
+      "promptTokensPerSecond": null,
+      "generationTokensPerSecond": 22.0
+    },
+    "error": null
+  },
+  "gpus": [
+    {
+      "index": 0,
+      "model": "NVIDIA GeForce RTX 3090",
+      "driver": "fixture-driver",
+      "powerLimitWatts": 350.0,
+      "samples": [
+        { "elapsedMilliseconds": 0, "powerDrawWatts": 305.0, "temperatureC": 72.0, "utilizationPercent": 99.0, "memoryUsedMiB": 23000.0, "memoryTotalMiB": 24576.0, "graphicsClockMHz": 1785.0 },
+        { "elapsedMilliseconds": 1000, "powerDrawWatts": 315.0, "temperatureC": 73.0, "utilizationPercent": 100.0, "memoryUsedMiB": 23000.0, "memoryTotalMiB": 24576.0, "graphicsClockMHz": 1800.0 },
+        { "elapsedMilliseconds": 2000, "powerDrawWatts": 310.0, "temperatureC": 74.0, "utilizationPercent": 100.0, "memoryUsedMiB": 23000.0, "memoryTotalMiB": 24576.0, "graphicsClockMHz": 1800.0 },
+        { "elapsedMilliseconds": 3000, "powerDrawWatts": 310.0, "temperatureC": 75.0, "utilizationPercent": 99.0, "memoryUsedMiB": 23000.0, "memoryTotalMiB": 24576.0, "graphicsClockMHz": 1815.0 }
+      ]
+    },
+    {
+      "index": 1,
+      "model": "NVIDIA GeForce RTX 3090",
+      "driver": "fixture-driver",
+      "powerLimitWatts": 350.0,
+      "samples": [
+        { "elapsedMilliseconds": 0, "powerDrawWatts": 295.0, "temperatureC": 73.0, "utilizationPercent": 98.0, "memoryUsedMiB": 22900.0, "memoryTotalMiB": 24576.0, "graphicsClockMHz": 1770.0 },
+        { "elapsedMilliseconds": 1000, "powerDrawWatts": 305.0, "temperatureC": 74.0, "utilizationPercent": 99.0, "memoryUsedMiB": 22900.0, "memoryTotalMiB": 24576.0, "graphicsClockMHz": 1785.0 },
+        { "elapsedMilliseconds": 2000, "powerDrawWatts": 300.0, "temperatureC": 75.0, "utilizationPercent": 99.0, "memoryUsedMiB": 22900.0, "memoryTotalMiB": 24576.0, "graphicsClockMHz": 1785.0 },
+        { "elapsedMilliseconds": 3000, "powerDrawWatts": 300.0, "temperatureC": 76.0, "utilizationPercent": 98.0, "memoryUsedMiB": 22900.0, "memoryTotalMiB": 24576.0, "graphicsClockMHz": 1800.0 }
+      ]
+    }
+  ]
+}

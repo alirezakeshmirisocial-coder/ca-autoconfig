@@ -28,12 +28,13 @@ The product direction is a tiny, trustworthy Windows HUD and safe power optimize
 
 ## Milestone 3 — Workload-aware Power Advisor
 
+- [x] Define an anonymized schema-v1 run export, query-only telemetry recorder, deterministic fixture suite, and human-readable comparison report.
 - [ ] Record baseline power, temperature, errors, and throughput for a real workload.
 - [ ] Add adapters for Ollama/llama.cpp and ComfyUI before attempting generic detection.
 - [ ] Offer Balanced, Eco, Quiet, and Default profiles only when evidence is sufficient.
 - [ ] Reject a candidate after driver reset, workload error, unstable clock behavior, or incomplete data.
 - [ ] Require explicit confirmation, administrator elevation, and a tested one-click rollback.
-- [ ] Export an anonymized JSON benchmark and shareable AI Power Curve card.
+- [ ] Turn the anonymized JSON benchmark into a shareable AI Power Curve card.
 
 ## Milestone 3.5 — Adaptive cooling, simulation first
 

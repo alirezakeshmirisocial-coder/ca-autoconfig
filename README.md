@@ -7,7 +7,7 @@
 
 CA AutoConfig is a lightweight Windows HUD and conservative GPU power companion for local-AI and multi-GPU workstations. It keeps essential CPU, memory, storage, CUDA/SM, VRAM, temperature, and board-power information visible without stealing focus from the applications underneath it.
 
-[Latest alpha](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/releases/tag/v0.2.0-alpha.1) · [Desktop preview](docs/DESKTOP_PREVIEW.md) · [Architecture](docs/ARCHITECTURE.md) · [Roadmap](ROADMAP.md) · [Contributor issues](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/milestone/1) · [Discussions](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/discussions) · [Launch playbook](docs/launch/LAUNCH_PLAYBOOK.md)
+[Latest alpha](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/releases/tag/v0.2.0-alpha.1) · [Desktop preview](docs/DESKTOP_PREVIEW.md) · [Power-curve lab](benchmark/POWER_CURVE_METHOD.md) · [Architecture](docs/ARCHITECTURE.md) · [Roadmap](ROADMAP.md) · [Contributor issues](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/milestone/1) · [Discussions](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/discussions) · [Launch playbook](docs/launch/LAUNCH_PLAYBOOK.md)
 
 ![Three-step CA AutoConfig demo showing the locked HUD, edit mode, and monitor and shortcut settings](docs/assets/hud-demo.gif)
 
@@ -43,6 +43,19 @@ The original `Install-SystemOverlay.ps1` PowerShell-hosted path remains availabl
 The elevated GPU helper is deliberately separate and opt-in. It requires explicit GPU indices, clock, power, and risk acknowledgement; it preflights every target before changing one. The `280 W / 1700 MHz` values used on the maintainer's workstation are not universal recommendations. Treat advisor values as benchmark candidates for your exact board and workload.
 
 If you run local AI on Windows, the most useful contribution right now is a privacy-safe [hardware or monitor report](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/issues/new/choose). A star helps discovery, but reproducible results and focused pull requests are more valuable to the project.
+
+## Read-only power-curve lab
+
+The [`benchmark`](benchmark/POWER_CURVE_METHOD.md) lab records steady-window NVIDIA board telemetry beside prompt-processing or generation throughput measured by your workload. It never changes the active power, clock, voltage, or fan profile. Schema-v1 exports omit GPU UUIDs, machine/user names, paths, and raw commands; missing readings remain explicit `null` values.
+
+Try the complete calculation and privacy pipeline on synthetic fixtures:
+
+```powershell
+.\benchmark\New-PowerCurveReport.ps1 -DryRun -OutputPath .\artifacts\fixture-power-curve.md
+.\benchmark\Run-Tests.ps1
+```
+
+The generated report compares only matching workload fingerprints and calls its winner the best measured candidate in that dataset—not a universal GPU limit.
 
 ## Adaptive cooling lab
 

@@ -15,13 +15,17 @@ CA AutoConfig is being built for people running local LLMs, diffusion models, an
 ```powershell
 .\tests\SystemOverlay.Smoke.Tests.ps1
 .\tests\Guard.Smoke.Tests.ps1
+.\tests\DesktopApp.Smoke.Tests.ps1
+.\tests\GpuLimits.Safety.Tests.ps1
+.\benchmark\Run-Tests.ps1
+.\fan-control\Run-Tests.ps1
 ```
 
 Pull requests should explain the user problem, safety boundary, test evidence, and any administrator permissions required. Screenshots are expected for HUD or settings changes.
 
 ## Hardware reports
 
-Include GPU model, driver version, Windows version, supported minimum/default/maximum power limits, workload, observed watts, temperature, throughput, and whether the test produced a driver reset or workload error. Remove usernames, machine names, UUIDs, and personal paths before posting.
+Include GPU model, driver version, Windows version, supported minimum/default/maximum power limits, workload, observed watts, temperature, throughput, and whether the test produced a driver reset or workload error. Remove usernames, machine names, UUIDs, and personal paths before posting. Prefer the versioned, privacy-checked export and protocol in [benchmark/POWER_CURVE_METHOD.md](benchmark/POWER_CURVE_METHOD.md).
 
 ## Community conduct
 

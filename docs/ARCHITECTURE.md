@@ -141,6 +141,7 @@ See [PRIVACY.md](../PRIVACY.md), [SECURITY.md](../SECURITY.md), and the [adaptiv
 | HUD core | `tests/SystemOverlay.Smoke.Tests.ps1` compiles the shared source, round-trips settings, and parses multi-GPU telemetry. |
 | Compiled app | `tests/DesktopApp.Smoke.Tests.ps1` builds and launches the .NET entry point in a no-hardware-write smoke mode. |
 | Privileged helper | `tests/GpuLimits.Safety.Tests.ps1` checks explicit targets, preflight-before-write, rollback, ACL intent, and safe combined-installer defaults without changing hardware. |
+| Power-curve lab | `benchmark/Run-Tests.ps1` validates calculations, missing values, privacy rejection, fixture dry-run reporting, and the absence of NVIDIA mutation flags. |
 | Cooling model | `fan-control/Run-Tests.ps1` runs the isolated safety, calibration, prediction, drift, and emergency scenarios. |
 | Demo | `tools/Capture-HudDemo.ps1` uses `PrintWindow` on CA AutoConfig windows only, verifies state transitions, and restores the HUD to locked mode. |
 

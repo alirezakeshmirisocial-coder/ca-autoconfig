@@ -4,6 +4,8 @@ This project follows semantic versioning after `v1.0.0`. Pre-1.0 releases may ch
 
 ## Unreleased
 
+- Added a read-only power-curve lab with a versioned anonymized JSON schema, live NVIDIA telemetry recorder, synthetic dry run, deterministic calculations, privacy rejection, and Markdown comparison report.
+- Added 14 benchmark tests in Windows PowerShell and PowerShell 7; the fixture suite performs no hardware reads or writes, and the live recorder contains query-only NVIDIA operations.
 - Added a privacy-safe animated demo generator that captures only CA AutoConfig windows and restores the live HUD to locked mode.
 - Documented the runtime map, privilege split, trust boundaries, failure behavior, and verification surface for the compiled preview.
 - Updated the community launch sequence from current Reddit and Hacker News rules: benchmark-first, human-authored posts, participation before promotion, and no vote solicitation or automated submission.
