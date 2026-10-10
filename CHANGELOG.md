@@ -4,6 +4,13 @@ This project follows semantic versioning after `v1.0.0`. Pre-1.0 releases may ch
 
 ## Unreleased
 
+## v0.2.4-alpha.2 — Phase-honest energy evidence
+
+- Added schema-v3 measurement provenance for power, prompt, generation, and work-rate windows; current adapters now emit explicit phase semantics.
+- Exact tokens/J or work/J is emitted only for same-window evidence. Ollama and llama.cpp phase rates remain rate/power indices against their request/process power windows, while ComfyUI client-window work/J stays aligned.
+- Added deterministic legacy, phase-mismatch, card-label, and adapter-export tests so older or unaligned data cannot gain an energy claim during analysis.
+- Added a public research note connecting the boundary to official runtime semantics, current energy-benchmark research, and local-AI community demand signals.
+
 ## v0.2.4-alpha.1 — Evidence-gated Power Curve cards
 
 - Added a deterministic Power Curve SVG generator with strict workload/source matching, schema-v1/v2 units, repetition gates, retained failure counts, and permanent fixture/draft evidence labels.

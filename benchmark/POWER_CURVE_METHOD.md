@@ -12,10 +12,10 @@ For a publishable curve:
 
 1. Freeze the model, quantization, context, batch size, GPU split, backend build/commit, driver, and workload input.
 2. Record prompt-processing and generation throughput separately whenever the backend exposes both.
-3. Warm up for at least 30 seconds, then sample a steady window for at least 60 seconds.
+3. Declare the board-power window and each throughput-rate window. For the generic steady-state recorder, warm up for at least 30 seconds and sample for at least 60 seconds.
 4. Run at least three repetitions per profile. Interleave or randomize profile order and allow temperatures to return near the same baseline.
 5. Record every failed, incomplete, throttled, or reset run. Do not discard it because it weakens the curve.
-6. Use generation tokens/Joule (`tokens/s ÷ mean board watts`) only for like-for-like runs. Add wall-meter watt-hours when making electricity-cost claims.
+6. Use generation tokens/Joule (`tokens/s ÷ mean board watts`) only when schema-v3 declares the rate and board power over the same window. A phase rate divided by request/process-window watts is only a rate/power index, not Joules per token. Add wall-meter watt-hours when making electricity-cost claims.
 7. Publish the raw anonymized JSON beside the summary and describe anything the schema does not capture.
 
 ## Dry run
@@ -28,6 +28,17 @@ The dry run analyzes two synthetic dual-3090 fixtures and writes a Markdown repo
 ```
 
 The SVG card is generated deterministically from the same validated rows. It labels fixture data as **NOT HARDWARE EVIDENCE**, labels live curves with fewer than three runs per profile as **DRAFT / INSUFFICIENT REPETITIONS**, and counts failed or incomplete runs instead of silently dropping them.
+
+## Phase alignment and energy claims
+
+Schema-v3 records `powerWindow`, `promptRateWindow`, `generationRateWindow`, and `workRateWindow`. Exact `/J` output is allowed only when the relevant rate window equals the power window:
+
+- The generic recorder declares `steady-state` for the user-supplied rate and sampled power. The user is responsible for measuring that rate over the same steady interval.
+- Ollama power samples span the `end-to-end-request`, while its official prompt and generation rates describe `prompt-phase` and `generation-phase`. The report therefore emits a within-protocol rate/power index, never prompt or generation tokens/J.
+- llama.cpp power samples span the measured `process-window`, including load and shutdown, while official `pp` and `tg` rates describe their benchmark phases. These are also index-only until power is sampled per phase.
+- ComfyUI's declared work rate and board power both span the same `client-window`, so work/J is energy-aligned for that scoped client-observed run.
+
+Schema-v1/v2 remain readable but have no phase provenance. They retain rate and board-power values while exact per-joule fields stay `N/A`. This prevents a legacy export from acquiring a stronger energy claim during re-analysis.
 
 Run the deterministic privacy and calculation tests in either supported PowerShell runtime:
 
@@ -54,7 +65,7 @@ Install the model yourself, keep Ollama running locally, and use a fixed public 
   -OutputPath .\artifacts\runs\ollama-profile-a-r1.json
 ```
 
-`BenchmarkId` is a non-sensitive identifier for the exact prompt/protocol. Keep it unchanged only when the prompt and workload are unchanged. The raw prompt and generated response are used in memory but are never written to the schema-v1 export. Model quantization comes from `/api/show`; prompt and generation rates come from Ollama's `prompt_eval_*` and `eval_*` counters. Cached prompt tokens are excluded from prompt throughput. See the official [generate-response fields](https://docs.ollama.com/api/generate) and [model-details endpoint](https://docs.ollama.com/api-reference/show-model-details).
+`BenchmarkId` is a non-sensitive identifier for the exact prompt/protocol. Keep it unchanged only when the prompt and workload are unchanged. The raw prompt and generated response are used in memory but are never written to the schema-v3 export. Model quantization comes from `/api/show`; prompt and generation rates come from Ollama's `prompt_eval_*` and `eval_*` counters. Cached prompt tokens are excluded from prompt throughput. See the official [generate-response fields](https://docs.ollama.com/api/generate) and [model-details endpoint](https://docs.ollama.com/api-reference/show-model-details).
 
 The adapter does not pull models or change GPU settings. It records a run as `incomplete` when generation ends before the default ten-second measurement window, and as `failed` when the measured request or its metrics fail. Local loopback is the default; a non-loopback endpoint requires `-AllowRemoteEndpoint` because it sends the supplied prompt to that server. Apply each candidate power profile through the separate reviewed workflow, then record at least three interleaved repetitions per profile.
 
@@ -79,7 +90,7 @@ Download/build llama.cpp and obtain the GGUF model yourself. The adapter never d
 
 The adapter first runs one same-shape warm-up repetition. It then starts a second process with `--no-warmup`, requests JSON output, and samples the selected GPUs until that process exits. The exporter requires exactly one `pp` row and one `tg` row matching the requested token counts, a complete `samples_ts` set, positive finite rates, and one consistent build/backend identity. Ambiguous or malformed output fails closed.
 
-The power window is deliberately labeled `process-window`: it includes measured-process model load and shutdown, while llama-bench's official `avg_ts` values exclude tokenization and sampling and cover its benchmark operations. That distinction must remain in published methodology. The schema export omits `model_filename`, `cpu_info`, `gpu_info`, the GGUF path, child stdout/stderr, and the raw command. See the official [`llama-bench` syntax and JSON fields](https://github.com/ggml-org/llama.cpp/blob/master/tools/llama-bench/README.md).
+The power window is deliberately labeled `process-window`: it includes measured-process model load and shutdown, while llama-bench's official `avg_ts` values describe the `prompt-phase` and `generation-phase` benchmark operations and exclude tokenization and sampling. The report will not relabel this phase mismatch as tokens/J. That distinction must remain in published methodology. The schema export omits `model_filename`, `cpu_info`, `gpu_info`, the GGUF path, child stdout/stderr, and the raw command. See the official [`llama-bench` syntax and JSON fields](https://github.com/ggml-org/llama.cpp/blob/master/tools/llama-bench/README.md).
 
 Use the same safe labels and all numeric options for every point in a curve. Apply each candidate power profile through the separate reviewed workflow, record at least three interleaved outer `-Repetition` runs, and keep failed/incomplete JSON files.
 
@@ -106,7 +117,7 @@ In ComfyUI, export a working graph in API format (`File` → `Export (API)`). Ch
 
 The adapter requires an empty `/queue`, submits one warm-up at `BaseSeed`, verifies completion and the declared image count through `/history/{prompt_id}`, checks the queue again, then measures the same workflow at `BaseSeed + 1`. If the nominated seed node appears in ComfyUI's `execution_cached` event, or the terminal history does not contain exactly `WorkUnits` images, the run fails rather than reporting cached or missing output as performance. The reported rate is `WorkUnits ÷ client-observed submission-to-terminal seconds`; power samples cover that same client window. This is not an internal node-timing claim.
 
-Schema-v2 adds `workUnitsPerSecond` and `workUnit`, so image workloads are reported as `image/s` and `image/J` instead of being mislabeled as token throughput. Keep `WorkflowId`, work units, graph, model, sampler, scheduler, steps, dimensions, batch, extensions, and output behavior identical within a curve. See ComfyUI's official [basic API example](https://github.com/Comfy-Org/ComfyUI/blob/master/script_examples/basic_api_example.py) and [WebSocket/history example](https://github.com/Comfy-Org/ComfyUI/blob/master/script_examples/websockets_api_example.py).
+Schema-v3 retains `workUnitsPerSecond` and `workUnit` and declares both the ComfyUI rate and power as `client-window`, so image workloads can be reported as aligned `image/s` and `image/J` instead of being mislabeled as token throughput. Keep `WorkflowId`, work units, graph, model, sampler, scheduler, steps, dimensions, batch, extensions, and output behavior identical within a curve. See ComfyUI's official [basic API example](https://github.com/Comfy-Org/ComfyUI/blob/master/script_examples/basic_api_example.py) and [WebSocket/history example](https://github.com/Comfy-Org/ComfyUI/blob/master/script_examples/websockets_api_example.py).
 
 The workflow must expose its images in terminal history and decides where they are saved. CA AutoConfig neither fetches nor deletes them, and it never writes the workflow, prompt text, history payload, output metadata, prompt ID, endpoint, or seed values into the run export. Loopback is the default; redirects are disabled, and `-AllowRemoteEndpoint` is required for a non-loopback server because the full workflow may contain prompts, filenames, and custom-node settings. On timeout the adapter deliberately does not call ComfyUI's global interrupt route, which could stop unrelated work.
 
@@ -157,7 +168,7 @@ $runs = Get-ChildItem .\artifacts\runs\*.json | ForEach-Object FullName
 .\benchmark\New-PowerCurveReport.ps1 -InputPath $runs -OutputPath .\artifacts\power-curve.md
 ```
 
-The report compares only identical workload fingerprints (`class`, `name`, `model`, `quantization`, and `backend`). The adapters put their performance-affecting protocol settings in `name`, so unlike token counts, batches, or prompts are not ranked together. It may identify the most efficient measured profile inside a matching group, but it always labels the result as a candidate for repetition—not a universal best limit.
+The report compares only identical workload fingerprints (`class`, `name`, `model`, `quantization`, and `backend`). The adapters put their performance-affecting protocol settings in `name`, so unlike token counts, batches, or prompts are not ranked together. It identifies an efficiency leader only when power and rate windows align; otherwise it reports a rate/power index with the two windows visible. Every leader remains a candidate for repetition—not a universal best limit.
 
 Create a share card only from the exact run set used for the report:
 
@@ -167,10 +178,10 @@ Create a share card only from the exact run set used for the report:
   -OutputPath .\artifacts\power-curve.svg
 ```
 
-Publish the card only beside the raw anonymized JSON and method. The card refuses mixed workload fingerprints, mixed live/fixture sources, mixed token/work-unit rates, and datasets with fewer than two comparable power profiles.
+Publish the card only beside the raw anonymized JSON and method. The card refuses mixed workload fingerprints, mixed live/fixture sources, mixed token/work-unit rates, mixed power/rate-window provenance, and datasets with fewer than two comparable power profiles. A repeated but phase-mismatched live curve is labeled **MEASURED / RATE-POWER INDEX**, never `/J`.
 
 ## Export schema and privacy
 
-[`schema-v1.json`](schema-v1.json) remains supported for token workloads. [`schema-v2.json`](schema-v2.json) adds an explicit rate/unit pair for image and other non-token workloads. Both require explicit `null` values for missing throughput or telemetry; missing evidence never becomes zero. Before any report is produced, the module rejects fields named like UUID, hostname, user, path, command line, serial, or PCI bus ID and scans strings for common home/profile paths.
+[`schema-v1.json`](schema-v1.json) remains supported for token workloads. [`schema-v2.json`](schema-v2.json) adds an explicit rate/unit pair for image and other non-token workloads. [`schema-v3.json`](schema-v3.json) is the current writer format and adds mandatory power/rate-window provenance. All versions require explicit `null` values for missing throughput or telemetry; missing evidence never becomes zero. Before any report is produced, the module rejects fields named like UUID, hostname, user, path, command line, serial, or PCI bus ID and scans strings for common home/profile paths.
 
 Review exports before posting. A model name or workload label that you type can still contain information you did not intend to share.

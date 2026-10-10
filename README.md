@@ -7,7 +7,7 @@
 
 CA AutoConfig is a lightweight Windows HUD and conservative GPU power companion for local-AI and multi-GPU workstations. It keeps essential CPU, memory, storage, CUDA/SM, VRAM, temperature, and board-power information visible without stealing focus from the applications underneath it.
 
-[Latest alpha](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/releases/tag/v0.2.4-alpha.1) · [Join one focused alpha test](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/discussions/9) · [Desktop preview](docs/DESKTOP_PREVIEW.md) · [Hardware matrix](docs/HARDWARE_MATRIX.md) · [Power-curve lab](benchmark/POWER_CURVE_METHOD.md) · [Architecture](docs/ARCHITECTURE.md) · [Roadmap](ROADMAP.md) · [Contributor issues](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/milestone/1) · [Discussions](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/discussions) · [Growth scorecard](docs/launch/GROWTH_SCORECARD.md)
+[Latest alpha](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/releases/tag/v0.2.4-alpha.2) · [Join one focused alpha test](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/discussions/9) · [Desktop preview](docs/DESKTOP_PREVIEW.md) · [Hardware matrix](docs/HARDWARE_MATRIX.md) · [Power-curve lab](benchmark/POWER_CURVE_METHOD.md) · [Architecture](docs/ARCHITECTURE.md) · [Roadmap](ROADMAP.md) · [Contributor issues](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/milestone/1) · [Discussions](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/discussions) · [Growth scorecard](docs/launch/GROWTH_SCORECARD.md)
 
 ![Three-step CA AutoConfig demo showing the locked HUD, edit mode, and monitor and shortcut settings](docs/assets/hud-demo.gif)
 
@@ -46,13 +46,13 @@ If you run local AI on Windows, the most useful contribution right now is a priv
 
 ## Read-only power-curve lab
 
-The [`benchmark`](benchmark/POWER_CURVE_METHOD.md) lab records steady-window NVIDIA board telemetry beside token or image throughput measured by your workload. It never changes the active power, clock, voltage, or fan profile. Versioned exports omit GPU UUIDs, machine/user names, paths, raw commands, prompts, workflows, and generated content; missing readings remain explicit `null` values.
+The [`benchmark`](benchmark/POWER_CURVE_METHOD.md) lab records NVIDIA board telemetry beside token or image throughput measured by your workload. Schema-v3 declares the exact power and rate windows, and permits `/J` only when those windows align; phase rates divided by whole-request/process watts remain visibly labeled rate/power indices. It never changes the active power, clock, voltage, or fan profile. Versioned exports omit GPU UUIDs, machine/user names, paths, raw commands, prompts, workflows, and generated content; missing readings remain explicit `null` values.
 
-The local Ollama adapter drives one deterministic `/api/generate` request while sampling GPU telemetry, derives uncached prompt and generation throughput from Ollama's own counters, records failed/too-short runs instead of promoting them, and never pulls a model. Its endpoint is loopback-only unless the user explicitly enables a remote URL.
+The local Ollama adapter drives one deterministic `/api/generate` request while sampling GPU telemetry, derives uncached prompt and generation throughput from Ollama's own counters, records failed/too-short runs instead of promoting them, and never pulls a model. Because those rates describe prompt/generation phases while power spans the request, reports keep the result as an index rather than claiming tokens/J. Its endpoint is loopback-only unless the user explicitly enables a remote URL.
 
-The llama.cpp adapter launches a user-supplied local `llama-bench` executable and GGUF file, validates its official JSON `pp`/`tg` rows, and samples the selected GPUs during the measured child process. It exports only user-supplied safe model/quantization labels and a build/backend fingerprint—not the GGUF path, raw command, CPU/GPU identity fields, stdout, or stderr. It has no network or download path.
+The llama.cpp adapter launches a user-supplied local `llama-bench` executable and GGUF file, validates its official JSON `pp`/`tg` rows, and samples the selected GPUs during the measured child process. Its phase rates and process-window power remain separately labeled, so they cannot silently become tokens/J. It exports only user-supplied safe model/quantization labels and a build/backend fingerprint—not the GGUF path, raw command, CPU/GPU identity fields, stdout, or stderr. It has no network or download path.
 
-The ComfyUI adapter submits an explicit API-format workflow to an empty local queue, changes only a nominated integer seed between warm-up and measurement, and reports generalized work throughput such as `image/s` through schema-v2. It never downloads generated files or exports the workflow, prompts, output metadata, prompt ID, or endpoint. A remote server requires an explicit override because it receives the complete workflow.
+The ComfyUI adapter submits an explicit API-format workflow to an empty local queue, changes only a nominated integer seed between warm-up and measurement, and reports generalized work throughput such as `image/s` through schema-v3. Its rate and board power share the same client window, so scoped `image/J` is energy-aligned. It never downloads generated files or exports the workflow, prompts, output metadata, prompt ID, or endpoint. A remote server requires an explicit override because it receives the complete workflow.
 
 Try the complete calculation and privacy pipeline on synthetic fixtures:
 
@@ -63,6 +63,8 @@ Try the complete calculation and privacy pipeline on synthetic fixtures:
 ```
 
 The generated report and share card compare only matching workload fingerprints and describe the leading point according to its evidence grade—not as a universal GPU limit. Fixture cards carry a permanent **NOT HARDWARE EVIDENCE** label; under-repeated live datasets carry **DRAFT / INSUFFICIENT REPETITIONS**; a measured card still requires its exact anonymized raw JSON and method.
+
+Why the phase boundary matters—and which current community/research signals drove schema-v3—is documented in [Phase-aligned energy evidence](docs/research/PHASE_ALIGNED_ENERGY.md).
 
 ![Synthetic dual-3090 power-curve fixture card with a visible not-hardware-evidence warning](docs/assets/fixture-power-curve.svg)
 

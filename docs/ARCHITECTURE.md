@@ -112,9 +112,9 @@ flowchart TB
 
 - The presence lab performs local enrollment and inference. Its SFace path stores embeddings, not raw camera frames, and its test mode never locks Windows.
 - The unlock guard can relock Windows after a failed challenge, but it is a separate installation and is not a replacement for Windows Hello, BitLocker, or operating-system access control.
-- The Ollama adapter sends a user-supplied prompt to loopback by default, samples NVIDIA telemetry during that request, and exports neither prompt nor generated text. Remote endpoints require an explicit flag. It cannot pull models, elevate, or change a GPU profile.
-- The llama.cpp adapter launches only explicit local inputs, validates the exact official JSON `pp`/`tg` result shape, and samples telemetry during the measured process. It has no network/download/elevation path and exports neither local paths, raw commands, child streams, nor llama-bench machine fields.
-- The ComfyUI adapter sends an explicit API-format workflow to loopback by default, requires an empty queue, changes only the nominated seed between warm-up and measurement, and reports schema-v2 work units. It never fetches outputs or exports workflow/history content; a remote endpoint requires explicit opt-in.
+- The Ollama adapter sends a user-supplied prompt to loopback by default, samples NVIDIA telemetry during that request, and exports neither prompt nor generated text. Schema-v3 distinguishes request-window power from prompt/generation phase rates, so the result cannot be mislabeled tokens/J. Remote endpoints require an explicit flag. It cannot pull models, elevate, or change a GPU profile.
+- The llama.cpp adapter launches only explicit local inputs, validates the exact official JSON `pp`/`tg` result shape, and samples telemetry during the measured process. Schema-v3 distinguishes process-window power from benchmark phase rates. It has no network/download/elevation path and exports neither local paths, raw commands, child streams, nor llama-bench machine fields.
+- The ComfyUI adapter sends an explicit API-format workflow to loopback by default, requires an empty queue, changes only the nominated seed between warm-up and measurement, and reports schema-v3 work units with rate and power bound to the same client window. It never fetches outputs or exports workflow/history content; a remote endpoint requires explicit opt-in.
 - The adaptive cooling assembly is deterministic and hardware-independent. It has no hardware adapter, process launch, persistence, network access, or write path; `CanApply` is always `false`.
 
 See [PRIVACY.md](../PRIVACY.md), [SECURITY.md](../SECURITY.md), and the [adaptive cooling design](../fan-control/ADAPTIVE_FAN_SYSTEM.md) for the detailed policies.
@@ -152,11 +152,13 @@ See [PRIVACY.md](../PRIVACY.md), [SECURITY.md](../SECURITY.md), and the [adaptiv
 | HUD core | `tests/SystemOverlay.Smoke.Tests.ps1` compiles the shared source, round-trips settings, verifies diagnostic UUID/path redaction, validates live multi-GPU telemetry, and exercises 13 deterministic NVIDIA identity/state/success/failure cases. |
 | Compiled app | `tests/DesktopApp.Smoke.Tests.ps1` builds and launches the .NET entry point in a no-hardware-write smoke mode. |
 | Privileged helper | `tests/GpuLimits.Safety.Tests.ps1` checks explicit targets, preflight-before-write, rollback, ACL intent, and safe combined-installer defaults without changing hardware. |
-| Power-curve lab | `benchmark/Run-Tests.ps1` runs 25 schema/report/card tests, nine Ollama tests, nine llama-bench tests, and eight ComfyUI tests in both PowerShell runtimes, including unit-aware efficiency, workload isolation, evidence-gated SVG output, failure retention, cache rejection, remote-endpoint rejection, concurrent fixture telemetry, and privacy omission. |
+| Power-curve lab | `benchmark/Run-Tests.ps1` runs 28 schema/report/card tests, nine Ollama tests, nine llama-bench tests, and eight ComfyUI tests in both PowerShell runtimes, including phase-aware energy labeling, legacy downgrade safety, workload isolation, evidence-gated SVG output, failure retention, cache rejection, remote-endpoint rejection, concurrent fixture telemetry, and privacy omission. |
 | Cooling model | `fan-control/Run-Tests.ps1` runs the isolated safety, calibration, prediction, drift, and emergency scenarios. |
 | Demo | `tools/Capture-HudDemo.ps1` uses `PrintWindow` on CA AutoConfig windows only, verifies state transitions, and restores the HUD to locked mode. |
 
 The prepared Windows workflow is in [`docs/ci.yml.example`](ci.yml.example). It cannot become an active `.github/workflows` file until the maintainer's GitHub token is authorized for workflow changes.
+
+The research basis and current phase-alignment boundary are recorded in [`research/PHASE_ALIGNED_ENERGY.md`](research/PHASE_ALIGNED_ENERGY.md).
 
 ## Near-term hardening
 

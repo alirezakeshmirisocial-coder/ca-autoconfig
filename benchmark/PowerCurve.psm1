@@ -85,7 +85,7 @@ function Assert-CAPowerCurveRun {
         Assert-CAProperty -Object $Run -Name $name -Path 'run'
     }
     $schemaVersion = [int]$Run.schemaVersion
-    if ($schemaVersion -notin @(1, 2)) { throw "Unsupported benchmark schema version '$($Run.schemaVersion)'." }
+    if ($schemaVersion -notin @(1, 2, 3)) { throw "Unsupported benchmark schema version '$($Run.schemaVersion)'." }
     if ([string]$Run.source -notin @('live', 'fixture')) { throw "Unsupported benchmark source '$($Run.source)'." }
     if ([string]::IsNullOrWhiteSpace([string]$Run.runId)) { throw 'run.runId must not be empty.' }
 
@@ -119,7 +119,7 @@ function Assert-CAPowerCurveRun {
         }
     }
     $workUnitsPerSecond = $null
-    if ($schemaVersion -eq 2) {
+    if ($schemaVersion -ge 2) {
         foreach ($name in @('workUnitsPerSecond', 'workUnit')) {
             Assert-CAProperty -Object $Run.result.throughput -Name $name -Path 'run.result.throughput'
         }
@@ -133,6 +133,30 @@ function Assert-CAPowerCurveRun {
         }
         if ($null -ne $workUnitsPerSecond -and ($null -eq $workUnit -or [string]$workUnit -notmatch '^[A-Za-z][A-Za-z0-9._-]{0,31}$')) {
             throw 'run.result.throughput.workUnit must be a safe non-empty unit when workUnitsPerSecond is present.'
+        }
+    }
+    if ($schemaVersion -eq 3) {
+        Assert-CAProperty -Object $Run -Name 'measurement' -Path 'run'
+        foreach ($name in @('powerWindow', 'promptRateWindow', 'generationRateWindow', 'workRateWindow')) {
+            Assert-CAProperty -Object $Run.measurement -Name $name -Path 'run.measurement'
+        }
+        $allowedWindows = @('steady-state', 'end-to-end-request', 'process-window', 'client-window', 'prompt-phase', 'generation-phase')
+        if ([string]$Run.measurement.powerWindow -notin $allowedWindows) {
+            throw 'run.measurement.powerWindow must name a supported measurement window.'
+        }
+        foreach ($binding in @(
+            @{ Rate = 'promptTokensPerSecond'; Window = 'promptRateWindow' },
+            @{ Rate = 'generationTokensPerSecond'; Window = 'generationRateWindow' },
+            @{ Rate = 'workUnitsPerSecond'; Window = 'workRateWindow' }
+        )) {
+            $rate = $Run.result.throughput.($binding.Rate)
+            $window = $Run.measurement.($binding.Window)
+            if ($null -eq $rate -and $null -ne $window) {
+                throw "run.measurement.$($binding.Window) must be null when $($binding.Rate) is null."
+            }
+            if ($null -ne $rate -and ([string]::IsNullOrWhiteSpace([string]$window) -or [string]$window -notin $allowedWindows)) {
+                throw "run.measurement.$($binding.Window) must name a supported window when $($binding.Rate) is present."
+            }
         }
     }
     if ([string]$Run.result.status -eq 'passed' -and
@@ -215,14 +239,22 @@ function ConvertTo-CAPowerCurveRows {
         $peakTemperature = if ($temperatures.Count) { [Math]::Round((($temperatures | Measure-Object -Maximum).Maximum), 3) } else { $null }
         $generation = if ($null -eq $run.result.throughput.generationTokensPerSecond) { $null } else { [double]$run.result.throughput.generationTokensPerSecond }
         $prompt = if ($null -eq $run.result.throughput.promptTokensPerSecond) { $null } else { [double]$run.result.throughput.promptTokensPerSecond }
-        $workRate = if ([int]$run.schemaVersion -eq 2 -and $null -ne $run.result.throughput.workUnitsPerSecond) { [double]$run.result.throughput.workUnitsPerSecond } else { $null }
-        $workUnit = if ([int]$run.schemaVersion -eq 2 -and $null -ne $run.result.throughput.workUnit) { [string]$run.result.throughput.workUnit } else { $null }
-        $efficiency = if ($null -ne $generation -and $null -ne $meanPower -and $meanPower -gt 0) {
+        $workRate = if ([int]$run.schemaVersion -ge 2 -and $null -ne $run.result.throughput.workUnitsPerSecond) { [double]$run.result.throughput.workUnitsPerSecond } else { $null }
+        $workUnit = if ([int]$run.schemaVersion -ge 2 -and $null -ne $run.result.throughput.workUnit) { [string]$run.result.throughput.workUnit } else { $null }
+        $powerWindow = if ([int]$run.schemaVersion -eq 3) { [string]$run.measurement.powerWindow } else { 'legacy-unspecified' }
+        $promptRateWindow = if ([int]$run.schemaVersion -eq 3 -and $null -ne $run.measurement.promptRateWindow) { [string]$run.measurement.promptRateWindow } else { $null }
+        $generationRateWindow = if ([int]$run.schemaVersion -eq 3 -and $null -ne $run.measurement.generationRateWindow) { [string]$run.measurement.generationRateWindow } else { $null }
+        $workRateWindow = if ([int]$run.schemaVersion -eq 3 -and $null -ne $run.measurement.workRateWindow) { [string]$run.measurement.workRateWindow } else { $null }
+        $generationRatePowerIndex = if ($null -ne $generation -and $null -ne $meanPower -and $meanPower -gt 0) {
             [Math]::Round($generation / $meanPower, 6)
         } else { $null }
-        $workEfficiency = if ($null -ne $workRate -and $null -ne $meanPower -and $meanPower -gt 0) {
+        $workRatePowerIndex = if ($null -ne $workRate -and $null -ne $meanPower -and $meanPower -gt 0) {
             [Math]::Round($workRate / $meanPower, 9)
         } else { $null }
+        $generationAligned = $null -ne $generationRatePowerIndex -and $powerWindow -eq $generationRateWindow
+        $workAligned = $null -ne $workRatePowerIndex -and $powerWindow -eq $workRateWindow
+        $efficiency = if ($generationAligned) { $generationRatePowerIndex } else { $null }
+        $workEfficiency = if ($workAligned) { $workRatePowerIndex } else { $null }
 
         [pscustomobject][ordered]@{
             RunId = [string]$run.runId
@@ -235,8 +267,16 @@ function ConvertTo-CAPowerCurveRows {
             GenerationTokensPerSecond = $generation
             WorkUnitsPerSecond = $workRate
             WorkUnit = $workUnit
+            PowerWindow = $powerWindow
+            PromptRateWindow = $promptRateWindow
+            GenerationRateWindow = $generationRateWindow
+            WorkRateWindow = $workRateWindow
             MeanBoardPowerWatts = $meanPower
             PeakTemperatureC = $peakTemperature
+            GenerationRatePerWindowWatt = $generationRatePowerIndex
+            WorkRatePerWindowWatt = $workRatePowerIndex
+            GenerationEnergyAligned = $generationAligned
+            WorkEnergyAligned = $workAligned
             GenerationTokensPerJoule = $efficiency
             WorkUnitsPerJoule = $workEfficiency
             SampleCount = $sampleCount
@@ -268,10 +308,12 @@ function New-CAPowerCurveMarkdown {
     $lines.Add('')
     $lines.Add('A measured efficiency leader is not a universal recommendation. Board limits, cooling, drivers, model shape, quantization, context, batching, and workload phase can change the result.')
     $lines.Add('')
-    $lines.Add('| Run | Power profile | Status | Prompt tok/s | Generation tok/s | Work rate | Unit | Mean board W | Peak C | Generation tok/J | Work/J | Missing power samples |')
-    $lines.Add('| --- | --- | --- | ---: | ---: | ---: | --- | ---: | ---: | ---: | ---: | ---: |')
+    $lines.Add('Exact per-joule metrics appear only when the throughput rate and board-power samples cover the same declared window. Otherwise the report keeps a rate/window-W index for within-protocol comparison and does not call it energy per unit.')
+    $lines.Add('')
+    $lines.Add('| Run | Power profile | Status | Prompt tok/s | Generation tok/s | Work rate | Unit | Power window | Generation window | Work window | Mean board W | Peak C | Generation rate/W index | Aligned generation tok/J | Work rate/W index | Aligned work/J | Missing power samples |')
+    $lines.Add('| --- | --- | --- | ---: | ---: | ---: | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |')
     foreach ($row in $rows) {
-        $lines.Add(('| {0} | {1} | {2} | {3} | {4} | {5} | {6} | {7} | {8} | {9} | {10} | {11} |' -f
+        $lines.Add(('| {0} | {1} | {2} | {3} | {4} | {5} | {6} | {7} | {8} | {9} | {10} | {11} | {12} | {13} | {14} | {15} | {16} |' -f
             (Format-CAMarkdownValue $row.RunId),
             (Format-CAMarkdownValue $row.Profile),
             (Format-CAMarkdownValue $row.Status),
@@ -279,9 +321,14 @@ function New-CAPowerCurveMarkdown {
             (Format-CAMarkdownValue $row.GenerationTokensPerSecond),
             (Format-CAMarkdownValue $row.WorkUnitsPerSecond),
             (Format-CAMarkdownValue $row.WorkUnit),
+            (Format-CAMarkdownValue $row.PowerWindow),
+            (Format-CAMarkdownValue $row.GenerationRateWindow),
+            (Format-CAMarkdownValue $row.WorkRateWindow),
             (Format-CAMarkdownValue $row.MeanBoardPowerWatts),
             (Format-CAMarkdownValue $row.PeakTemperatureC),
+            (Format-CAMarkdownValue $row.GenerationRatePerWindowWatt '0.000000'),
             (Format-CAMarkdownValue $row.GenerationTokensPerJoule '0.000000'),
+            (Format-CAMarkdownValue $row.WorkRatePerWindowWatt '0.000000000'),
             (Format-CAMarkdownValue $row.WorkUnitsPerJoule '0.000000000'),
             $row.MissingPowerSamples))
     }
@@ -290,22 +337,35 @@ function New-CAPowerCurveMarkdown {
     $lines.Add('## Within-workload observations')
     $lines.Add('')
     foreach ($group in @($rows | Group-Object WorkloadKey | Sort-Object Name)) {
-        $comparable = @($group.Group | Where-Object {
-            $_.Status -eq 'passed' -and $null -ne $_.GenerationTokensPerJoule
-        } | Sort-Object GenerationTokensPerJoule -Descending)
+        $generationComparable = @($group.Group | Where-Object {
+            $_.Status -eq 'passed' -and $null -ne $_.GenerationRatePerWindowWatt
+        } | Sort-Object GenerationRatePerWindowWatt -Descending)
+        $alignedGeneration = @($generationComparable | Where-Object GenerationEnergyAligned)
         $workComparable = @($group.Group | Where-Object {
-            $_.Status -eq 'passed' -and $null -ne $_.WorkUnitsPerJoule -and $null -ne $_.WorkUnit
-        } | Sort-Object WorkUnitsPerJoule -Descending)
+            $_.Status -eq 'passed' -and $null -ne $_.WorkRatePerWindowWatt -and $null -ne $_.WorkUnit
+        } | Sort-Object WorkRatePerWindowWatt -Descending)
+        $alignedWork = @($workComparable | Where-Object WorkEnergyAligned)
         $workloadName = [string]$group.Group[0].Workload
-        if ($comparable.Count -ge 2) {
-            $best = $comparable[0]
+        if ($generationComparable.Count -ge 2 -and $alignedGeneration.Count -eq $generationComparable.Count) {
+            $best = $alignedGeneration | Sort-Object GenerationTokensPerJoule -Descending | Select-Object -First 1
             $lines.Add(('- **{0}:** highest measured generation efficiency in this dataset was `{1}` at `{2}` tokens/J. Treat it as a candidate for repetition, not a universal best limit.' -f
                 (Format-CAMarkdownValue $workloadName),
                 (Format-CAMarkdownValue $best.Profile),
                 (Format-CAMarkdownValue $best.GenerationTokensPerJoule '0.000000')))
         }
-        elseif ($workComparable.Count -ge 2) {
-            $best = $workComparable[0]
+        elseif ($generationComparable.Count -ge 2) {
+            $best = $generationComparable[0]
+            $powerWindows = @($generationComparable | Select-Object -ExpandProperty PowerWindow -Unique) -join ', '
+            $rateWindows = @($generationComparable | Select-Object -ExpandProperty GenerationRateWindow -Unique) -join ', '
+            $lines.Add(('- **{0}:** highest generation rate/power index was `{1}` at `{2}` tok/s/W (power window: `{3}`; rate window: `{4}`). The windows are not energy-aligned, so this is not tokens/J or an energy recommendation.' -f
+                (Format-CAMarkdownValue $workloadName),
+                (Format-CAMarkdownValue $best.Profile),
+                (Format-CAMarkdownValue $best.GenerationRatePerWindowWatt '0.000000'),
+                (Format-CAMarkdownValue $powerWindows),
+                (Format-CAMarkdownValue $rateWindows)))
+        }
+        elseif ($workComparable.Count -ge 2 -and $alignedWork.Count -eq $workComparable.Count) {
+            $best = $alignedWork | Sort-Object WorkUnitsPerJoule -Descending | Select-Object -First 1
             $unit = [string]$best.WorkUnit
             $lines.Add(('- **{0}:** highest measured {1} efficiency in this dataset was `{2}` at `{3}` {1}/J. Treat it as a candidate for repetition, not a universal best limit.' -f
                 (Format-CAMarkdownValue $workloadName),
@@ -313,13 +373,26 @@ function New-CAPowerCurveMarkdown {
                 (Format-CAMarkdownValue $best.Profile),
                 (Format-CAMarkdownValue $best.WorkUnitsPerJoule '0.000000000')))
         }
+        elseif ($workComparable.Count -ge 2) {
+            $best = $workComparable[0]
+            $unit = [string]$best.WorkUnit
+            $powerWindows = @($workComparable | Select-Object -ExpandProperty PowerWindow -Unique) -join ', '
+            $rateWindows = @($workComparable | Select-Object -ExpandProperty WorkRateWindow -Unique) -join ', '
+            $lines.Add(('- **{0}:** highest {1} rate/power index was `{2}` at `{3}` {1}/s/W (power window: `{4}`; rate window: `{5}`). The windows are not energy-aligned, so this is not {1}/J or an energy recommendation.' -f
+                (Format-CAMarkdownValue $workloadName),
+                (Format-CAMarkdownValue $unit),
+                (Format-CAMarkdownValue $best.Profile),
+                (Format-CAMarkdownValue $best.WorkRatePerWindowWatt '0.000000000'),
+                (Format-CAMarkdownValue $powerWindows),
+                (Format-CAMarkdownValue $rateWindows)))
+        }
         else {
             $lines.Add("- **$(Format-CAMarkdownValue $workloadName):** fewer than two comparable passed runs; no efficiency leader is reported.")
         }
     }
 
     $lines.Add('')
-    $lines.Add('Generated from schema-v1/v2 anonymized exports. `N/A` is retained as missing evidence rather than converted to zero.')
+    $lines.Add('Generated from schema-v1/v2/v3 anonymized exports. Legacy schemas have unspecified phase provenance, so they do not produce exact per-joule metrics. `N/A` is retained as missing evidence rather than converted to zero.')
     return $lines -join "`n"
 }
 
@@ -349,16 +422,35 @@ function New-CAPowerCurveCardSvg {
     $sources = @($runsArray | ForEach-Object { [string]$_.source } | Select-Object -Unique)
     if ($sources.Count -ne 1) { throw 'A power-curve card cannot mix live and fixture sources.' }
 
-    $tokenRows = @($rows | Where-Object { $null -ne $_.GenerationTokensPerSecond })
-    $workRows = @($rows | Where-Object { $null -ne $_.WorkUnitsPerSecond })
+    $tokenRows = @($rows | Where-Object { $_.Status -eq 'passed' -and $null -ne $_.GenerationTokensPerSecond })
+    $workRows = @($rows | Where-Object { $_.Status -eq 'passed' -and $null -ne $_.WorkUnitsPerSecond })
     if ($tokenRows.Count -gt 0 -and $workRows.Count -gt 0) { throw 'A power-curve card cannot mix token and work-unit throughput.' }
     if ($tokenRows.Count -eq 0 -and $workRows.Count -eq 0) { throw 'A power-curve card requires passed throughput evidence.' }
 
     $isToken = $tokenRows.Count -gt 0
     $workUnits = @($workRows | Select-Object -ExpandProperty WorkUnit -Unique)
     if (-not $isToken -and $workUnits.Count -ne 1) { throw 'A power-curve card requires one exact work unit.' }
+    $metricRows = if ($isToken) { $tokenRows } else { $workRows }
+    $phaseKeys = @($metricRows | ForEach-Object {
+        $rateWindow = if ($isToken) { $_.GenerationRateWindow } else { $_.WorkRateWindow }
+        '{0}|{1}' -f $_.PowerWindow, $rateWindow
+    } | Select-Object -Unique)
+    if ($phaseKeys.Count -ne 1) { throw 'A power-curve card requires one exact power/rate window provenance.' }
+    $powerWindow = [string]$metricRows[0].PowerWindow
+    $rateWindow = if ($isToken) { [string]$metricRows[0].GenerationRateWindow } else { [string]$metricRows[0].WorkRateWindow }
+    $energyAligned = if ($isToken) {
+        @($metricRows | Where-Object GenerationEnergyAligned).Count -eq $metricRows.Count
+    }
+    else {
+        @($metricRows | Where-Object WorkEnergyAligned).Count -eq $metricRows.Count
+    }
     $rateLabel = if ($isToken) { 'generation tok/s' } else { ([string]$workUnits[0]) + '/s' }
-    $efficiencyLabel = if ($isToken) { 'tokens/J' } else { ([string]$workUnits[0]) + '/J' }
+    $efficiencyLabel = if ($energyAligned) {
+        if ($isToken) { 'tokens/J' } else { ([string]$workUnits[0]) + '/J' }
+    }
+    else {
+        if ($isToken) { 'generation rate/W index' } else { ([string]$workUnits[0]) + '/s/W index' }
+    }
 
     $profiles = New-Object Collections.Generic.List[object]
     foreach ($group in @($rows | Group-Object Profile | Sort-Object Name)) {
@@ -392,8 +484,11 @@ function New-CAPowerCurveCardSvg {
     $evidenceLabel = if ($source -eq 'fixture') {
         'FIXTURE / NOT HARDWARE EVIDENCE'
     }
+    elseif ($publishable -and $energyAligned) {
+        'MEASURED / ENERGY-ALIGNED'
+    }
     elseif ($publishable) {
-        'MEASURED / LOCAL HARDWARE'
+        'MEASURED / RATE-POWER INDEX'
     }
     else {
         'DRAFT / INSUFFICIENT REPETITIONS'
@@ -401,8 +496,11 @@ function New-CAPowerCurveCardSvg {
     $evidenceDetail = if ($source -eq 'fixture') {
         'Synthetic data exercises the pipeline only'
     }
+    elseif ($publishable -and $energyAligned) {
+        'Same-window throughput and board power; local protocol only'
+    }
     elseif ($publishable) {
-        'Scoped to this exact local workload and protocol'
+        "Power: $powerWindow / rate: $rateWindow"
     }
     else {
         'Live export, but fewer than 3 runs exist for at least one profile'
@@ -413,13 +511,19 @@ function New-CAPowerCurveCardSvg {
     $subtitle = ConvertTo-CASvgText (('{0} / {1} / {2}' -f $workload.model, $workload.quantization, $workload.backend)) 88
     $totalFailed = [int](($profileArray | Measure-Object -Property FailedRuns -Sum).Sum)
     $runCount = $rows.Count
-    $candidateHeading = if ($source -eq 'fixture') { 'SYNTHETIC EFFICIENCY EXAMPLE' } elseif ($publishable) { 'EFFICIENCY CANDIDATE' } else { 'PROVISIONAL CANDIDATE' }
-    $candidateAction = if ($source -eq 'fixture') { 'PIPELINE EXAMPLE ONLY' } elseif ($publishable) { 'REPEAT BEFORE APPLYING' } else { 'COLLECT MORE REPETITIONS' }
+    $candidateHeading = if ($source -eq 'fixture' -and $energyAligned) { 'SYNTHETIC EFFICIENCY EXAMPLE' } elseif ($source -eq 'fixture') { 'SYNTHETIC RATE / POWER EXAMPLE' } elseif ($publishable -and $energyAligned) { 'EFFICIENCY CANDIDATE' } elseif ($publishable) { 'RATE / POWER CANDIDATE' } elseif ($energyAligned) { 'PROVISIONAL CANDIDATE' } else { 'PROVISIONAL RATE / POWER' }
+    $candidateAction = if ($source -eq 'fixture') { 'PIPELINE EXAMPLE ONLY' } elseif (-not $energyAligned) { 'ALIGN PHASES FOR ENERGY CLAIM' } elseif ($publishable) { 'REPEAT BEFORE APPLYING' } else { 'COLLECT MORE REPETITIONS' }
     $candidateBoundary = if ($source -eq 'fixture') {
         'Synthetic fixture leader, not a hardware result.'
     }
-    elseif ($publishable) {
+    elseif ($publishable -and $energyAligned) {
         'Measured leader, not a universal limit.'
+    }
+    elseif ($publishable) {
+        'Measured index leader; not joules or a hardware limit.'
+    }
+    elseif (-not $energyAligned) {
+        'Draft index leader; power and rate windows differ.'
     }
     else {
         'Live draft leader, not a hardware recommendation.'
@@ -434,9 +538,12 @@ function New-CAPowerCurveCardSvg {
             $profile.PassedRuns,
             $profile.TotalRuns
     }
-    $accessibleDescription = '{0}. {1}. {2} runs, {3} profiles, {4} failed or incomplete. Axes compare {5} against mean combined board power in watts. {6}. {7} Selected profile: {8}. Exact anonymized raw JSON and method are required; this is not a universal recommendation.' -f
+    $accessibleDescription = '{0}. {1}. Power window: {2}. Rate window: {3}. Energy aligned: {4}. {5} runs, {6} profiles, {7} failed or incomplete. Axes compare {8} against mean combined board power in watts. {9}. {10} Selected profile: {11}. Exact anonymized raw JSON and method are required; this is not a universal recommendation.' -f
         $evidenceLabel,
         $evidenceDetail,
+        $powerWindow,
+        $rateWindow,
+        $energyAligned,
         $runCount,
         $profileArray.Count,
         $totalFailed,
@@ -463,7 +570,7 @@ function New-CAPowerCurveCardSvg {
     $null = $svg.AppendLine(('  <title id="title">CA AutoConfig power curve - {0}</title>' -f $title))
     $null = $svg.AppendLine(('  <desc id="description">{0}</desc>' -f (ConvertTo-CASvgText $accessibleDescription 1200)))
     $null = $svg.AppendLine('  <rect width="1200" height="675" fill="#0A0F14"/>')
-    $accent = if ($source -eq 'fixture') { '#F6C177' } elseif ($publishable) { '#5CE0A7' } else { '#E8A65D' }
+    $accent = if ($source -eq 'fixture') { '#F6C177' } elseif ($publishable -and $energyAligned) { '#5CE0A7' } else { '#E8A65D' }
     $null = $svg.AppendLine(('  <rect width="1200" height="7" fill="{0}"/>' -f $accent))
     $null = $svg.AppendLine(('  <rect x="850" y="28" width="286" height="42" rx="8" fill="#171D25" stroke="{0}"/>' -f $accent))
     $null = $svg.AppendLine(('  <text x="993" y="55" text-anchor="middle" fill="{0}" font-family="Segoe UI,Arial,sans-serif" font-size="14" font-weight="700">{1}</text>' -f $accent, (ConvertTo-CASvgText $evidenceLabel)))

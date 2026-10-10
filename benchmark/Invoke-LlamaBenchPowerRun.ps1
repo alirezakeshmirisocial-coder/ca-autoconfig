@@ -309,7 +309,7 @@ $gpus = foreach ($index in $gpuIndexes) {
 }
 
 $run = [pscustomobject][ordered]@{
-    schemaVersion = 1
+    schemaVersion = 3
     runId         = 'run-' + [Guid]::NewGuid().ToString('N')
     createdUtc    = [DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ')
     source        = 'live'
@@ -333,11 +333,19 @@ $run = [pscustomobject][ordered]@{
         intervalMilliseconds = $IntervalMilliseconds
         repetition           = $Repetition
     }
+    measurement   = [pscustomobject][ordered]@{
+        powerWindow          = 'process-window'
+        promptRateWindow     = if ($null -eq $promptTokensPerSecond) { $null } else { 'prompt-phase' }
+        generationRateWindow = if ($null -eq $generationTokensPerSecond) { $null } else { 'generation-phase' }
+        workRateWindow       = $null
+    }
     result        = [pscustomobject][ordered]@{
         status     = $resultStatus
         throughput = [pscustomobject][ordered]@{
             promptTokensPerSecond     = $promptTokensPerSecond
             generationTokensPerSecond = $generationTokensPerSecond
+            workUnitsPerSecond        = $null
+            workUnit                  = $null
         }
         error      = $resultError
     }

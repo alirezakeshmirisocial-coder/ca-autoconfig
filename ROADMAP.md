@@ -35,9 +35,11 @@ The product direction is a tiny, trustworthy Windows HUD and safe power optimize
 - [x] Add a local llama.cpp/`llama-bench` adapter with exact JSON-row validation, concurrent NVIDIA sampling, and path/command omission.
 - [x] Add a loopback-first ComfyUI adapter with explicit work units, cache-separated seeds, empty-queue preflight, and workflow/output omission.
 - [ ] Offer Balanced, Eco, Quiet, and Default profiles only when evidence is sufficient.
+- [ ] Add an idle-power regression gate before recommending a persistent graphics-clock lock.
 - [ ] Reject a candidate after driver reset, workload error, unstable clock behavior, or incomplete data.
 - [ ] Require explicit confirmation, administrator elevation, and a tested one-click rollback.
 - [x] Turn the anonymized JSON benchmark into a deterministic, evidence-gated AI Power Curve SVG card.
+- [x] Add schema-v3 phase provenance so only same-window throughput and board power can produce per-joule claims.
 
 ## Milestone 3.5 — Adaptive cooling, simulation first
 

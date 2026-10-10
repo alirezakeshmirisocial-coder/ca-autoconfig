@@ -37,18 +37,31 @@ $fixturePaths = @(
 $fixtureTextBefore = @($fixturePaths | ForEach-Object { Get-Content -Raw -LiteralPath $_ })
 $runs = @($fixtureTextBefore | ForEach-Object { $_ | ConvertFrom-Json })
 
-function ConvertTo-SchemaV2WorkRun {
+function ConvertTo-SchemaV3WorkRun {
     param($Run, [double]$Rate, [string]$Unit = 'image')
     $copy = ($Run | ConvertTo-Json -Depth 12 | ConvertFrom-Json)
-    $copy.schemaVersion = 2
+    $copy.schemaVersion = 3
     $copy.result.throughput.promptTokensPerSecond = $null
     $copy.result.throughput.generationTokensPerSecond = $null
-    $copy.result.throughput | Add-Member -NotePropertyName workUnitsPerSecond -NotePropertyValue $Rate
-    $copy.result.throughput | Add-Member -NotePropertyName workUnit -NotePropertyValue $Unit
+    $copy.result.throughput.workUnitsPerSecond = $Rate
+    $copy.result.throughput.workUnit = $Unit
+    $copy.measurement.promptRateWindow = $null
+    $copy.measurement.generationRateWindow = $null
+    $copy.measurement.workRateWindow = $copy.measurement.powerWindow
     return $copy
 }
 
-Test-Case 'schema-v1 fixtures validate and retain explicit missing values' {
+function ConvertTo-LegacyV1Run {
+    param($Run)
+    $copy = ($Run | ConvertTo-Json -Depth 12 | ConvertFrom-Json)
+    $copy.schemaVersion = 1
+    $copy.PSObject.Properties.Remove('measurement')
+    $copy.result.throughput.PSObject.Properties.Remove('workUnitsPerSecond')
+    $copy.result.throughput.PSObject.Properties.Remove('workUnit')
+    return $copy
+}
+
+Test-Case 'schema-v3 fixtures validate and retain explicit missing values' {
     foreach ($run in $runs) { Assert-CAPowerCurveRun -Run $run | Out-Null }
     Assert-True ($null -eq $runs[0].result.throughput.promptTokensPerSecond) 'Missing prompt throughput was not retained as null.'
     Assert-True ($null -eq $runs[0].gpus[0].samples[2].graphicsClockMHz) 'Missing clock telemetry was not retained as null.'
@@ -62,20 +75,22 @@ Test-Case 'dual-GPU mean power is the sum of per-GPU means' {
 
 Test-Case 'generation efficiency is tokens per second divided by mean watts' {
     $row = @(ConvertTo-CAPowerCurveRows -Runs @($runs[0]))[0]
+    Assert-True ([bool]$row.GenerationEnergyAligned) 'Same-window fixture was not marked energy-aligned.'
+    Assert-True ([Math]::Abs([double]$row.GenerationRatePerWindowWatt - (21.2 / 490.0)) -lt 0.000001) 'Generation rate/power index is wrong.'
     Assert-True ([Math]::Abs([double]$row.GenerationTokensPerJoule - (21.2 / 490.0)) -lt 0.000001) 'Generation tokens/J calculation is wrong.'
 }
 
-Test-Case 'schema-v2 work-unit throughput produces unit-aware efficiency' {
-    $workRun = ConvertTo-SchemaV2WorkRun -Run $runs[0] -Rate 0.25
+Test-Case 'schema-v3 work-unit throughput produces unit-aware aligned efficiency' {
+    $workRun = ConvertTo-SchemaV3WorkRun -Run $runs[0] -Rate 0.25
     Assert-CAPowerCurveRun -Run $workRun | Out-Null
     $row = @(ConvertTo-CAPowerCurveRows -Runs @($workRun))[0]
     Assert-True ([double]$row.WorkUnitsPerSecond -eq 0.25 -and [string]$row.WorkUnit -eq 'image') 'Schema-v2 work rate or unit was lost.'
     Assert-True ([Math]::Abs([double]$row.WorkUnitsPerJoule - (0.25 / 490.0)) -lt 0.000000001) 'Work-unit efficiency is wrong.'
 }
 
-Test-Case 'schema-v2 report ranks only matching work units' {
-    $first = ConvertTo-SchemaV2WorkRun -Run $runs[0] -Rate 0.25
-    $second = ConvertTo-SchemaV2WorkRun -Run $runs[1] -Rate 0.30
+Test-Case 'schema-v3 report ranks only matching work units' {
+    $first = ConvertTo-SchemaV3WorkRun -Run $runs[0] -Rate 0.25
+    $second = ConvertTo-SchemaV3WorkRun -Run $runs[1] -Rate 0.30
     $report = New-CAPowerCurveMarkdown -Runs @($first, $second)
     Assert-True ($report -match 'highest measured image efficiency') 'Work-unit leader is missing.'
     Assert-True ($report -match 'image/J') 'Unit-aware efficiency label is missing.'
@@ -83,8 +98,8 @@ Test-Case 'schema-v2 report ranks only matching work units' {
     Assert-True ($report -notmatch '\$\(Format-CAMarkdownValue') 'Work-unit observation leaked an unexpanded formatter expression.'
 }
 
-Test-Case 'schema-v2 rejects a rate without a safe matching unit' {
-    $workRun = ConvertTo-SchemaV2WorkRun -Run $runs[0] -Rate 0.25
+Test-Case 'schema-v3 rejects a rate without a safe matching unit' {
+    $workRun = ConvertTo-SchemaV3WorkRun -Run $runs[0] -Rate 0.25
     $workRun.result.throughput.workUnit = $null
     Assert-Throws { Assert-CAPowerCurveRun -Run $workRun | Out-Null } 'safe non-empty unit' 'Work throughput without a unit was accepted.'
     $workRun.result.throughput.workUnit = 'image/path'
@@ -135,7 +150,7 @@ Test-Case 'a user profile path is rejected' {
 
 Test-Case 'a future schema is rejected' {
     $copy = ($fixtureTextBefore[0] | ConvertFrom-Json)
-    $copy.schemaVersion = 3
+    $copy.schemaVersion = 4
     Assert-Throws { Assert-CAPowerCurveRun -Run $copy | Out-Null } 'Unsupported benchmark schema' 'Future schema was accepted.'
 }
 
@@ -143,15 +158,43 @@ Test-Case 'a passed run without throughput is rejected' {
     $copy = ($fixtureTextBefore[0] | ConvertFrom-Json)
     $copy.result.throughput.promptTokensPerSecond = $null
     $copy.result.throughput.generationTokensPerSecond = $null
+    $copy.measurement.promptRateWindow = $null
+    $copy.measurement.generationRateWindow = $null
     Assert-Throws { Assert-CAPowerCurveRun -Run $copy | Out-Null } 'token or work-unit' 'Evidence-free passed run was accepted.'
 }
 
 Test-Case 'published schema documents are valid JSON with distinct versions' {
     $schema1 = Get-Content -Raw -LiteralPath (Join-Path $PSScriptRoot 'schema-v1.json') | ConvertFrom-Json
     $schema2 = Get-Content -Raw -LiteralPath (Join-Path $PSScriptRoot 'schema-v2.json') | ConvertFrom-Json
+    $schema3 = Get-Content -Raw -LiteralPath (Join-Path $PSScriptRoot 'schema-v3.json') | ConvertFrom-Json
     Assert-True ([int]$schema1.properties.schemaVersion.const -eq 1) 'schema-v1 identity changed.'
     Assert-True ([int]$schema2.properties.schemaVersion.const -eq 2) 'schema-v2 identity is wrong.'
     Assert-True (@($schema2.properties.result.properties.throughput.required) -contains 'workUnitsPerSecond') 'schema-v2 omits generalized throughput.'
+    Assert-True ([int]$schema3.properties.schemaVersion.const -eq 3) 'schema-v3 identity is wrong.'
+    Assert-True (@($schema3.required) -contains 'measurement') 'schema-v3 omits phase provenance.'
+}
+
+Test-Case 'legacy schemas retain a rate-power index but cannot claim joules' {
+    $legacy = ConvertTo-LegacyV1Run -Run $runs[0]
+    Assert-CAPowerCurveRun -Run $legacy | Out-Null
+    $row = @(ConvertTo-CAPowerCurveRows -Runs @($legacy))[0]
+    Assert-True ($null -eq $row.GenerationTokensPerJoule -and -not [bool]$row.GenerationEnergyAligned) 'Legacy unspecified phases produced an exact energy metric.'
+    Assert-True ([Math]::Abs([double]$row.GenerationRatePerWindowWatt - (21.2 / 490.0)) -lt 0.000001) 'Legacy comparison index was lost.'
+}
+
+Test-Case 'phase-mismatched schema-v3 data is labeled as an index, not tokens per joule' {
+    $first = $fixtureTextBefore[0] | ConvertFrom-Json
+    $second = $fixtureTextBefore[1] | ConvertFrom-Json
+    foreach ($run in @($first, $second)) {
+        $run.measurement.powerWindow = 'end-to-end-request'
+        $run.measurement.generationRateWindow = 'generation-phase'
+    }
+    $rows = @(ConvertTo-CAPowerCurveRows -Runs @($first, $second))
+    Assert-True (@($rows | Where-Object { $null -ne $_.GenerationTokensPerJoule }).Count -eq 0) 'Phase-mismatched rows produced tokens/J.'
+    $report = New-CAPowerCurveMarkdown -Runs @($first, $second)
+    Assert-True ($report -match 'highest generation rate/power index') 'Phase-mismatched report omitted its comparison index.'
+    Assert-True ($report -match 'not tokens/J or an energy recommendation') 'Phase-mismatched report omitted its energy boundary.'
+    Assert-True ($report -notmatch 'highest measured generation efficiency') 'Phase-mismatched report claimed aligned efficiency.'
 }
 
 Test-Case 'non-finite sample telemetry is rejected' {
@@ -211,9 +254,9 @@ Test-Case 'share card requires two comparable profiles' {
     Assert-Throws { New-CAPowerCurveCardSvg -Runs @($runs[0], $runs[0]) | Out-Null } 'two comparable power profiles' 'A repeated single profile was presented as a curve.'
 }
 
-Test-Case 'share card supports schema-v2 work units' {
-    $first = ConvertTo-SchemaV2WorkRun -Run $runs[0] -Rate 0.25
-    $second = ConvertTo-SchemaV2WorkRun -Run $runs[1] -Rate 0.30
+Test-Case 'share card supports schema-v3 work units' {
+    $first = ConvertTo-SchemaV3WorkRun -Run $runs[0] -Rate 0.25
+    $second = ConvertTo-SchemaV3WorkRun -Run $runs[1] -Rate 0.30
     $card = New-CAPowerCurveCardSvg -Runs @($first, $second)
     Assert-True ($card -match 'image/s') 'Work-unit rate is missing from the card.'
     Assert-True ($card -match 'image/J') 'Work-unit efficiency is missing from the card.'
@@ -238,7 +281,7 @@ Test-Case 'share card gates live evidence on repetitions and retains failures' {
         }
     }
     $measured = New-CAPowerCurveCardSvg -Runs $liveRuns.ToArray()
-    Assert-True ($measured -match 'MEASURED / LOCAL HARDWARE') 'Three live repetitions per profile did not clear the evidence gate.'
+    Assert-True ($measured -match 'MEASURED / ENERGY-ALIGNED') 'Three aligned live repetitions per profile did not clear the evidence gate.'
 
     $failed = $fixtureTextBefore[0] | ConvertFrom-Json
     $failed.source = 'live'
@@ -247,10 +290,32 @@ Test-Case 'share card gates live evidence on repetitions and retains failures' {
     $failed.result.status = 'failed'
     $failed.result.throughput.promptTokensPerSecond = $null
     $failed.result.throughput.generationTokensPerSecond = $null
+    $failed.measurement.promptRateWindow = $null
+    $failed.measurement.generationRateWindow = $null
     $failed.result.error = 'fixture failure'
     $withFailure = New-CAPowerCurveCardSvg -Runs @($singleLiveA, $singleLiveB, $failed)
     Assert-True ($withFailure -match '1 failed or incomplete') 'Failed-run count is missing from the card.'
     Assert-True ($withFailure -match '1/2 passed') 'Failed repetition disappeared from its profile evidence count.'
+}
+
+Test-Case 'share card refuses joule language for phase-mismatched measured runs' {
+    $liveRuns = New-Object Collections.Generic.List[object]
+    foreach ($templateText in $fixtureTextBefore) {
+        for ($repetition = 1; $repetition -le 3; $repetition++) {
+            $copy = $templateText | ConvertFrom-Json
+            $copy.source = 'live'
+            $copy.runId = $copy.runId + "-phase-mismatch-$repetition"
+            $copy.protocol.repetition = $repetition
+            $copy.measurement.powerWindow = 'end-to-end-request'
+            $copy.measurement.generationRateWindow = 'generation-phase'
+            $liveRuns.Add($copy)
+        }
+    }
+    $card = New-CAPowerCurveCardSvg -Runs $liveRuns.ToArray()
+    Assert-True ($card -match 'MEASURED / RATE-POWER INDEX') 'Phase-mismatched measured data did not expose its index-only grade.'
+    Assert-True ($card -match 'generation rate/W index') 'Phase-mismatched card omitted its non-joule metric label.'
+    Assert-True ($card -match 'ALIGN PHASES FOR ENERGY CLAIM') 'Phase-mismatched card omitted its alignment action.'
+    Assert-True ($card -notmatch '>tokens/J<') 'Phase-mismatched card claimed exact token energy.'
 }
 
 Test-Case 'dry-run writes a privacy-safe share card without hardware access' {

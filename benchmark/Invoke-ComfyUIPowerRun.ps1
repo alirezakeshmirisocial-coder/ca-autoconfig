@@ -297,7 +297,7 @@ try {
     }
 
     $run = [pscustomobject][ordered]@{
-        schemaVersion = 2
+        schemaVersion = 3
         runId         = 'run-' + [Guid]::NewGuid().ToString('N')
         createdUtc    = [DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ')
         source        = 'live'
@@ -320,6 +320,12 @@ try {
             sampleSeconds        = [int][Math]::Max(1, [Math]::Ceiling($measureClock.Elapsed.TotalSeconds))
             intervalMilliseconds = $IntervalMilliseconds
             repetition           = $Repetition
+        }
+        measurement   = [pscustomobject][ordered]@{
+            powerWindow          = 'client-window'
+            promptRateWindow     = $null
+            generationRateWindow = $null
+            workRateWindow       = if ($null -eq $workUnitsPerSecond) { $null } else { 'client-window' }
         }
         result        = [pscustomobject][ordered]@{
             status     = $resultStatus

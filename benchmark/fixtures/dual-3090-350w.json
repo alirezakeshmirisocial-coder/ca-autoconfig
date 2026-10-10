@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 3,
   "runId": "fixture-dual-3090-350w-r1",
   "createdUtc": "2026-10-10T00:00:00Z",
   "source": "fixture",
@@ -23,11 +23,19 @@
     "intervalMilliseconds": 1000,
     "repetition": 1
   },
+  "measurement": {
+    "powerWindow": "steady-state",
+    "promptRateWindow": null,
+    "generationRateWindow": "steady-state",
+    "workRateWindow": null
+  },
   "result": {
     "status": "passed",
     "throughput": {
       "promptTokensPerSecond": null,
-      "generationTokensPerSecond": 22.0
+      "generationTokensPerSecond": 22.0,
+      "workUnitsPerSecond": null,
+      "workUnit": null
     },
     "error": null
   },

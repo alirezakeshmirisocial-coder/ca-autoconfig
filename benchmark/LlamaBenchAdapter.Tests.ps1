@@ -202,6 +202,8 @@ public static class FakeLlamaBench {
         $raw = Get-Content -Raw -LiteralPath $outputPath
         $run = $raw | ConvertFrom-Json
         Assert-True ([string]$result.Status -eq 'Recorded' -and [string]$run.result.status -eq 'passed') 'Valid fixture run was not recorded as passed.'
+        Assert-True ([int]$run.schemaVersion -eq 3 -and [string]$run.measurement.powerWindow -eq 'process-window') 'llama-bench output lost process-window power provenance.'
+        Assert-True ([string]$run.measurement.promptRateWindow -eq 'prompt-phase' -and [string]$run.measurement.generationRateWindow -eq 'generation-phase') 'llama-bench output mislabeled phase-specific throughput.'
         Assert-True ([double]$run.result.throughput.promptTokensPerSecond -eq 100.0 -and [double]$run.result.throughput.generationTokensPerSecond -eq 25.0) 'Fixture throughput changed.'
         Assert-True (@($run.gpus[0].samples).Count -ge 4) 'GPU telemetry was not sampled concurrently.'
         Assert-True ($raw -notmatch 'Users\\\\Private|secret\.gguf|Private CPU|Private GPU|model_filename|cpu_info|gpu_info') 'Private llama-bench fields escaped into the export.'
@@ -225,6 +227,7 @@ public static class FakeLlamaBench {
         $failedRun = $failedRaw | ConvertFrom-Json
         Assert-True ([string]$failedResult.Status -eq 'RecordedFailed' -and [string]$failedRun.result.status -eq 'failed') 'Failed child process was not preserved as failed evidence.'
         Assert-True ($null -eq $failedRun.result.throughput.promptTokensPerSecond -and $null -eq $failedRun.result.throughput.generationTokensPerSecond) 'Failed process retained invented throughput.'
+        Assert-True ($null -eq $failedRun.measurement.promptRateWindow -and $null -eq $failedRun.measurement.generationRateWindow) 'Failed process retained a nonexistent throughput window.'
         Assert-True ($failedRaw -notmatch 'Users\\\\Private|secret\.gguf|private failure') 'Child stderr or model path leaked into failed export.'
 
         $env:CA_LLAMA_BENCH_FIXTURE_FAIL = '2'
