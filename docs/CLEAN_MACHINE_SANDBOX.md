@@ -30,6 +30,8 @@ Inside the disposable Windows instance, the fixed runner:
 
 The evidence file omits user and machine names, paths, GPU identifiers, and application content. A passing result is clean-machine evidence for that exact release and Windows build; it does not validate NVIDIA telemetry, GPU mutation, sleep/resume, driver reset, or code signing.
 
+Submit a reviewed result through the [clean-machine result form](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/issues/new?template=clean-machine-result.yml). Keep failures and inspect the JSON before posting.
+
 ## Current evidence boundary
 
 The harness is deterministically tested, but the maintainer host used to prepare it does not currently expose `WindowsSandbox.exe`. Until a real result JSON is reviewed, the public clean-machine release gate remains open.

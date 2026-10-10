@@ -26,6 +26,8 @@ CA AutoConfig is being built for people running local LLMs, diffusion models, an
 
 Pull requests should explain the user problem, safety boundary, test evidence, and any administrator permissions required. Screenshots are expected for HUD or settings changes.
 
+Clean-machine testers should use the [Windows Sandbox protocol](docs/CLEAN_MACHINE_SANDBOX.md) and the dedicated [result form](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/issues/new?template=clean-machine-result.yml). Keep failed results and inspect the generated JSON before posting.
+
 ## Hardware reports
 
 Include GPU model, driver version, Windows version, supported minimum/default/maximum power limits, workload, observed watts, temperature, throughput, and whether the test produced a driver reset or workload error. Remove usernames, machine names, UUIDs, and personal paths before posting. Prefer the versioned, privacy-checked export and protocol in [benchmark/POWER_CURVE_METHOD.md](benchmark/POWER_CURVE_METHOD.md).

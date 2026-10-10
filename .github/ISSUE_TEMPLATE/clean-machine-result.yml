@@ -1,0 +1,69 @@
+name: Clean-machine result
+description: Share a sanitized Windows Sandbox or disposable-VM install and uninstall result.
+title: "[Clean machine]: "
+labels: ["hardware validation", "area:packaging"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for testing one exact release. Keep failures: they are useful evidence.
+        Do not include usernames, machine names, local paths, GPU UUIDs, serials, tokens, private logs, or screenshots of unrelated windows.
+        This form never asks for a star or endorsement.
+  - type: input
+    id: release
+    attributes:
+      label: Release tag and package SHA-256
+      placeholder: v0.2.6-alpha.3; 64-character ZIP SHA-256
+    validations:
+      required: true
+  - type: input
+    id: windows
+    attributes:
+      label: Windows edition, version, build, and architecture
+      placeholder: Windows 11 Pro 24H2; build 26100; x64
+    validations:
+      required: true
+  - type: dropdown
+    id: environment
+    attributes:
+      label: Disposable environment
+      options:
+        - Windows Sandbox with the project harness
+        - Fresh local virtual machine
+        - Other disposable Windows environment
+    validations:
+      required: true
+  - type: dropdown
+    id: result
+    attributes:
+      label: Final result
+      options:
+        - Passed
+        - Failed during package verification
+        - Failed during desktop smoke test
+        - Failed during installation or task validation
+        - Failed during uninstall validation
+        - Harness did not start or did not produce evidence
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Sanitized result JSON and observations
+      description: Paste the complete clean-machine-result.json, including a failureCode when present. Add only observations needed to reproduce the result.
+      render: json
+    validations:
+      required: true
+  - type: checkboxes
+    id: boundaries
+    attributes:
+      label: Evidence and privacy checks
+      options:
+        - label: I retained the failed result instead of rerunning until it passed.
+          required: true
+        - label: I removed usernames, machine names, paths, GPU UUIDs, serials, tokens, and unrelated logs or screenshots.
+          required: true
+        - label: I used the exact release asset and separately published checksum named above.
+          required: true
+        - label: I did not interpret this result as GPU telemetry, GPU-limit, sleep/resume, driver-reset, signing, or performance evidence.
+          required: true
