@@ -20,6 +20,7 @@ internal static class Program
             ("adapter enumeration reorder preserves display rows", AdapterReorderIsStable),
             ("unknown counter adapter fails closed", UnknownCounterAdapterFailsClosed),
             ("missing memory counter fails closed", MissingMemoryFailsClosed),
+            ("missing dedicated capacity preserves only engine capability", MissingCapacityPreservesEngine),
             ("malformed identity fails closed", MalformedIdentityFailsClosed),
             ("duplicate adapter identity fails closed", DuplicateAdapterIdentityFailsClosed),
             ("public result omits raw adapter identity", PublicResultOmitsRawIdentity),
@@ -27,6 +28,8 @@ internal static class Program
             ("live orchestrator cannot authorize HUD use", LiveOrchestratorCannotAuthorizeHud),
             ("DXGI source failure is retained", AdapterSourceFailureIsRetained),
             ("counter source failure is retained", CounterSourceFailureIsRetained),
+            ("partial source retains healthy memory mapping", PartialSourceRetainsHealthyMemory),
+            ("partial public report marks only healthy fields available", PartialPublicReportMarksAvailability),
             ("DXGI software adapter counters are explicitly ignored", SoftwareAdapterCountersAreIgnored),
             ("public live report is sanitized and non-authorizing", PublicLiveReportIsSanitized)
         };
@@ -103,6 +106,17 @@ internal static class Program
         observations.RemoveAll(item => item.InstanceName.StartsWith(AdapterB, StringComparison.OrdinalIgnoreCase) && item.Kind == WindowsGpuCounterKind.DedicatedMemoryBytes);
         WindowsGpuCounterMapResult result = WindowsGpuCounterMapper.Map(Inventory(), observations);
         Assert(!result.MappingChecksPass && result.ReasonCodes.Contains("dedicated-memory-counter-missing"), "Missing memory counter was accepted.");
+        Assert(result.EngineLoadMappingChecksPass && !result.DedicatedMemoryMappingChecksPass, "A missing memory row invalidated the healthy engine family or passed memory.");
+    }
+
+    private static void MissingCapacityPreservesEngine()
+    {
+        List<WindowsGpuAdapterInventory> inventory = Inventory();
+        inventory[0].DedicatedMemoryCapacityBytes = 0;
+        WindowsGpuCounterMapResult result = WindowsGpuCounterMapper.Map(inventory, Observations());
+        Assert(!result.MappingChecksPass && result.EngineLoadMappingChecksPass && !result.DedicatedMemoryMappingChecksPass, "Missing capacity did not isolate memory capability.");
+        Assert(result.ReasonCodes.Contains("adapter-memory-capacity-unavailable"), "Missing capacity reason was not retained.");
+        Assert(result.Adapters.Count == 2 && result.Adapters[0].EngineLoadPercent >= 0, "Engine evidence was discarded with unavailable memory capacity.");
     }
 
     private static void MalformedIdentityFailsClosed()
@@ -164,6 +178,30 @@ internal static class Program
         Assert(result.ProbeStatus == "BLOCKED" && result.ReasonCodes.Contains("counter-test-failure"), "Counter failure was hidden.");
     }
 
+    private static void PartialSourceRetainsHealthyMemory()
+    {
+        WindowsGpuLiveProbeResult result = WindowsGpuLiveProbe.Run(
+            new FakeAdapterSource(true, String.Empty),
+            new MemoryOnlyCounterSource());
+        Assert(result.ProbeStatus == "PARTIAL_MAPPING_AVAILABLE", "Partial counter evidence was not labeled explicitly.");
+        Assert(!result.MappingChecksPass && !result.EngineLoadMappingChecksPass && result.DedicatedMemoryMappingChecksPass, "Per-field mapping state is wrong.");
+        Assert(result.Adapters.Count == 2 && result.Adapters[0].EngineLoadPercent == -1 && result.Adapters[0].DedicatedMemoryBytes >= 0, "Healthy memory evidence was discarded.");
+        Assert(result.ReasonCodes.Contains("pdh-engine-data-invalid") && result.ReasonCodes.Contains("engine-counter-missing"), "Partial failure evidence was not retained.");
+        Assert(!result.CanUseInHud, "Partial evidence authorized HUD use.");
+    }
+
+    private static void PartialPublicReportMarksAvailability()
+    {
+        WindowsGpuLiveProbeResult result = WindowsGpuLiveProbe.Run(
+            new FakeAdapterSource(true, String.Empty),
+            new MemoryOnlyCounterSource());
+        WindowsGpuLiveReportDocument document = WindowsGpuLiveReport.Create(result, DateTime.UtcNow);
+        Assert(document.Adapters.Length == 2, "Partial report dropped mapped adapters.");
+        Assert(!document.Adapters[0].EngineLoadAvailable && document.Adapters[0].EngineLoadPercent == -1, "Invalid engine data appeared available.");
+        Assert(document.Adapters[0].DedicatedMemoryAvailable && document.Adapters[0].DedicatedMemoryBytes >= 0 && document.Adapters[0].VramPercent >= 0, "Healthy memory data was hidden.");
+        Assert(!document.CanUseInHud, "Partial report authorized HUD use.");
+    }
+
     private static void SoftwareAdapterCountersAreIgnored()
     {
         const string software = "luid_0x00000000_0x000000c3_phys_0";
@@ -191,7 +229,8 @@ internal static class Program
             new FakeCounterSource(true, String.Empty));
         WindowsGpuLiveReportDocument document = WindowsGpuLiveReport.Create(result, DateTime.Parse("2026-10-10T12:00:00Z").ToUniversalTime());
         string json = WindowsGpuLiveReport.Serialize(document);
-        Assert(document.SchemaVersion == 2 && document.CounterProvider == "injected-fixture", "Public report omitted its explicit counter provider.");
+        Assert(document.SchemaVersion == 3 && document.CounterProvider == "injected-fixture", "Public report omitted its explicit counter provider.");
+        Assert(document.EngineLoadMappingChecksPass && document.DedicatedMemoryMappingChecksPass, "Public report omitted per-field mapping state.");
         Assert(json.Contains("live-windows-read-only", StringComparison.Ordinal), "Public report omitted its source boundary.");
         Assert(json.Contains("\"vramPercent\":33", StringComparison.Ordinal), "Public report did not derive bounded VRAM percentage.");
         Assert(!json.Contains("luid_", StringComparison.OrdinalIgnoreCase) && !json.Contains("pid_", StringComparison.OrdinalIgnoreCase), "Public report exposed a raw adapter or process identifier.");
@@ -285,6 +324,20 @@ internal static class Program
             observations = _success ? Observations() : new List<WindowsGpuCounterObservation>();
             reasonCode = _reason;
             return _success;
+        }
+    }
+
+    private sealed class MemoryOnlyCounterSource : IWindowsGpuCounterSource
+    {
+        public bool TryRead(out List<WindowsGpuCounterObservation> observations, out string reasonCode)
+        {
+            observations = Observations();
+            observations.RemoveAll(delegate(WindowsGpuCounterObservation value)
+            {
+                return value.Kind == WindowsGpuCounterKind.EngineUtilizationPercent;
+            });
+            reasonCode = "pdh-engine-data-invalid";
+            return true;
         }
     }
 }

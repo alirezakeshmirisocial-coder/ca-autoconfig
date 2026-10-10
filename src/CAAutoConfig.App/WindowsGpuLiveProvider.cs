@@ -25,6 +25,8 @@ namespace CA.SystemOverlay
         public string CounterProvider = "unknown";
         public string ProbeStatus = "BLOCKED";
         public bool MappingChecksPass;
+        public bool EngineLoadMappingChecksPass;
+        public bool DedicatedMemoryMappingChecksPass;
         public bool CanUseInHud;
         public bool HardwareWrites;
         public bool NetworkAccess;
@@ -83,10 +85,24 @@ namespace CA.SystemOverlay
             }
 
             WindowsGpuCounterMapResult mapping = WindowsGpuCounterMapper.Map(adapters, observations);
-            result.MappingChecksPass = mapping.MappingChecksPass;
+            bool sourceEnginePass = String.IsNullOrWhiteSpace(reason) || !reason.Contains("-engine-");
+            bool sourceMemoryPass = String.IsNullOrWhiteSpace(reason) || !reason.Contains("-memory-");
+            bool sourceSharedPass = String.IsNullOrWhiteSpace(reason) ||
+                reason.Contains("-engine-") || reason.Contains("-memory-");
+            result.EngineLoadMappingChecksPass = mapping.EngineLoadMappingChecksPass && sourceEnginePass && sourceSharedPass;
+            result.DedicatedMemoryMappingChecksPass = mapping.DedicatedMemoryMappingChecksPass && sourceMemoryPass && sourceSharedPass;
+            result.MappingChecksPass = mapping.MappingChecksPass &&
+                result.EngineLoadMappingChecksPass && result.DedicatedMemoryMappingChecksPass;
             result.Adapters = mapping.Adapters;
-            result.ReasonCodes = mapping.ReasonCodes;
-            result.ProbeStatus = mapping.MappingChecksPass ? "MAPPING_AVAILABLE" : "BLOCKED";
+            if (!String.IsNullOrWhiteSpace(reason))
+                AddReason(result.ReasonCodes, reason);
+            foreach (string mappingReason in mapping.ReasonCodes)
+                AddReason(result.ReasonCodes, mappingReason);
+            result.ProbeStatus = result.MappingChecksPass
+                ? "MAPPING_AVAILABLE"
+                : (result.EngineLoadMappingChecksPass || result.DedicatedMemoryMappingChecksPass
+                    ? "PARTIAL_MAPPING_AVAILABLE"
+                    : "BLOCKED");
             result.InternalTopologyFingerprint = mapping.InternalTopologyFingerprint;
             result.CanUseInHud = false;
             result.HardwareWrites = false;
@@ -94,6 +110,12 @@ namespace CA.SystemOverlay
             result.ElevationRequested = false;
             result.RawAdapterIdentifiersIncluded = false;
             return result;
+        }
+
+        private static void AddReason(List<string> reasons, string reason)
+        {
+            if (!String.IsNullOrWhiteSpace(reason) && !reasons.Contains(reason))
+                reasons.Add(reason);
         }
     }
 
@@ -106,6 +128,8 @@ namespace CA.SystemOverlay
         [DataMember(Name = "dedicatedMemoryBytes", Order = 4)] public long DedicatedMemoryBytes;
         [DataMember(Name = "dedicatedMemoryCapacityBytes", Order = 5)] public long DedicatedMemoryCapacityBytes;
         [DataMember(Name = "vramPercent", Order = 6)] public int VramPercent;
+        [DataMember(Name = "engineLoadAvailable", Order = 7)] public bool EngineLoadAvailable;
+        [DataMember(Name = "dedicatedMemoryAvailable", Order = 8)] public bool DedicatedMemoryAvailable;
     }
 
     [DataContract]
@@ -124,6 +148,8 @@ namespace CA.SystemOverlay
         [DataMember(Name = "networkAccess", Order = 11)] public bool NetworkAccess;
         [DataMember(Name = "elevationRequested", Order = 12)] public bool ElevationRequested;
         [DataMember(Name = "rawAdapterIdentifiersIncluded", Order = 13)] public bool RawAdapterIdentifiersIncluded;
+        [DataMember(Name = "engineLoadMappingChecksPass", Order = 14)] public bool EngineLoadMappingChecksPass;
+        [DataMember(Name = "dedicatedMemoryMappingChecksPass", Order = 15)] public bool DedicatedMemoryMappingChecksPass;
     }
 
     internal static class WindowsGpuLiveReport
@@ -162,27 +188,31 @@ namespace CA.SystemOverlay
             List<WindowsGpuPublicAdapter> adapters = new List<WindowsGpuPublicAdapter>();
             foreach (WindowsGpuMappedMetric adapter in result.Adapters)
             {
+                int engineLoadPercent = result.EngineLoadMappingChecksPass ? adapter.EngineLoadPercent : -1;
+                long dedicatedMemoryBytes = result.DedicatedMemoryMappingChecksPass ? adapter.DedicatedMemoryBytes : -1;
                 int vramPercent = -1;
-                if (adapter.DedicatedMemoryBytes >= 0 && adapter.DedicatedMemoryCapacityBytes > 0)
+                if (dedicatedMemoryBytes >= 0 && adapter.DedicatedMemoryCapacityBytes > 0)
                 {
                     vramPercent = Math.Max(0, Math.Min(100, (int)Math.Round(
-                        100.0 * adapter.DedicatedMemoryBytes / adapter.DedicatedMemoryCapacityBytes,
+                        100.0 * dedicatedMemoryBytes / adapter.DedicatedMemoryCapacityBytes,
                         MidpointRounding.AwayFromZero)));
                 }
                 adapters.Add(new WindowsGpuPublicAdapter
                 {
                     Index = adapter.DisplayIndex,
                     Name = adapter.Name,
-                    EngineLoadPercent = adapter.EngineLoadPercent,
-                    DedicatedMemoryBytes = adapter.DedicatedMemoryBytes,
+                    EngineLoadPercent = engineLoadPercent,
+                    DedicatedMemoryBytes = dedicatedMemoryBytes,
                     DedicatedMemoryCapacityBytes = adapter.DedicatedMemoryCapacityBytes,
-                    VramPercent = vramPercent
+                    VramPercent = vramPercent,
+                    EngineLoadAvailable = engineLoadPercent >= 0,
+                    DedicatedMemoryAvailable = dedicatedMemoryBytes >= 0 && adapter.DedicatedMemoryCapacityBytes > 0
                 });
             }
 
             return new WindowsGpuLiveReportDocument
             {
-                SchemaVersion = 2,
+                SchemaVersion = 3,
                 CapturedUtc = capturedUtc.ToUniversalTime().ToString("o", CultureInfo.InvariantCulture),
                 Source = "live-windows-read-only",
                 CounterProvider = result.CounterProvider,
@@ -194,7 +224,9 @@ namespace CA.SystemOverlay
                 HardwareWrites = false,
                 NetworkAccess = false,
                 ElevationRequested = false,
-                RawAdapterIdentifiersIncluded = false
+                RawAdapterIdentifiersIncluded = false,
+                EngineLoadMappingChecksPass = result.EngineLoadMappingChecksPass,
+                DedicatedMemoryMappingChecksPass = result.DedicatedMemoryMappingChecksPass
             };
         }
 

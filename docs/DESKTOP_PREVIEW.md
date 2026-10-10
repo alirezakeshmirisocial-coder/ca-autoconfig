@@ -49,7 +49,7 @@ Current source builds also expose the next research stage through the compiled e
 .\CAAutoConfig.exe --windows-gpu-probe-result .\windows-gpu-probe.json --windows-gpu-provider pdh
 ```
 
-This explicit one-shot probe joins DXGI adapters to Windows engine and dedicated-memory counters, filters only adapters carrying the official DXGI software flag, and writes a sanitized local JSON report. Select `pdh` for the native Performance Data Helper experiment or `wmi` for the original formatted-WMI experiment; reports name the chosen provider and never fall back between them. It does not alter the running HUD, poll in the background, request elevation, access the network, change hardware, or emit raw LUID/PID values. `canUseInHud` remains `false` even when mapping succeeds.
+This explicit one-shot probe joins DXGI adapters to Windows engine and dedicated-memory counters, filters only adapters carrying the official DXGI software flag, and writes a sanitized local schema-v3 JSON report. Select `pdh` for the native Performance Data Helper experiment or `wmi` for the original formatted-WMI experiment; reports name the chosen provider and never fall back between them. Load and dedicated-memory capability are reported independently, so an invalid engine sample cannot masquerade as a valid zero or erase healthy VRAM evidence. It does not alter the running HUD, poll in the background, request elevation, access the network, change hardware, or emit raw LUID/PID values. `canUseInHud` remains `false` even when mapping succeeds.
 
 Unreleased source builds also provide an explicit bounded polling benchmark for measuring collection latency and normalized process CPU before any HUD integration:
 
@@ -57,7 +57,7 @@ Unreleased source builds also provide an explicit bounded polling benchmark for 
 .\CAAutoConfig.exe --windows-gpu-poll-result .\windows-gpu-poll.json --windows-gpu-poll-seconds 600 --windows-gpu-poll-ms 2000 --windows-gpu-provider pdh
 ```
 
-The benchmark report is local and sanitized, and `canUseInHud` remains `false`. It is research evidence, not a background service or supported AMD/Intel HUD claim.
+The benchmark report is local and sanitized. It counts full, partial, engine-valid, memory-valid, and unavailable collections independently; per-field readiness requires every completed collection plus a fresh/stable final state and zero suppressed overlaps, rather than trusting only the final sample. `canUseInHud` remains `false`. It is research evidence, not a background service or supported AMD/Intel HUD claim.
 
 To opt in, review your exact board limits and run `Install-GpuLimits.ps1` with explicit GPU indices, MHz, watts, and `-AcceptHardwareRisk`. The installer reruns the plan before UAC, hash-pins the helper across elevation, and registers fixed Apply and Reset SYSTEM tasks. Raising an existing current power cap additionally requires `-AcknowledgePowerIncrease`, which is retained in the reviewed fixed task and independently enforced by the helper. Manual changes require confirmation in the control panel; the protected reset record restores the exact pre-apply power values rather than guessing a universal default.
 

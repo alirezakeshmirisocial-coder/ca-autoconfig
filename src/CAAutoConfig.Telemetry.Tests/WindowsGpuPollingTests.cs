@@ -15,11 +15,13 @@ internal static class WindowsGpuPollingTests
             ("topology change requires revalidation", TopologyChangeRequiresRevalidation),
             ("collector failure clears published rows", CollectorFailureClearsRows),
             ("mapping failure retains reason and clears rows", MappingFailureClearsRows),
+            ("partial mapping retains only the healthy field family", PartialMappingRetainsHealthyFamily),
             ("expired snapshot becomes stale", ExpiredSnapshotBecomesStale),
             ("overlapping collection is suppressed", OverlappingCollectionIsSuppressed),
             ("polling output remains non-authorizing", OutputRemainsNonAuthorizing),
             ("collection metrics count success and failure", CollectionMetricsAreRetained),
-            ("polling report is sanitized and non-authorizing", PollingReportIsSanitized)
+            ("polling report is sanitized and non-authorizing", PollingReportIsSanitized),
+            ("recovered final sample cannot hide a partial run", RecoveredFinalSampleDoesNotPassSustainedGate)
         };
         int passed = 0;
         foreach (var test in tests)
@@ -121,6 +123,23 @@ internal static class WindowsGpuPollingTests
         }
     }
 
+    private static void PartialMappingRetainsHealthyFamily()
+    {
+        DateTime now = DateTime.UtcNow;
+        using (WindowsGpuPollingProvider provider = Provider(delegate { return PartialMemory("topology-a"); }, delegate { return now; }))
+        {
+            provider.CollectOnce();
+            provider.CollectOnce();
+            WindowsGpuPollingSnapshot snapshot = provider.GetSnapshot();
+            Assert(snapshot.Status == "PARTIAL_READY_FOR_VALIDATION", "Stable partial evidence was not labeled explicitly.");
+            Assert(!snapshot.EngineLoadMappingChecksPass && snapshot.DedicatedMemoryMappingChecksPass, "Per-field polling state is wrong.");
+            Assert(snapshot.Adapters.Count == 2 && snapshot.Adapters[0].EngineLoadPercent == -1 && snapshot.Adapters[0].DedicatedMemoryBytes >= 0, "Healthy memory rows were discarded.");
+            Assert(snapshot.SuccessfulMappingCollectionCount == 0 && snapshot.SuccessfulEngineLoadCollectionCount == 0 && snapshot.SuccessfulDedicatedMemoryCollectionCount == 2 && snapshot.PartialMappingCollectionCount == 2 && snapshot.UnavailableCollectionCount == 0, "Partial collection counters are wrong.");
+            Assert(snapshot.FailureReasonCounts.ContainsKey("pdh-engine-data-invalid") && snapshot.FailureReasonCounts["pdh-engine-data-invalid"] == 2, "Partial failure histogram is wrong.");
+            Assert(!snapshot.CanUseInHud, "Partial polling evidence authorized HUD use.");
+        }
+    }
+
     private static void ExpiredSnapshotBecomesStale()
     {
         DateTime now = DateTime.Parse("2026-10-10T12:00:00Z").ToUniversalTime();
@@ -184,6 +203,7 @@ internal static class WindowsGpuPollingTests
             WindowsGpuPollingSnapshot snapshot = provider.GetSnapshot();
             Assert(snapshot.CompletedCollectionCount == 3, "Completed collection count is wrong.");
             Assert(snapshot.SuccessfulMappingCollectionCount == 2 && snapshot.UnavailableCollectionCount == 1, "Success/failure counts are wrong.");
+            Assert(snapshot.SuccessfulEngineLoadCollectionCount == 2 && snapshot.SuccessfulDedicatedMemoryCollectionCount == 2 && snapshot.PartialMappingCollectionCount == 0, "Per-field success counts are wrong.");
             Assert(snapshot.FailureReasonCounts.ContainsKey("fixture-unavailable") && snapshot.FailureReasonCounts["fixture-unavailable"] == 1, "Failure reason histogram is wrong.");
             Assert(snapshot.LastCollectionDurationMilliseconds >= 0 && snapshot.MaximumCollectionDurationMilliseconds >= snapshot.LastCollectionDurationMilliseconds, "Collection duration metrics are invalid.");
         }
@@ -199,12 +219,32 @@ internal static class WindowsGpuPollingTests
             WindowsGpuPollingSnapshot snapshot = provider.GetSnapshot();
             WindowsGpuPollingReportDocument report = WindowsGpuPollingBenchmark.Create(snapshot, now, 600, 2000, 600000, 0.25);
             string json = WindowsGpuPollingBenchmark.Serialize(report);
-            Assert(report.SchemaVersion == 2, "Polling report schema was not advanced for retained failure reasons.");
+            Assert(report.SchemaVersion == 3, "Polling report schema was not advanced for per-field evidence.");
             Assert(report.CounterProvider == "injected-fixture", "Polling report omitted its explicit counter provider.");
+            Assert(report.EngineLoadReadyForValidation && report.DedicatedMemoryReadyForValidation, "Polling report omitted per-field readiness.");
             Assert(json.Contains("live-windows-polling-read-only", StringComparison.Ordinal), "Polling report omitted its source boundary.");
             Assert(json.Contains("\"normalizedProcessCpuPercent\":0.25", StringComparison.Ordinal), "Polling report omitted normalized process CPU.");
             Assert(!json.Contains("private-fingerprint", StringComparison.Ordinal) && !json.Contains("luid_", StringComparison.OrdinalIgnoreCase) && !json.Contains("pid_", StringComparison.OrdinalIgnoreCase), "Polling report exposed internal identity.");
             Assert(!report.CanUseInHud && !report.HardwareWrites && !report.NetworkAccess && !report.ElevationRequested && !report.RawAdapterIdentifiersIncluded, "Polling report weakened a safety boundary.");
+        }
+    }
+
+    private static void RecoveredFinalSampleDoesNotPassSustainedGate()
+    {
+        DateTime now = DateTime.UtcNow;
+        Queue<WindowsGpuLiveProbeResult> results = new Queue<WindowsGpuLiveProbeResult>(new[]
+        {
+            PartialMemory("topology-a"), Success("topology-a", false)
+        });
+        using (WindowsGpuPollingProvider provider = Provider(delegate { return results.Dequeue(); }, delegate { return now; }))
+        {
+            provider.CollectOnce();
+            provider.CollectOnce();
+            WindowsGpuPollingSnapshot snapshot = provider.GetSnapshot();
+            Assert(snapshot.Status == "READY_FOR_VALIDATION", "Fixture did not recover to a complete final sample.");
+            WindowsGpuPollingReportDocument report = WindowsGpuPollingBenchmark.Create(snapshot, now, 60, 2000, 4000, 0.1);
+            Assert(!report.MappingReadyForValidation && !report.EngineLoadReadyForValidation, "A recovered final sample hid an earlier engine failure.");
+            Assert(report.DedicatedMemoryReadyForValidation, "A fully successful memory family did not retain sustained readiness.");
         }
     }
 
@@ -225,8 +265,28 @@ internal static class WindowsGpuPollingTests
         {
             ProbeStatus = "MAPPING_AVAILABLE",
             MappingChecksPass = true,
+            EngineLoadMappingChecksPass = true,
+            DedicatedMemoryMappingChecksPass = true,
             InternalTopologyFingerprint = fingerprint,
             Adapters = adapters
+        };
+    }
+
+    private static WindowsGpuLiveProbeResult PartialMemory(string fingerprint)
+    {
+        return new WindowsGpuLiveProbeResult
+        {
+            ProbeStatus = "PARTIAL_MAPPING_AVAILABLE",
+            MappingChecksPass = false,
+            EngineLoadMappingChecksPass = false,
+            DedicatedMemoryMappingChecksPass = true,
+            InternalTopologyFingerprint = fingerprint,
+            ReasonCodes = new List<string> { "pdh-engine-data-invalid", "engine-counter-missing" },
+            Adapters = new List<WindowsGpuMappedMetric>
+            {
+                new WindowsGpuMappedMetric { DisplayIndex = 0, Name = "GPU A", EngineLoadPercent = -1, DedicatedMemoryBytes = 10, DedicatedMemoryCapacityBytes = 100 },
+                new WindowsGpuMappedMetric { DisplayIndex = 1, Name = "GPU B", EngineLoadPercent = -1, DedicatedMemoryBytes = 20, DedicatedMemoryCapacityBytes = 100 }
+            }
         };
     }
 

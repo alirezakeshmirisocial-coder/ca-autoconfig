@@ -45,6 +45,8 @@ namespace CA.SystemOverlay
     internal sealed class WindowsGpuCounterMapResult
     {
         public bool MappingChecksPass;
+        public bool EngineLoadMappingChecksPass;
+        public bool DedicatedMemoryMappingChecksPass;
         public bool CanProceedToLiveProvider;
         public bool CanUseInHud;
         public bool RawAdapterIdentifiersIncluded;
@@ -78,6 +80,9 @@ namespace CA.SystemOverlay
         {
             WindowsGpuCounterMapResult result = new WindowsGpuCounterMapResult();
             List<string> reasons = result.ReasonCodes;
+            bool sharedChecksPass = true;
+            bool engineChecksPass = true;
+            bool memoryChecksPass = true;
             Dictionary<string, Builder> byKey = new Dictionary<string, Builder>(StringComparer.OrdinalIgnoreCase);
             HashSet<string> ignoredSoftwareKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             HashSet<string> allAdapterKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -95,32 +100,36 @@ namespace CA.SystemOverlay
                     if (adapter == null || !TryNormalizeAdapterIdentity(adapter.CorrelationKey, out key))
                     {
                         AddReason(reasons, "adapter-identity-invalid");
+                        sharedChecksPass = false;
                         continue;
                     }
                     if (adapter.DisplayIndex < 0 || !displayIndexes.Add(adapter.DisplayIndex))
                     {
                         AddReason(reasons, "adapter-display-index-invalid");
+                        sharedChecksPass = false;
                         continue;
                     }
                     if (!allAdapterKeys.Add(key))
                     {
                         AddReason(reasons, "adapter-identity-duplicate");
+                        sharedChecksPass = false;
                         continue;
                     }
                     if (String.IsNullOrWhiteSpace(adapter.Name))
                     {
                         AddReason(reasons, "adapter-name-missing");
-                        continue;
-                    }
-                    if (adapter.DedicatedMemoryCapacityBytes < 0)
-                    {
-                        AddReason(reasons, "adapter-memory-capacity-invalid");
+                        sharedChecksPass = false;
                         continue;
                     }
                     if (adapter.IsSoftware)
                     {
                         ignoredSoftwareKeys.Add(key);
                         continue;
+                    }
+                    if (adapter.DedicatedMemoryCapacityBytes <= 0)
+                    {
+                        AddReason(reasons, "adapter-memory-capacity-unavailable");
+                        memoryChecksPass = false;
                     }
 
                     Builder builder = new Builder();
@@ -136,11 +145,15 @@ namespace CA.SystemOverlay
             }
 
             if (byKey.Count == 0)
+            {
                 AddReason(reasons, "adapter-inventory-empty");
+                sharedChecksPass = false;
+            }
 
             if (counterObservations == null)
             {
                 AddReason(reasons, "counter-observations-missing");
+                sharedChecksPass = false;
             }
             else
             {
@@ -151,6 +164,7 @@ namespace CA.SystemOverlay
                     if (observation == null || !TryParseCounterIdentity(observation.InstanceName, out key, out suffix))
                     {
                         AddReason(reasons, "counter-identity-invalid");
+                        MarkCounterFailure(observation, ref sharedChecksPass, ref engineChecksPass, ref memoryChecksPass);
                         continue;
                     }
 
@@ -160,11 +174,13 @@ namespace CA.SystemOverlay
                     if (!byKey.TryGetValue(key, out builder))
                     {
                         AddReason(reasons, "counter-adapter-not-in-inventory");
+                        MarkCounterFailure(observation, ref sharedChecksPass, ref engineChecksPass, ref memoryChecksPass);
                         continue;
                     }
                     if (Double.IsNaN(observation.Value) || Double.IsInfinity(observation.Value))
                     {
                         AddReason(reasons, "counter-value-invalid");
+                        MarkCounterFailure(observation, ref sharedChecksPass, ref engineChecksPass, ref memoryChecksPass);
                         continue;
                     }
 
@@ -174,11 +190,13 @@ namespace CA.SystemOverlay
                         if (!engineMatch.Success)
                         {
                             AddReason(reasons, "engine-counter-instance-invalid");
+                            engineChecksPass = false;
                             continue;
                         }
                         if (observation.Value < 0 || observation.Value > 100)
                         {
                             AddReason(reasons, "engine-counter-out-of-range");
+                            engineChecksPass = false;
                             continue;
                         }
                         string engineKey = engineMatch.Groups["engine"].Value + ":" + engineMatch.Groups["type"].Value.ToLowerInvariant();
@@ -191,17 +209,20 @@ namespace CA.SystemOverlay
                         if (suffix.Length != 0)
                         {
                             AddReason(reasons, "memory-counter-instance-invalid");
+                            memoryChecksPass = false;
                             continue;
                         }
                         if (observation.Value < 0 || observation.Value > Int64.MaxValue)
                         {
                             AddReason(reasons, "memory-counter-out-of-range");
+                            memoryChecksPass = false;
                             continue;
                         }
                         builder.DedicatedMemorySamples++;
                         if (builder.DedicatedMemorySamples > 1)
                         {
                             AddReason(reasons, "dedicated-memory-counter-duplicate");
+                            memoryChecksPass = false;
                             continue;
                         }
                         builder.Metric.DedicatedMemoryBytes = Convert.ToInt64(Math.Round(observation.Value, MidpointRounding.AwayFromZero));
@@ -209,6 +230,7 @@ namespace CA.SystemOverlay
                     else
                     {
                         AddReason(reasons, "counter-kind-unsupported");
+                        sharedChecksPass = false;
                     }
                 }
             }
@@ -217,19 +239,28 @@ namespace CA.SystemOverlay
             {
                 Builder builder = pair.Value;
                 if (builder.EngineTotals.Count == 0)
+                {
                     AddReason(reasons, "engine-counter-missing");
+                    engineChecksPass = false;
+                }
                 else
                 {
                     double busiestEngine = 0;
                     foreach (double total in builder.EngineTotals.Values)
                         busiestEngine = Math.Max(busiestEngine, total);
                     if (busiestEngine > 100.5)
+                    {
                         AddReason(reasons, "engine-aggregate-out-of-range");
+                        engineChecksPass = false;
+                    }
                     else
                         builder.Metric.EngineLoadPercent = ClampPercent((int)Math.Round(busiestEngine, MidpointRounding.AwayFromZero));
                 }
                 if (builder.DedicatedMemorySamples == 0)
+                {
                     AddReason(reasons, "dedicated-memory-counter-missing");
+                    memoryChecksPass = false;
+                }
                 result.Adapters.Add(builder.Metric);
             }
 
@@ -237,12 +268,33 @@ namespace CA.SystemOverlay
             {
                 return left.DisplayIndex.CompareTo(right.DisplayIndex);
             });
-            result.MappingChecksPass = reasons.Count == 0;
+            result.EngineLoadMappingChecksPass = sharedChecksPass && engineChecksPass;
+            result.DedicatedMemoryMappingChecksPass = sharedChecksPass && memoryChecksPass;
+            result.MappingChecksPass = result.EngineLoadMappingChecksPass && result.DedicatedMemoryMappingChecksPass && reasons.Count == 0;
             result.CanProceedToLiveProvider = result.MappingChecksPass;
             result.CanUseInHud = false;
             result.RawAdapterIdentifiersIncluded = false;
             result.InternalTopologyFingerprint = BuildTopologyFingerprint(byKey.Keys);
             return result;
+        }
+
+        private static void MarkCounterFailure(
+            WindowsGpuCounterObservation observation,
+            ref bool sharedChecksPass,
+            ref bool engineChecksPass,
+            ref bool memoryChecksPass)
+        {
+            if (observation == null)
+            {
+                sharedChecksPass = false;
+                return;
+            }
+            if (observation.Kind == WindowsGpuCounterKind.EngineUtilizationPercent)
+                engineChecksPass = false;
+            else if (observation.Kind == WindowsGpuCounterKind.DedicatedMemoryBytes)
+                memoryChecksPass = false;
+            else
+                sharedChecksPass = false;
         }
 
         private static string BuildTopologyFingerprint(IEnumerable<string> keys)

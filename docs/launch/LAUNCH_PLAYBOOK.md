@@ -57,6 +57,18 @@ The target is managed as a sequence of evidence and distribution gates, not as a
 
 At every stage, a stalled conversion triggers a product/evidence review—download-to-install, install-to-report, or report-to-contribution—rather than more frequent promotion.
 
+## Next 14-day evidence sprint
+
+This is the concrete order for leaving the zero-star baseline; dates start when the missing inputs are available, not when a promotional deadline says they should:
+
+1. **Days 1–2 — make every commit independently trustworthy:** authorize the GitHub token's `workflow` scope, activate the prepared Windows CI workflow, keep the 10-minute WMI/PDH gates field-specific, and publish any failing run unchanged.
+2. **Days 3–5 — remove install uncertainty:** obtain one real Windows Sandbox or disposable-machine install/task/uninstall report, fix the first reproducible failure, and document exact supported Windows/NVIDIA boundaries. Signing proceeds only with a maintainer-controlled certificate.
+3. **Days 4–8 — create the first useful research asset:** use a maintainer-supplied local model or API workflow to run at least three interleaved reference/candidate repetitions. Publish sanitized raw JSON, exact public protocol, failures, temperatures, prompt and generation windows, tokens/J or images/J only where phase alignment is proven, and the evidence-gated card.
+4. **Days 6–10 — close the first feedback loop:** help ten individual design partners run exactly one of monitor placement, clean install, Windows telemetry, or power-curve reproduction. Convert repeated failure modes into docs/tests; do not ask participants for stars.
+5. **Days 11–14 — distribute one result, not five announcements:** if the clean-machine, CI, response-coverage, and measured-curve gates pass, the maintainer writes one community-native result post and answers it personally. GitHub provides the reproducibility bundle; no automated posting, vote request, or generated HN copy is used.
+
+Sprint exit criteria are one active Windows workflow, one clean-machine report, one real repeated curve, ten completed partner tests, five accepted sanitized hardware reports, and zero unresolved destructive or privilege-boundary defects. If any prerequisite is missing, engineering and evidence collection continue; promotion does not substitute for it.
+
 ## Distribution sequence
 
 1. Recruit design partners through GitHub Discussions and direct, individual outreach. Do not ask for stars; ask for one defined install or hardware-report test.

@@ -47,7 +47,7 @@ body:
     id: report
     attributes:
       label: Sanitized JSON report
-      description: Attach or paste the complete report, including every failure-reason count. Inspect it before submission.
+      description: Attach or paste the complete schema-v3 report, including full, partial, engine-valid, memory-valid, unavailable, and failure-reason counts. Inspect it before submission.
       render: json
     validations:
       required: true

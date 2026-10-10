@@ -45,6 +45,11 @@ namespace CA.SystemOverlay
         [DataMember(Name = "networkAccess", Order = 23)] public bool NetworkAccess;
         [DataMember(Name = "elevationRequested", Order = 24)] public bool ElevationRequested;
         [DataMember(Name = "rawAdapterIdentifiersIncluded", Order = 25)] public bool RawAdapterIdentifiersIncluded;
+        [DataMember(Name = "engineLoadReadyForValidation", Order = 26)] public bool EngineLoadReadyForValidation;
+        [DataMember(Name = "dedicatedMemoryReadyForValidation", Order = 27)] public bool DedicatedMemoryReadyForValidation;
+        [DataMember(Name = "successfulEngineLoadCollections", Order = 28)] public int SuccessfulEngineLoadCollections;
+        [DataMember(Name = "successfulDedicatedMemoryCollections", Order = 29)] public int SuccessfulDedicatedMemoryCollections;
+        [DataMember(Name = "partialMappingCollections", Order = 30)] public int PartialMappingCollections;
     }
 
     internal static class WindowsGpuPollingBenchmark
@@ -148,25 +153,38 @@ namespace CA.SystemOverlay
         {
             if (snapshot == null)
                 throw new ArgumentNullException("snapshot");
+            bool finalStateReady = snapshot.Status == "READY_FOR_VALIDATION" ||
+                snapshot.Status == "PARTIAL_READY_FOR_VALIDATION";
+            bool noMissedCadence = snapshot.SuppressedOverlapCount == 0;
+            bool engineSustained = finalStateReady && noMissedCadence &&
+                snapshot.CompletedCollectionCount > 0 &&
+                snapshot.SuccessfulEngineLoadCollectionCount == snapshot.CompletedCollectionCount;
+            bool memorySustained = finalStateReady && noMissedCadence &&
+                snapshot.CompletedCollectionCount > 0 &&
+                snapshot.SuccessfulDedicatedMemoryCollectionCount == snapshot.CompletedCollectionCount;
             List<WindowsGpuPublicAdapter> adapters = new List<WindowsGpuPublicAdapter>();
             List<WindowsGpuPollingReasonCount> failureReasons = new List<WindowsGpuPollingReasonCount>();
             foreach (WindowsGpuMappedMetric adapter in snapshot.Adapters)
             {
+                int engineLoadPercent = snapshot.EngineLoadMappingChecksPass ? adapter.EngineLoadPercent : -1;
+                long dedicatedMemoryBytes = snapshot.DedicatedMemoryMappingChecksPass ? adapter.DedicatedMemoryBytes : -1;
                 int vramPercent = -1;
-                if (adapter.DedicatedMemoryBytes >= 0 && adapter.DedicatedMemoryCapacityBytes > 0)
+                if (dedicatedMemoryBytes >= 0 && adapter.DedicatedMemoryCapacityBytes > 0)
                 {
                     vramPercent = Math.Max(0, Math.Min(100, (int)Math.Round(
-                        100.0 * adapter.DedicatedMemoryBytes / adapter.DedicatedMemoryCapacityBytes,
+                        100.0 * dedicatedMemoryBytes / adapter.DedicatedMemoryCapacityBytes,
                         MidpointRounding.AwayFromZero)));
                 }
                 adapters.Add(new WindowsGpuPublicAdapter
                 {
                     Index = adapter.DisplayIndex,
                     Name = adapter.Name,
-                    EngineLoadPercent = adapter.EngineLoadPercent,
-                    DedicatedMemoryBytes = adapter.DedicatedMemoryBytes,
+                    EngineLoadPercent = engineLoadPercent,
+                    DedicatedMemoryBytes = dedicatedMemoryBytes,
                     DedicatedMemoryCapacityBytes = adapter.DedicatedMemoryCapacityBytes,
-                    VramPercent = vramPercent
+                    VramPercent = vramPercent,
+                    EngineLoadAvailable = engineLoadPercent >= 0,
+                    DedicatedMemoryAvailable = dedicatedMemoryBytes >= 0 && adapter.DedicatedMemoryCapacityBytes > 0
                 });
             }
             List<string> failureCodes = new List<string>(snapshot.FailureReasonCounts.Keys);
@@ -182,7 +200,7 @@ namespace CA.SystemOverlay
 
             return new WindowsGpuPollingReportDocument
             {
-                SchemaVersion = 2,
+                SchemaVersion = 3,
                 CapturedUtc = capturedUtc.ToUniversalTime().ToString("o", CultureInfo.InvariantCulture),
                 Source = "live-windows-polling-read-only",
                 CounterProvider = counterProvider,
@@ -191,7 +209,7 @@ namespace CA.SystemOverlay
                 ElapsedMilliseconds = elapsedMilliseconds,
                 NormalizedProcessCpuPercent = Math.Round(Math.Max(0, normalizedProcessCpuPercent), 3),
                 FinalStatus = snapshot.Status,
-                MappingReadyForValidation = snapshot.Status == "READY_FOR_VALIDATION",
+                MappingReadyForValidation = engineSustained && memorySustained,
                 CanUseInHud = false,
                 ConsecutiveStableSamples = snapshot.ConsecutiveStableSamples,
                 CompletedCollections = snapshot.CompletedCollectionCount,
@@ -206,7 +224,12 @@ namespace CA.SystemOverlay
                 HardwareWrites = false,
                 NetworkAccess = false,
                 ElevationRequested = false,
-                RawAdapterIdentifiersIncluded = false
+                RawAdapterIdentifiersIncluded = false,
+                EngineLoadReadyForValidation = engineSustained,
+                DedicatedMemoryReadyForValidation = memorySustained,
+                SuccessfulEngineLoadCollections = snapshot.SuccessfulEngineLoadCollectionCount,
+                SuccessfulDedicatedMemoryCollections = snapshot.SuccessfulDedicatedMemoryCollectionCount,
+                PartialMappingCollections = snapshot.PartialMappingCollectionCount
             };
         }
 

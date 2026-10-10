@@ -54,20 +54,28 @@ namespace CA.SystemOverlay
                 return false;
             }
 
+            bool engineFamilyInvalid = false;
+            bool memoryFamilyInvalid = false;
             foreach (PdhGpuCounterSample sample in samples)
             {
-                if (sample == null || String.IsNullOrWhiteSpace(sample.InstanceName))
+                if (sample == null)
                 {
                     observations.Clear();
                     reasonCode = "pdh-counter-instance-invalid";
                     return false;
                 }
+                if (String.IsNullOrWhiteSpace(sample.InstanceName))
+                {
+                    MarkFamilyInvalid(sample.Kind, ref engineFamilyInvalid, ref memoryFamilyInvalid);
+                    SetFirstReason(ref reasonCode, GetFamilyReason(sample.Kind, "instance-invalid"));
+                    continue;
+                }
                 if (sample.CounterStatus != NativePdhGpuCounterReader.ValidData &&
                     sample.CounterStatus != NativePdhGpuCounterReader.NewData)
                 {
-                    observations.Clear();
-                    reasonCode = GetInvalidStatusReason(sample.Kind, sample.CounterStatus);
-                    return false;
+                    MarkFamilyInvalid(sample.Kind, ref engineFamilyInvalid, ref memoryFamilyInvalid);
+                    SetFirstReason(ref reasonCode, GetInvalidStatusReason(sample.Kind, sample.CounterStatus));
+                    continue;
                 }
                 observations.Add(new WindowsGpuCounterObservation
                 {
@@ -76,7 +84,46 @@ namespace CA.SystemOverlay
                     Value = sample.Value
                 });
             }
-            return true;
+
+            if (engineFamilyInvalid)
+                observations.RemoveAll(delegate(WindowsGpuCounterObservation value)
+                {
+                    return value.Kind == WindowsGpuCounterKind.EngineUtilizationPercent;
+                });
+            if (memoryFamilyInvalid)
+                observations.RemoveAll(delegate(WindowsGpuCounterObservation value)
+                {
+                    return value.Kind == WindowsGpuCounterKind.DedicatedMemoryBytes;
+                });
+
+            // A bad status invalidates that whole metric family for this sample,
+            // but a healthy sibling family remains useful as explicit partial
+            // evidence. The caller preserves reasonCode even when this returns
+            // true, and neither partial nor complete data is authorized for HUD use.
+            return observations.Count > 0;
+        }
+
+        private static void MarkFamilyInvalid(
+            WindowsGpuCounterKind kind,
+            ref bool engineFamilyInvalid,
+            ref bool memoryFamilyInvalid)
+        {
+            if (kind == WindowsGpuCounterKind.EngineUtilizationPercent)
+                engineFamilyInvalid = true;
+            else
+                memoryFamilyInvalid = true;
+        }
+
+        private static void SetFirstReason(ref string destination, string reason)
+        {
+            if (String.IsNullOrWhiteSpace(destination))
+                destination = reason;
+        }
+
+        private static string GetFamilyReason(WindowsGpuCounterKind kind, string suffix)
+        {
+            string family = kind == WindowsGpuCounterKind.EngineUtilizationPercent ? "engine" : "memory";
+            return "pdh-" + family + "-" + suffix;
         }
 
         private static string GetInvalidStatusReason(WindowsGpuCounterKind kind, uint status)

@@ -13,11 +13,16 @@ namespace CA.SystemOverlay
         public int SuppressedOverlapCount;
         public int CompletedCollectionCount;
         public int SuccessfulMappingCollectionCount;
+        public int SuccessfulEngineLoadCollectionCount;
+        public int SuccessfulDedicatedMemoryCollectionCount;
+        public int PartialMappingCollectionCount;
         public int UnavailableCollectionCount;
         public long LastCollectionDurationMilliseconds;
         public long MaximumCollectionDurationMilliseconds;
         public Dictionary<string, int> FailureReasonCounts = new Dictionary<string, int>(StringComparer.Ordinal);
         public bool CanUseInHud;
+        public bool EngineLoadMappingChecksPass;
+        public bool DedicatedMemoryMappingChecksPass;
         public bool HardwareWrites;
         public bool NetworkAccess;
         public bool ElevationRequested;
@@ -40,6 +45,9 @@ namespace CA.SystemOverlay
         private int _suppressedOverlapCount;
         private int _completedCollectionCount;
         private int _successfulMappingCollectionCount;
+        private int _successfulEngineLoadCollectionCount;
+        private int _successfulDedicatedMemoryCollectionCount;
+        private int _partialMappingCollectionCount;
         private int _unavailableCollectionCount;
         private long _lastCollectionDurationMilliseconds;
         private long _maximumCollectionDurationMilliseconds;
@@ -113,14 +121,26 @@ namespace CA.SystemOverlay
                     _completedCollectionCount++;
                     if (probe != null && probe.MappingChecksPass)
                         _successfulMappingCollectionCount++;
-                    else
+                    if (probe != null && probe.EngineLoadMappingChecksPass)
+                        _successfulEngineLoadCollectionCount++;
+                    if (probe != null && probe.DedicatedMemoryMappingChecksPass)
+                        _successfulDedicatedMemoryCollectionCount++;
+                    if (probe != null && !probe.MappingChecksPass &&
+                        (probe.EngineLoadMappingChecksPass || probe.DedicatedMemoryMappingChecksPass))
+                        _partialMappingCollectionCount++;
+                    if (probe == null || (!probe.EngineLoadMappingChecksPass && !probe.DedicatedMemoryMappingChecksPass))
                         _unavailableCollectionCount++;
-                    if (String.Equals(_latest.Status, "UNAVAILABLE", StringComparison.Ordinal) ||
-                        String.Equals(_latest.Status, "TOPOLOGY_CHANGED", StringComparison.Ordinal))
+                    if (probe == null)
                     {
-                        foreach (string reason in _latest.ReasonCodes)
+                        RecordFailureReason("collector-failed");
+                    }
+                    else if (!probe.MappingChecksPass)
+                    {
+                        foreach (string reason in probe.ReasonCodes)
                             RecordFailureReason(reason);
                     }
+                    if (String.Equals(_latest.Status, "TOPOLOGY_CHANGED", StringComparison.Ordinal))
+                        RecordFailureReason("topology-revalidation-required");
                     _lastCollectionDurationMilliseconds = duration.ElapsedMilliseconds;
                     _maximumCollectionDurationMilliseconds = Math.Max(_maximumCollectionDurationMilliseconds, duration.ElapsedMilliseconds);
                     ApplyCollectionMetrics(_latest);
@@ -148,6 +168,8 @@ namespace CA.SystemOverlay
                     copy.ReasonCodes.Add("sample-stale");
                     copy.Adapters.Clear();
                     copy.CanUseInHud = false;
+                    copy.EngineLoadMappingChecksPass = false;
+                    copy.DedicatedMemoryMappingChecksPass = false;
                 }
                 return copy;
             }
@@ -164,7 +186,9 @@ namespace CA.SystemOverlay
                 _latest = next;
                 return;
             }
-            if (!probe.MappingChecksPass || String.IsNullOrWhiteSpace(probe.InternalTopologyFingerprint))
+            bool hasEngine = probe.EngineLoadMappingChecksPass;
+            bool hasMemory = probe.DedicatedMemoryMappingChecksPass;
+            if ((!hasEngine && !hasMemory) || String.IsNullOrWhiteSpace(probe.InternalTopologyFingerprint))
             {
                 _stableSamples = 0;
                 next.Status = "UNAVAILABLE";
@@ -193,6 +217,8 @@ namespace CA.SystemOverlay
                 _topologyFingerprint = probe.InternalTopologyFingerprint;
             _stableSamples++;
             next.ConsecutiveStableSamples = _stableSamples;
+            next.EngineLoadMappingChecksPass = hasEngine;
+            next.DedicatedMemoryMappingChecksPass = hasMemory;
             if (_stableSamples < _requiredStableSamples)
             {
                 next.Status = "WARMING_UP";
@@ -201,7 +227,9 @@ namespace CA.SystemOverlay
                 return;
             }
 
-            next.Status = "READY_FOR_VALIDATION";
+            next.Status = hasEngine && hasMemory ? "READY_FOR_VALIDATION" : "PARTIAL_READY_FOR_VALIDATION";
+            foreach (string reason in probe.ReasonCodes)
+                AddReason(next.ReasonCodes, reason);
             next.Adapters = CloneAdapters(probe.Adapters);
             _latest = next;
         }
@@ -230,11 +258,16 @@ namespace CA.SystemOverlay
                 SuppressedOverlapCount = source.SuppressedOverlapCount,
                 CompletedCollectionCount = source.CompletedCollectionCount,
                 SuccessfulMappingCollectionCount = source.SuccessfulMappingCollectionCount,
+                SuccessfulEngineLoadCollectionCount = source.SuccessfulEngineLoadCollectionCount,
+                SuccessfulDedicatedMemoryCollectionCount = source.SuccessfulDedicatedMemoryCollectionCount,
+                PartialMappingCollectionCount = source.PartialMappingCollectionCount,
                 UnavailableCollectionCount = source.UnavailableCollectionCount,
                 LastCollectionDurationMilliseconds = source.LastCollectionDurationMilliseconds,
                 MaximumCollectionDurationMilliseconds = source.MaximumCollectionDurationMilliseconds,
                 FailureReasonCounts = new Dictionary<string, int>(source.FailureReasonCounts, StringComparer.Ordinal),
                 CanUseInHud = false,
+                EngineLoadMappingChecksPass = source.EngineLoadMappingChecksPass,
+                DedicatedMemoryMappingChecksPass = source.DedicatedMemoryMappingChecksPass,
                 HardwareWrites = false,
                 NetworkAccess = false,
                 ElevationRequested = false,
@@ -276,6 +309,9 @@ namespace CA.SystemOverlay
         {
             snapshot.CompletedCollectionCount = _completedCollectionCount;
             snapshot.SuccessfulMappingCollectionCount = _successfulMappingCollectionCount;
+            snapshot.SuccessfulEngineLoadCollectionCount = _successfulEngineLoadCollectionCount;
+            snapshot.SuccessfulDedicatedMemoryCollectionCount = _successfulDedicatedMemoryCollectionCount;
+            snapshot.PartialMappingCollectionCount = _partialMappingCollectionCount;
             snapshot.UnavailableCollectionCount = _unavailableCollectionCount;
             snapshot.LastCollectionDurationMilliseconds = _lastCollectionDurationMilliseconds;
             snapshot.MaximumCollectionDurationMilliseconds = _maximumCollectionDurationMilliseconds;
