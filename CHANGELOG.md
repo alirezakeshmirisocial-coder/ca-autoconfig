@@ -4,6 +4,12 @@ This project follows semantic versioning after `v1.0.0`. Pre-1.0 releases may ch
 
 ## Unreleased
 
+## v0.1.2-alpha — Public installer safety
+
+- Made camera monitoring and GPU mutation opt-in in the combined installer; its default path now installs only the HUD and control shortcut.
+- Required explicit GPU targets, clock, power, and hardware-risk acknowledgement; added all-target preflight and best-effort rollback reporting.
+- Protected the SYSTEM task source with an administrator-owned ACL and rejected reparse-point install paths.
+- Added a no-hardware-write safety smoke test for the privileged GPU install/apply boundary.
 - Documented the adaptive cooling architecture, sensor provenance, thermal model, state machine, maintenance baseline, failure responses, and live-mode safety gates.
 - Expanded the isolated policy suite to 35 scenarios, including latched zero-RPM fan-fault recovery and the exact recommendation-confidence boundary.
 - Kept cooling output simulation-only: the policy performs no device writes and `CanApply` remains `false`.

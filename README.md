@@ -1,8 +1,13 @@
 # CA AutoConfig
 
+[![Latest release](https://img.shields.io/github/v/release/alirezakeshmirisocial-coder/ca-autoconfig?include_prereleases&label=alpha)](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/releases/tag/v0.1.2-alpha)
+[![License](https://img.shields.io/github/license/alirezakeshmirisocial-coder/ca-autoconfig)](LICENSE)
+[![GitHub stars](https://img.shields.io/github/stars/alirezakeshmirisocial-coder/ca-autoconfig?style=flat)](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/stargazers)
+[![Discussions](https://img.shields.io/github/discussions/alirezakeshmirisocial-coder/ca-autoconfig)](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/discussions)
+
 CA AutoConfig is a lightweight Windows HUD and conservative GPU power companion for local-AI and multi-GPU workstations. It keeps essential CPU, memory, storage, CUDA/SM, VRAM, temperature, and board-power information visible without stealing focus from the applications underneath it.
 
-[Latest alpha](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/releases/tag/v0.1.1-alpha) · [Roadmap](ROADMAP.md) · [Discussions](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/discussions)
+[Latest alpha](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/releases/tag/v0.1.2-alpha) · [Roadmap](ROADMAP.md) · [Contributor issues](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/milestone/1) · [Discussions](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/discussions) · [Launch playbook](docs/launch/LAUNCH_PLAYBOOK.md)
 
 ![CA AutoConfig HUD showing verified GPU limits, system load, storage, VRAM, power, and temperature](docs/assets/hud-alpha.png)
 
@@ -30,7 +35,9 @@ Run its smoke test:
 .\tests\SystemOverlay.Smoke.Tests.ps1
 ```
 
-The current `280 W / 1700 MHz` profile is still managed separately by the elevated GPU helper. Treat advisor values as candidates until they have been benchmarked with the real AI workload.
+The elevated GPU helper is deliberately separate and opt-in. It requires explicit GPU indices, clock, power, and risk acknowledgement; it preflights every target before changing one. The `280 W / 1700 MHz` values used on the maintainer's workstation are not universal recommendations. Treat advisor values as benchmark candidates for your exact board and workload.
+
+If you run local AI on Windows, the most useful contribution right now is a privacy-safe [hardware or monitor report](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/issues/new/choose). A star helps discovery, but reproducible results and focused pull requests are more valuable to the project.
 
 ## Adaptive cooling lab
 
@@ -147,7 +154,13 @@ See [ROADMAP.md](ROADMAP.md), [CONTRIBUTING.md](CONTRIBUTING.md), [PRIVACY.md](P
 .\Install-CombinedAutoconfig.ps1
 ```
 
-این دستور سه Task را آماده می‌کند و میانبر `CA AutoConfig` را روی Desktop می‌سازد: پایش چهره، HUD سخت‌افزار و محدودیت GPU. کنترل‌پنل دکمه‌های Start/Stop برای کل سیستم و هر بخش جدا، فعال/غیرفعال‌کردن Auto-start و نمایش وضعیت زندهٔ GPU را دارد. عملیات GPU هنگام نیاز یک UAC نشان می‌دهد، چون تغییر کلاک و توان بدون Administrator ممکن نیست.
+این دستور در حالت پیش‌فرض فقط HUD کم‌خطر و میانبر `CA AutoConfig` را نصب می‌کند. دوربین و تغییر تنظیمات GPU عمداً opt-in هستند. برای نصب هر سه بخش روی همین دستگاه، باید شاخص کارت‌ها و مقادیر مخصوص همان برد را صریح وارد و ریسک سخت‌افزار را تأیید کنید:
+
+```powershell
+.\Install-CombinedAutoconfig.ps1 -InstallPresenceMonitor -InstallGpuLimits -GpuIndexList '0,1' -MaxGraphicsClockMHz 1700 -PowerLimitWatts 280 -AcceptHardwareRisk
+```
+
+کنترل‌پنل دکمه‌های Start/Stop برای کل سیستم و هر بخش جدا، فعال/غیرفعال‌کردن Auto-start و نمایش وضعیت زندهٔ GPU را دارد. عملیات GPU یک UAC نشان می‌دهد، چون تغییر کلاک و توان بدون Administrator ممکن نیست.
 
 پنجرهٔ دوربین با هر اجرا Minimized می‌شود و در هشدارها نیز Minimized باقی می‌ماند؛ برای دیدنش باید آن را از Taskbar باز کنید.
 
@@ -159,7 +172,7 @@ HUD در حالت عادی نیمه‌شفاف، بدون Focus و click-through
 
 اطلاعات هر دو ثانیه در thread پس‌زمینه به‌روز می‌شود و شامل موارد زیر است:
 
-- چراغ سبز/قرمز محدودیت GPU؛ سبز فقط وقتی نمایش داده می‌شود که state موفق مربوط به همین Boot برای هر دو کارت `1700 MHz / 280 W` باشد، Power Limit زنده `280 W` بماند و کلاک زنده از سقف عبور نکرده باشد.
+- چراغ سبز/قرمز محدودیت GPU؛ سبز فقط وقتی نمایش داده می‌شود که state موفق مربوط به همین Boot برای تمام کارت‌های پیکربندی‌شده باشد، Power Limit زنده با پروفایل یکسان بماند و کلاک زنده از سقف عبور نکرده باشد.
 - درصد CPU و RAM.
 - درصد فضای مصرف‌شدهٔ درایوهای اصلی؛ پارتیشن‌های کوچک Boot/Recovery برای جلوگیری از شلوغی نمایش داده نمی‌شوند.
 - برای هر GPU درصد `CUDA/SM`، مصرف VRAM، توان لحظه‌ای/سقف توان، دما و کلاک گرافیکی.
@@ -197,15 +210,15 @@ HUD در حالت عادی نیمه‌شفاف، بدون Focus و click-through
 .\Uninstall-PresenceMonitor.ps1
 ```
 
-### محدودیت خودکار دو GPU انویدیا
+### محدودیت اختیاری GPU انویدیا
 
-برای اعمال محدودیت `1700 MHz` و `280 W` روی GPUهای 0 و 1 بعد از هر Logon:
+نمونهٔ زیر دقیقاً پروفایل مخصوص سیستم فعلی را روی GPUهای 0 و 1 بعد از هر Logon نصب می‌کند. این اعداد توصیهٔ عمومی نیستند؛ ابتدا بازهٔ توان برد خودتان را با `nvidia-smi` و مستندات سازنده بررسی کنید:
 
 ```powershell
-.\Install-GpuLimits.ps1 -MaxGraphicsClockMHz 1700 -PowerLimitWatts 280
+.\Install-GpuLimits.ps1 -GpuIndexList '0,1' -MaxGraphicsClockMHz 1700 -PowerLimitWatts 280 -AcceptHardwareRisk
 ```
 
-نصاب یک UAC درخواست می‌کند و Task با نام `CA GPU Limits` را تحت حساب `SYSTEM` ثبت می‌کند. Task پانزده ثانیه بعد از Logon اجرا می‌شود و معادل چهار فرمان زیر است:
+نصاب یک UAC درخواست می‌کند و Task با نام `CA GPU Limits` را تحت حساب `SYSTEM` ثبت می‌کند. قبل از هر تغییر، وجود تمام GPUها و بازهٔ توان آن‌ها بررسی می‌شود. اگر مرحلهٔ اعمال شکست بخورد، اسکریپت به‌صورت best-effort قفل کلاک خودش را reset و Power Limit قبلی را restore می‌کند و نتیجهٔ rollback را در state ثبت می‌کند. Task پانزده ثانیه بعد از Logon اجرا می‌شود و در این نمونه معادل چهار فرمان زیر است:
 
 ```powershell
 nvidia-smi -i 0 -pl 280

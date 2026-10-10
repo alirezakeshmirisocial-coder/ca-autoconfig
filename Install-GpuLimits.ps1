@@ -1,10 +1,18 @@
 [CmdletBinding()]
 param(
-    [ValidateRange(300, 3000)]
-    [int]$MaxGraphicsClockMHz = 1700,
+    [Parameter(Mandatory = $true)]
+    [ValidateNotNullOrEmpty()]
+    [string]$GpuIndexList,
 
+    [Parameter(Mandatory = $true)]
+    [ValidateRange(300, 3000)]
+    [int]$MaxGraphicsClockMHz,
+
+    [Parameter(Mandatory = $true)]
     [ValidateRange(50, 1000)]
-    [int]$PowerLimitWatts = 280,
+    [int]$PowerLimitWatts,
+
+    [switch]$AcceptHardwareRisk,
 
     [switch]$Elevated
 )
@@ -23,6 +31,62 @@ $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIden
     [Security.Principal.WindowsBuiltInRole]::Administrator
 )
 
+function Set-ProtectedInstallDirectory {
+    param([Parameter(Mandatory = $true)][string]$Path)
+
+    $security = New-Object Security.AccessControl.DirectorySecurity
+    $security.SetAccessRuleProtection($true, $false)
+    $administrators = New-Object Security.Principal.SecurityIdentifier('S-1-5-32-544')
+    $security.SetOwner($administrators)
+    $inheritance = [Security.AccessControl.InheritanceFlags]'ContainerInherit, ObjectInherit'
+    $propagation = [Security.AccessControl.PropagationFlags]::None
+    $allow = [Security.AccessControl.AccessControlType]::Allow
+    $rules = @(
+        (New-Object Security.AccessControl.FileSystemAccessRule(
+            (New-Object Security.Principal.SecurityIdentifier('S-1-5-18')),
+            [Security.AccessControl.FileSystemRights]::FullControl,
+            $inheritance,
+            $propagation,
+            $allow
+        )),
+        (New-Object Security.AccessControl.FileSystemAccessRule(
+            $administrators,
+            [Security.AccessControl.FileSystemRights]::FullControl,
+            $inheritance,
+            $propagation,
+            $allow
+        )),
+        (New-Object Security.AccessControl.FileSystemAccessRule(
+            (New-Object Security.Principal.SecurityIdentifier('S-1-5-32-545')),
+            [Security.AccessControl.FileSystemRights]::ReadAndExecute,
+            $inheritance,
+            $propagation,
+            $allow
+        ))
+    )
+    foreach ($rule in $rules) { [void]$security.AddAccessRule($rule) }
+    (Get-Item -LiteralPath $Path -Force).SetAccessControl($security)
+}
+
+if (-not $AcceptHardwareRisk) {
+    throw 'GPU limits are opt-in. Review the requested indices, clock, and board-specific power range, then rerun with -AcceptHardwareRisk.'
+}
+$gpuIndexValues = @()
+foreach ($token in @($GpuIndexList -split ',')) {
+    $parsedIndex = 0
+    if ([string]::IsNullOrWhiteSpace($token) -or -not [int]::TryParse($token.Trim(), [ref]$parsedIndex)) {
+        throw "Invalid GPU index list '$GpuIndexList'. Use a comma-separated list such as 0,1."
+    }
+    $gpuIndexValues += $parsedIndex
+}
+if (@($gpuIndexValues | Where-Object { $_ -lt 0 }).Count -gt 0) {
+    throw 'GPU indices must be zero or greater.'
+}
+if (@($gpuIndexValues | Select-Object -Unique).Count -ne $gpuIndexValues.Count) {
+    throw 'GPU indices must not contain duplicates.'
+}
+$gpuIndexArgument = $gpuIndexValues -join ','
+
 if (-not $isAdmin) {
     if ($Elevated) {
         throw 'Elevation was requested, but the process is still not running as Administrator.'
@@ -32,8 +96,10 @@ if (-not $isAdmin) {
         '-NoProfile',
         '-ExecutionPolicy', 'Bypass',
         '-File', ('"{0}"' -f $PSCommandPath),
+        '-GpuIndexList', $gpuIndexArgument,
         '-MaxGraphicsClockMHz', [string]$MaxGraphicsClockMHz,
         '-PowerLimitWatts', [string]$PowerLimitWatts,
+        '-AcceptHardwareRisk',
         '-Elevated'
     ) -join ' '
     try {
@@ -59,7 +125,18 @@ try {
     if (-not (Test-Path -LiteralPath $sourceApply -PathType Leaf)) {
         throw "GPU apply script is missing: $sourceApply"
     }
+    if (Test-Path -LiteralPath $installPath) {
+        $existingInstallPath = Get-Item -LiteralPath $installPath -Force
+        if (-not $existingInstallPath.PSIsContainer) {
+            throw "GPU install path exists but is not a directory: $installPath"
+        }
+        if (($existingInstallPath.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+            throw "GPU install path must not be a reparse point: $installPath"
+        }
+    }
     New-Item -ItemType Directory -Path $installPath -Force | Out-Null
+    Set-ProtectedInstallDirectory -Path $installPath
+    Remove-Item -Force -ErrorAction SilentlyContinue -LiteralPath $installedApply
     Copy-Item -Force -LiteralPath $sourceApply -Destination $installedApply
 
     $userName = [Security.Principal.WindowsIdentity]::GetCurrent().Name
@@ -70,13 +147,13 @@ try {
     $escapedState = [Security.SecurityElement]::Escape($statePath)
     $escapedInstallPath = [Security.SecurityElement]::Escape($installPath)
     $startLocal = (Get-Date).AddSeconds(-5).ToString('yyyy-MM-ddTHH:mm:ss')
-    $arguments = "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File &quot;$escapedScript&quot; -MaxGraphicsClockMHz $MaxGraphicsClockMHz -PowerLimitWatts $PowerLimitWatts -LogPath &quot;$escapedLog&quot; -StatePath &quot;$escapedState&quot;"
+    $arguments = "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File &quot;$escapedScript&quot; -GpuIndexList $gpuIndexArgument -MaxGraphicsClockMHz $MaxGraphicsClockMHz -PowerLimitWatts $PowerLimitWatts -LogPath &quot;$escapedLog&quot; -StatePath &quot;$escapedState&quot;"
 
     $taskXml = @"
 <?xml version="1.0" encoding="UTF-16"?>
 <Task version="1.4" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
   <RegistrationInfo>
-    <Description>Apply NVIDIA limits to GPU 0 and 1 after the configured user logs on: max graphics clock ${MaxGraphicsClockMHz}MHz, power limit ${PowerLimitWatts}W.</Description>
+    <Description>Apply explicitly approved NVIDIA limits to GPU indices $gpuIndexArgument after the configured user logs on: max graphics clock ${MaxGraphicsClockMHz}MHz, power limit ${PowerLimitWatts}W.</Description>
   </RegistrationInfo>
   <Triggers>
     <LogonTrigger>
@@ -154,7 +231,7 @@ try {
         taskName              = $taskName
         runAs                 = 'SYSTEM'
         trigger               = 'Logon + 15 seconds'
-        gpuIndices            = @(0, 1)
+        gpuIndices            = @($gpuIndexValues)
         maxGraphicsClockMHz   = $MaxGraphicsClockMHz
         powerLimitWatts       = $PowerLimitWatts
         appliedNow            = $true
