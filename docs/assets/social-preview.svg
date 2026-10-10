@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1280" height="640" viewBox="0 0 1280 640" role="img" aria-labelledby="title description">
+  <title id="title">CA AutoConfig social preview</title>
+  <desc id="description">A dark workstation instrument panel with the CA AutoConfig HUD and the words Keep the workstation honest.</desc>
+  <defs>
+    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
+      <path d="M 32 0 L 0 0 0 32" fill="none" stroke="#18212c" stroke-width="1"/>
+    </pattern>
+    <filter id="hudShadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#05080c" flood-opacity="0.7"/>
+    </filter>
+    <clipPath id="hudClip">
+      <rect x="810" y="114" width="358" height="367" rx="18"/>
+    </clipPath>
+  </defs>
+
+  <rect width="1280" height="640" fill="#0b1017"/>
+  <rect width="1280" height="640" fill="url(#grid)" opacity="0.7"/>
+  <rect x="0" y="0" width="14" height="640" fill="#61dda3"/>
+
+  <g font-family="Bahnschrift, 'Segoe UI Variable Display', 'Segoe UI', sans-serif">
+    <g transform="translate(72 66)">
+      <circle cx="9" cy="9" r="9" fill="#61dda3"/>
+      <circle cx="9" cy="9" r="18" fill="none" stroke="#61dda3" stroke-opacity="0.18" stroke-width="2"/>
+      <text x="38" y="18" fill="#f2f6fa" font-size="27" font-weight="650" letter-spacing="-0.4">CA AutoConfig</text>
+      <text x="38" y="46" fill="#8fa0b3" font-size="16">Windows HUD for local AI</text>
+    </g>
+
+    <line x1="72" y1="145" x2="686" y2="145" stroke="#435268" stroke-width="1"/>
+    <circle cx="677" cy="145" r="4" fill="#f3b650"/>
+
+    <text x="72" y="228" fill="#f2f6fa" font-size="76" font-weight="600" letter-spacing="-4">Keep the</text>
+    <text x="72" y="306" fill="#f2f6fa" font-size="76" font-weight="600" letter-spacing="-4">workstation</text>
+    <text x="72" y="384" fill="#f2f6fa" font-size="76" font-weight="600" letter-spacing="-4">honest.</text>
+
+    <text x="76" y="432" fill="#c4cfdb" font-family="'Segoe UI Variable Text', 'Segoe UI', sans-serif" font-size="22">
+      Verify limits. Place the HUD. Measure before you trust.
+    </text>
+
+    <g transform="translate(72 488)">
+      <rect width="664" height="82" rx="10" fill="#111821" stroke="#2b3746"/>
+      <rect x="16" y="17" width="205" height="48" rx="7" fill="#61dda3"/>
+      <circle cx="39" cy="41" r="6" fill="#0b1017"/>
+      <text x="57" y="48" fill="#0b1017" font-size="18" font-weight="700">Read-only by default</text>
+      <line x1="242" y1="17" x2="242" y2="65" stroke="#2b3746"/>
+      <circle cx="268" cy="41" r="5" fill="#72c8e8"/>
+      <text x="284" y="48" fill="#d9e1e9" font-size="17">Tiny lock</text>
+      <circle cx="405" cy="41" r="5" fill="#f3b650"/>
+      <text x="421" y="48" fill="#d9e1e9" font-size="17">Monitor map</text>
+      <circle cx="548" cy="41" r="5" fill="#ff737f"/>
+      <text x="564" y="48" fill="#d9e1e9" font-size="17">Power proof</text>
+    </g>
+  </g>
+
+  <g>
+    <rect x="744" y="66" width="470" height="506" rx="28" fill="#111821" stroke="#435268" stroke-width="2"/>
+    <rect x="764" y="86" width="430" height="416" rx="20" fill="#080c12" stroke="#2b3746"/>
+    <path d="M954 503 V539 M886 539 H1022" stroke="#435268" stroke-width="5" stroke-linecap="round"/>
+    <circle cx="782" cy="104" r="5" fill="#61dda3"/>
+    <text x="796" y="110" fill="#8fa0b3" font-family="'Segoe UI', sans-serif" font-size="15">Display 3 / lower-left anchor</text>
+    <g filter="url(#hudShadow)" clip-path="url(#hudClip)">
+      <image x="810" y="114" width="358" height="367" xlink:href="hud-alpha.png" preserveAspectRatio="xMidYMid meet"/>
+    </g>
+    <g transform="translate(1128 94)">
+      <rect width="42" height="30" rx="15" fill="#1b2430" stroke="#5e6c7d"/>
+      <path d="M16 14 V11a5 5 0 0 1 10 0v3M14 14h14v11H14z" fill="none" stroke="#aab6c5" stroke-width="1.7" stroke-linejoin="round"/>
+    </g>
+    <text x="786" y="548" fill="#8fa0b3" font-family="'Segoe UI', sans-serif" font-size="15">Example rig / values are not universal presets</text>
+  </g>
+
+  <text x="1208" y="610" fill="#607084" font-family="'Segoe UI', sans-serif" font-size="14" text-anchor="end">Apache-2.0 / public alpha</text>
+</svg>
