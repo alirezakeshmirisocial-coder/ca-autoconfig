@@ -37,7 +37,7 @@ GitHub Releases, Issues, Discussions, the hardware matrix, and reproducible benc
 - Read-only advisor stays inside driver-reported ranges, never raises an existing lower cap, and requires real workload evidence before stronger profile claims.
 - Monitoring has no application network client or product analytics. Benchmark adapters are local/loopback-first and omit prompts, outputs, workflows, paths, machine identifiers, and GPU UUIDs from exports.
 - GPU mutation is opt-in, explicit, elevated, UUID-pinned, preflighted, verified, and rollback-aware. Unknown or malformed evidence fails closed/red.
-- AMD/Intel telemetry, signed artifacts, active CI, clean-machine coverage, and hardened native privilege isolation remain open work.
+- AMD/Intel telemetry, signed artifacts, active Windows build/package CI, clean-machine coverage, and hardened native privilege isolation remain open work. GitHub default CodeQL analysis is active for C# and Python, but it does not satisfy those platform/release gates.
 
 ## Brand Commitments
 

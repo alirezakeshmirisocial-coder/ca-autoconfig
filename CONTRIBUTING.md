@@ -23,6 +23,7 @@ CA AutoConfig is being built for people running local LLMs, diffusion models, an
 .\tests\WindowsGpuLoadedValidation.Tests.ps1
 .\tests\WindowsGpuSleepResumeValidation.Tests.ps1
 .\tests\WindowsGpuEvidenceBundle.Tests.ps1
+.\tests\DisplayDiagnostics.Tests.ps1
 dotnet run --project .\src\CAAutoConfig.Telemetry.Tests\CAAutoConfig.Telemetry.Tests.csproj -c Release
 .\tests\GpuLimits.Safety.Tests.ps1
 .\tests\GpuLimitPlan.Tests.ps1
@@ -33,6 +34,8 @@ dotnet run --project .\src\CAAutoConfig.Telemetry.Tests\CAAutoConfig.Telemetry.T
 Pull requests should explain the user problem, safety boundary, test evidence, and any administrator permissions required. Screenshots are expected for HUD or settings changes.
 
 Clean-machine testers should use the [Windows Sandbox protocol](docs/CLEAN_MACHINE_SANDBOX.md) and the dedicated [result form](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/issues/new?template=clean-machine-result.yml). Keep failed results and inspect the generated JSON before posting.
+
+Multi-monitor testers should use the dedicated [display/HUD result form](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/issues/new?template=display-result.yml). Copy the privacy-safe block from HUD Settings, inspect it, and optionally run `.\tools\Test-DisplayDiagnostics.ps1 -Path .\display-diagnostics.txt` before pasting it. Report every item as Pass, Fail, or Not tested; do not attach a full-desktop screenshot or device names, serials, account/machine names, UUIDs, or personal paths.
 
 ## Hardware reports
 

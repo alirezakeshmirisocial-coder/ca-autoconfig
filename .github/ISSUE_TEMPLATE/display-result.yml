@@ -1,0 +1,58 @@
+name: Display and HUD result
+description: Share a privacy-safe multi-monitor, mixed-DPI, placement, lock, or shortcut result.
+title: "[Display]: "
+labels: ["hardware validation", "area:hud"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for testing the HUD. Failed and partially tested results are useful. Do not attach a full-desktop screenshot, and do not include device names, usernames, machine names, serial numbers, GPU UUIDs, or personal paths. A star is not requested or required.
+  - type: input
+    id: version
+    attributes:
+      label: CA AutoConfig release or commit
+      placeholder: v0.2.6-alpha.4 or full commit SHA
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Privacy-safe diagnostics
+      description: In HUD Settings, select Copy diagnostics. Inspect the text, optionally save it and run Test-DisplayDiagnostics.ps1, then paste the complete block here.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Behavior checklist
+      description: Mark each line Pass, Fail, or Not tested. Keep failures; do not rerun only to obtain a passing report.
+      value: |
+        - Monitor-map selection:
+        - Dragging and placement:
+        - Tiny lock/unlock control:
+        - Global shortcut:
+        - Locked click-through:
+        - Restart persistence:
+        - Session-unlock persistence:
+        - No clipping or taskbar overlap:
+    validations:
+      required: true
+  - type: textarea
+    id: observations
+    attributes:
+      label: Failures and observations
+      description: Describe drift, clipping, focus stealing, shortcut conflicts, disconnected-display behavior, or other failures. Write None if nothing failed.
+    validations:
+      required: true
+  - type: checkboxes
+    id: boundaries
+    attributes:
+      label: Evidence and privacy boundaries
+      options:
+        - label: I reported failed and untested checks instead of claiming they passed.
+          required: true
+        - label: I removed device names, usernames, machine names, serial numbers, UUIDs, personal paths, and full-desktop screenshots.
+          required: true
+        - label: This report describes one tested machine and does not claim universal multi-monitor compatibility.
+          required: true

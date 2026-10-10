@@ -30,6 +30,7 @@ The product direction is a tiny, trustworthy Windows HUD and safe power optimize
 - [x] Add an English screenshot and public privacy statement.
 - [x] Add a short privacy-safe, app-window-only demo.
 - [x] Add architecture documentation with explicit runtime, privilege, privacy, and failure boundaries.
+- [x] Enable GitHub default CodeQL analysis for the detected C# and Python surfaces.
 
 ## Milestone 3 — Workload-aware Power Advisor
 
