@@ -75,6 +75,17 @@ From a current self-contained source build, write one sanitized live research re
 .\dist\desktop-win-x64-self-contained\CAAutoConfig.exe --windows-gpu-probe-result .\windows-gpu-probe.json
 ```
 
-On the maintainer's dual-RTX-3090 system this returned two distinct hardware rows, matched engine and dedicated-memory counters, and excluded the DXGI-flagged software adapter. The report declared `MAPPING_AVAILABLE`, `CanUseInHud=false`, no raw adapter identifiers, and no hardware/network/elevation action. Eight additional hardware-independent polling cases cover stable-pair warm-up, reorder, topology change, failure, staleness, and overlap. This is still one-machine evidence, not AMD/Intel or cross-Windows validation.
+On the maintainer's dual-RTX-3090 system this returned two distinct hardware rows, matched engine and dedicated-memory counters, and excluded the DXGI-flagged software adapter. The report declared `MAPPING_AVAILABLE`, `CanUseInHud=false`, no raw adapter identifiers, and no hardware/network/elevation action. Ten additional hardware-independent polling/report cases cover stable-pair warm-up, reorder, topology change, failure, staleness, overlap, measurement counts, and output privacy. This is still one-machine evidence, not AMD/Intel or cross-Windows validation.
+
+Current source builds can run a bounded cadence benchmark without touching the HUD:
+
+```powershell
+.\CAAutoConfig.exe `
+  --windows-gpu-poll-result .\windows-gpu-poll.json `
+  --windows-gpu-poll-seconds 600 `
+  --windows-gpu-poll-ms 2000
+```
+
+The schema-v1 report contains normalized process CPU, elapsed time, completed/successful/unavailable collection counts, suppressed overlaps, last/maximum collection latency, final freshness/topology state, and the same sanitized adapter fields. Duration is constrained to 10–3600 seconds and cadence to 1000–60000 milliseconds. The command never adds the provider to the HUD and always writes `canUseInHud=false`.
 
 The mapping core first sums process-scoped samples for the same physical engine, then uses the busiest engine percentage for the adapter. It does not sum 3D, copy, video, and compute engines together because parallel or shared-core engines can exceed 100% and misrepresent utilization. This follows the aggregation rationale documented by Microsoft's [DirectX team](https://devblogs.microsoft.com/directx/gpus-in-the-task-manager/). The live provider must prove that the same normalized key is obtained from DXGI and Windows performance counters within one sample before this result can enter the HUD.

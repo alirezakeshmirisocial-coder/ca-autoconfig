@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Threading;
 
 namespace CA.SystemOverlay
@@ -10,6 +11,11 @@ namespace CA.SystemOverlay
         public DateTime CapturedUtc;
         public int ConsecutiveStableSamples;
         public int SuppressedOverlapCount;
+        public int CompletedCollectionCount;
+        public int SuccessfulMappingCollectionCount;
+        public int UnavailableCollectionCount;
+        public long LastCollectionDurationMilliseconds;
+        public long MaximumCollectionDurationMilliseconds;
         public bool CanUseInHud;
         public bool HardwareWrites;
         public bool NetworkAccess;
@@ -31,6 +37,11 @@ namespace CA.SystemOverlay
         private Timer _timer;
         private int _collecting;
         private int _suppressedOverlapCount;
+        private int _completedCollectionCount;
+        private int _successfulMappingCollectionCount;
+        private int _unavailableCollectionCount;
+        private long _lastCollectionDurationMilliseconds;
+        private long _maximumCollectionDurationMilliseconds;
         private string _topologyFingerprint = String.Empty;
         private int _stableSamples;
         private WindowsGpuPollingSnapshot _latest = new WindowsGpuPollingSnapshot();
@@ -82,6 +93,7 @@ namespace CA.SystemOverlay
 
             try
             {
+                Stopwatch duration = Stopwatch.StartNew();
                 WindowsGpuLiveProbeResult probe;
                 try
                 {
@@ -92,9 +104,18 @@ namespace CA.SystemOverlay
                     probe = null;
                 }
                 DateTime capturedUtc = _clock().ToUniversalTime();
+                duration.Stop();
                 lock (_sync)
                 {
                     Update(probe, capturedUtc);
+                    _completedCollectionCount++;
+                    if (probe != null && probe.MappingChecksPass)
+                        _successfulMappingCollectionCount++;
+                    else
+                        _unavailableCollectionCount++;
+                    _lastCollectionDurationMilliseconds = duration.ElapsedMilliseconds;
+                    _maximumCollectionDurationMilliseconds = Math.Max(_maximumCollectionDurationMilliseconds, duration.ElapsedMilliseconds);
+                    ApplyCollectionMetrics(_latest);
                 }
                 return true;
             }
@@ -110,6 +131,7 @@ namespace CA.SystemOverlay
             {
                 WindowsGpuPollingSnapshot copy = Clone(_latest);
                 copy.SuppressedOverlapCount = Volatile.Read(ref _suppressedOverlapCount);
+                ApplyCollectionMetrics(copy);
                 DateTime now = _clock().ToUniversalTime();
                 if (copy.CapturedUtc != default(DateTime) && now >= copy.CapturedUtc && now - copy.CapturedUtc > _staleAfter)
                 {
@@ -198,6 +220,11 @@ namespace CA.SystemOverlay
                 CapturedUtc = source.CapturedUtc,
                 ConsecutiveStableSamples = source.ConsecutiveStableSamples,
                 SuppressedOverlapCount = source.SuppressedOverlapCount,
+                CompletedCollectionCount = source.CompletedCollectionCount,
+                SuccessfulMappingCollectionCount = source.SuccessfulMappingCollectionCount,
+                UnavailableCollectionCount = source.UnavailableCollectionCount,
+                LastCollectionDurationMilliseconds = source.LastCollectionDurationMilliseconds,
+                MaximumCollectionDurationMilliseconds = source.MaximumCollectionDurationMilliseconds,
                 CanUseInHud = false,
                 HardwareWrites = false,
                 NetworkAccess = false,
@@ -236,6 +263,16 @@ namespace CA.SystemOverlay
                 reasons.Add(reason);
         }
 
+        private void ApplyCollectionMetrics(WindowsGpuPollingSnapshot snapshot)
+        {
+            snapshot.CompletedCollectionCount = _completedCollectionCount;
+            snapshot.SuccessfulMappingCollectionCount = _successfulMappingCollectionCount;
+            snapshot.UnavailableCollectionCount = _unavailableCollectionCount;
+            snapshot.LastCollectionDurationMilliseconds = _lastCollectionDurationMilliseconds;
+            snapshot.MaximumCollectionDurationMilliseconds = _maximumCollectionDurationMilliseconds;
+            snapshot.SuppressedOverlapCount = Volatile.Read(ref _suppressedOverlapCount);
+        }
+
         public void Dispose()
         {
             Timer timer;
@@ -245,7 +282,13 @@ namespace CA.SystemOverlay
                 _timer = null;
             }
             if (timer != null)
-                timer.Dispose();
+            {
+                using (ManualResetEvent stopped = new ManualResetEvent(false))
+                {
+                    if (timer.Dispose(stopped))
+                        stopped.WaitOne(TimeSpan.FromSeconds(10));
+                }
+            }
         }
     }
 }

@@ -4,7 +4,7 @@ This project follows semantic versioning after `v1.0.0`. Pre-1.0 releases may ch
 
 ## Unreleased
 
-- Added a research-only Windows GPU polling coordinator with two-sample topology stabilization, reorder tolerance, reset/topology revalidation, stale/failure clearing, overlap suppression, immutable safe snapshots, and eight deterministic cases. It remains disconnected from the HUD and cannot authorize telemetry.
+- Added a research-only Windows GPU polling coordinator with two-sample topology stabilization, reorder tolerance, reset/topology revalidation, stale/failure clearing, overlap suppression, immutable safe snapshots, collection timing/counts, and ten deterministic cases. An explicit benchmark command records normalized process CPU and sanitized cadence evidence; it remains disconnected from the HUD and cannot authorize telemetry.
 
 ## v0.2.6-alpha.4 — Windows GPU research probe
 

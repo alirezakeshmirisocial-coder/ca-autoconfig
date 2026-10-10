@@ -17,6 +17,10 @@ namespace CA.SystemOverlay
             string targetDisplay = String.Empty;
             string smokeResult = String.Empty;
             string windowsGpuProbeResult = String.Empty;
+            string windowsGpuPollResult = String.Empty;
+            int windowsGpuPollSeconds = 60;
+            int windowsGpuPollMilliseconds = 2000;
+            bool windowsGpuPollOptionSpecified = false;
             int pollMilliseconds = 2000;
             double opacity = 0.82;
             bool openSettings = false;
@@ -62,6 +66,21 @@ namespace CA.SystemOverlay
                     {
                         windowsGpuProbeResult = ReadValue(args, ref index, argument);
                     }
+                    else if (String.Equals(argument, "--windows-gpu-poll-result", StringComparison.OrdinalIgnoreCase))
+                    {
+                        windowsGpuPollResult = ReadValue(args, ref index, argument);
+                        windowsGpuPollOptionSpecified = true;
+                    }
+                    else if (String.Equals(argument, "--windows-gpu-poll-seconds", StringComparison.OrdinalIgnoreCase))
+                    {
+                        windowsGpuPollSeconds = Int32.Parse(ReadValue(args, ref index, argument), CultureInfo.InvariantCulture);
+                        windowsGpuPollOptionSpecified = true;
+                    }
+                    else if (String.Equals(argument, "--windows-gpu-poll-ms", StringComparison.OrdinalIgnoreCase))
+                    {
+                        windowsGpuPollMilliseconds = Int32.Parse(ReadValue(args, ref index, argument), CultureInfo.InvariantCulture);
+                        windowsGpuPollOptionSpecified = true;
+                    }
                     else
                     {
                         throw new ArgumentException("Unknown argument: " + argument);
@@ -72,11 +91,21 @@ namespace CA.SystemOverlay
                     throw new ArgumentOutOfRangeException("pollMilliseconds", "--poll-ms must be between 1000 and 60000.");
                 if (opacity < 0.58 || opacity > 0.95)
                     throw new ArgumentOutOfRangeException("opacity", "--opacity must be between 0.58 and 0.95.");
+                if (windowsGpuPollOptionSpecified && String.IsNullOrWhiteSpace(windowsGpuPollResult))
+                    throw new ArgumentException("--windows-gpu-poll-result is required with Windows GPU polling options.");
+                if (!String.IsNullOrWhiteSpace(windowsGpuProbeResult) && !String.IsNullOrWhiteSpace(windowsGpuPollResult))
+                    throw new ArgumentException("Choose either the one-shot Windows GPU probe or the polling benchmark, not both.");
+                if (windowsGpuPollSeconds < 10 || windowsGpuPollSeconds > 3600)
+                    throw new ArgumentOutOfRangeException("windowsGpuPollSeconds", "--windows-gpu-poll-seconds must be between 10 and 3600.");
+                if (windowsGpuPollMilliseconds < 1000 || windowsGpuPollMilliseconds > 60000)
+                    throw new ArgumentOutOfRangeException("windowsGpuPollMilliseconds", "--windows-gpu-poll-ms must be between 1000 and 60000.");
 
                 if (!String.IsNullOrWhiteSpace(smokeResult))
                     return DesktopSmokeTest.Run(smokeResult);
                 if (!String.IsNullOrWhiteSpace(windowsGpuProbeResult))
                     return WindowsGpuLiveReport.Write(windowsGpuProbeResult);
+                if (!String.IsNullOrWhiteSpace(windowsGpuPollResult))
+                    return WindowsGpuPollingBenchmark.Write(windowsGpuPollResult, windowsGpuPollSeconds, windowsGpuPollMilliseconds);
                 if (openSettings && Program.RequestSettings())
                     return 0;
 

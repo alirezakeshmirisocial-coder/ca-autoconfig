@@ -17,7 +17,9 @@ internal static class WindowsGpuPollingTests
             ("mapping failure retains reason and clears rows", MappingFailureClearsRows),
             ("expired snapshot becomes stale", ExpiredSnapshotBecomesStale),
             ("overlapping collection is suppressed", OverlappingCollectionIsSuppressed),
-            ("polling output remains non-authorizing", OutputRemainsNonAuthorizing)
+            ("polling output remains non-authorizing", OutputRemainsNonAuthorizing),
+            ("collection metrics count success and failure", CollectionMetricsAreRetained),
+            ("polling report is sanitized and non-authorizing", PollingReportIsSanitized)
         };
         int passed = 0;
         foreach (var test in tests)
@@ -163,6 +165,43 @@ internal static class WindowsGpuPollingTests
             provider.CollectOnce();
             WindowsGpuPollingSnapshot snapshot = provider.GetSnapshot();
             Assert(!snapshot.CanUseInHud && !snapshot.HardwareWrites && !snapshot.NetworkAccess && !snapshot.ElevationRequested && !snapshot.RawAdapterIdentifiersIncluded, "Polling weakened a safety boundary.");
+        }
+    }
+
+    private static void CollectionMetricsAreRetained()
+    {
+        DateTime now = DateTime.UtcNow;
+        int call = 0;
+        using (WindowsGpuPollingProvider provider = Provider(delegate
+        {
+            call++;
+            return call <= 2 ? Success("topology-a", false) : Blocked("fixture-unavailable");
+        }, delegate { return now; }))
+        {
+            provider.CollectOnce();
+            provider.CollectOnce();
+            provider.CollectOnce();
+            WindowsGpuPollingSnapshot snapshot = provider.GetSnapshot();
+            Assert(snapshot.CompletedCollectionCount == 3, "Completed collection count is wrong.");
+            Assert(snapshot.SuccessfulMappingCollectionCount == 2 && snapshot.UnavailableCollectionCount == 1, "Success/failure counts are wrong.");
+            Assert(snapshot.LastCollectionDurationMilliseconds >= 0 && snapshot.MaximumCollectionDurationMilliseconds >= snapshot.LastCollectionDurationMilliseconds, "Collection duration metrics are invalid.");
+        }
+    }
+
+    private static void PollingReportIsSanitized()
+    {
+        DateTime now = DateTime.UtcNow;
+        using (WindowsGpuPollingProvider provider = Provider(delegate { return Success("private-fingerprint", false); }, delegate { return now; }))
+        {
+            provider.CollectOnce();
+            provider.CollectOnce();
+            WindowsGpuPollingSnapshot snapshot = provider.GetSnapshot();
+            WindowsGpuPollingReportDocument report = WindowsGpuPollingBenchmark.Create(snapshot, now, 600, 2000, 600000, 0.25);
+            string json = WindowsGpuPollingBenchmark.Serialize(report);
+            Assert(json.Contains("live-windows-polling-read-only", StringComparison.Ordinal), "Polling report omitted its source boundary.");
+            Assert(json.Contains("\"normalizedProcessCpuPercent\":0.25", StringComparison.Ordinal), "Polling report omitted normalized process CPU.");
+            Assert(!json.Contains("private-fingerprint", StringComparison.Ordinal) && !json.Contains("luid_", StringComparison.OrdinalIgnoreCase) && !json.Contains("pid_", StringComparison.OrdinalIgnoreCase), "Polling report exposed internal identity.");
+            Assert(!report.CanUseInHud && !report.HardwareWrites && !report.NetworkAccess && !report.ElevationRequested && !report.RawAdapterIdentifiersIncluded, "Polling report weakened a safety boundary.");
         }
     }
 
