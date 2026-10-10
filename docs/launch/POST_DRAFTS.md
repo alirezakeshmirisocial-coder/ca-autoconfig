@@ -1,8 +1,12 @@
 # Community post drafts
 
-These are starting points. Re-check community rules and replace bracketed evidence immediately before posting. Do not publish the same copy to multiple communities.
+These are evidence checklists and starting points. Re-check community rules and replace bracketed evidence immediately before posting. Do not publish the same copy to multiple communities.
+
+`r/LocalLLaMA` and Hacker News both reject low-effort generated prose. The maintainer must rewrite Reddit material in their own voice and disclose meaningful AI assistance; Hacker News text and replies must be written by the maintainer without AI generation or editing.
 
 ## r/LocalLLaMA — benchmark-first
+
+Do not copy/paste this draft. Post only after meaningful participation in other people's discussions keeps self-promotion below the current 10% limit.
 
 **Title:** I measured what a lower RTX 3090 power cap actually costs in local-LLM throughput
 
@@ -28,21 +32,22 @@ Screenshot and source: `[repository link]`
 
 This is a Windows/NVIDIA alpha. It does not change voltage, never raises an existing lower cap, and does not automatically apply its read-only starting point. I am looking for reports from cards whose `nvidia-smi` power fields behave differently.
 
-## Show HN — compiled technical preview
+## r/StableDiffusion — only after ComfyUI evidence
 
-**Title:** Show HN: CA AutoConfig – a tiny power HUD for local-AI workstations
+Use the community's one-per-tool/guide/update allowance only when a real diffusion benchmark exists. Lead with workflow, image dimensions, sampler/steps, batch size, repeated-run variance, images/second, watt-hours/image, thermals, and the raw export. The HUD belongs in the final paragraph as the reproducibility tool, not in the title.
 
-CA AutoConfig is an open-source Windows HUD for people running local LLMs and diffusion workloads on NVIDIA GPUs.
+## Show HN — owner-written fact sheet
 
-It verifies that a configured power/clock profile applied after the current boot, shows per-GPU power/load/VRAM/temperature, and lets the user place a click-through overlay on any monitor. The Power Advisor measures real workload throughput before calling a limit “Balanced” or “Eco.”
+Do not turn this section into a draft. Hacker News prohibits generated and AI-edited post text and replies. The maintainer should independently write a short launch explanation from these verified facts:
 
-Repository: `[repository link]`
-Demo: `[demo link]`
-Benchmark methodology: `[method link]`
-
-The current preview is Windows/NVIDIA only. Monitoring is unprivileged; applying a profile uses a separate minimal elevated helper with explicit confirmation and rollback. There is no application telemetry or account.
-
-I would value feedback on the privilege boundary, workload adapters, and how to make cross-hardware power curves comparable.
+- Public repository and self-contained `win-x64` download; no signup.
+- Tiny click-through WinForms HUD with an explicit lock/edit state.
+- Per-monitor placement, custom global hotkey, CPU/RAM/storage, and per-GPU CUDA/SM, VRAM, watts, cap, temperature, and clock.
+- Read-only advisor in the standard-user process; explicit UAC and a separate protected task for opt-in hardware changes.
+- No application network client or product telemetry.
+- Windows/NVIDIA-only alpha; unsigned ZIP; current limitations linked up front.
+- Demo, architecture document, benchmark method, and raw power curve available before submission.
+- The maintainer will be present to answer questions and will not ask anyone to vote or comment.
 
 ## Creator outreach
 
