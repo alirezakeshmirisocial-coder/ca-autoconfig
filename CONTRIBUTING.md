@@ -21,6 +21,7 @@ CA AutoConfig is being built for people running local LLMs, diffusion models, an
 .\tests\WindowsGpuCapability.Tests.ps1
 .\tests\WindowsGpuChurnHarness.Tests.ps1
 .\tests\WindowsGpuLoadedValidation.Tests.ps1
+.\tests\WindowsGpuSleepResumeValidation.Tests.ps1
 dotnet run --project .\src\CAAutoConfig.Telemetry.Tests\CAAutoConfig.Telemetry.Tests.csproj -c Release
 .\tests\GpuLimits.Safety.Tests.ps1
 .\tests\GpuLimitPlan.Tests.ps1
@@ -39,6 +40,8 @@ Include GPU model, driver version, Windows version, supported minimum/default/ma
 Windows WMI/formatted-PDH/raw-PDH provider reports should use the dedicated [Windows GPU telemetry form](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/issues/new?template=windows-gpu-result.yml). Include the exact provider and display language because performance-counter behavior and localization are part of the compatibility boundary, retain every full/partial/per-field/unavailable/failure count, and never paste raw counter-instance names, LUIDs, PIDs, PNP/PCI identifiers, or UUIDs. `READY_FOR_VALIDATION` and `PARTIAL_READY_FOR_VALIDATION` are research evidence only; neither authorizes HUD integration.
 
 For a loaded local-AI result, collect the raw-PDH report concurrently with a current schema-v3 workload recorder, then use [`New-WindowsGpuLoadedValidationSummary.ps1`](tools/New-WindowsGpuLoadedValidationSummary.ps1). A `READY_FOR_MANUAL_VALUE_COMPARISON` result proves only that the explicit windows overlap, every workload GPU sustained the declared load for the required share of complete utilization samples, and the Windows provider retained complete samples. It does not compare the Windows values with an independent vendor source and cannot authorize HUD integration. Publish both anonymized inputs, the linked summary, declared thresholds, and every retained failure.
+
+For sleep/resume evidence, use [`Invoke-WindowsGpuSleepResumeValidation.ps1`](tools/Invoke-WindowsGpuSleepResumeValidation.ps1) only when you are ready to put Windows to sleep manually. The harness never initiates the power transition. Inspect both output files and retain `NO_RESUME_OBSERVED`, multiple-event, partial, unavailable, or short-window failures. A `READY_FOR_MANUAL_SLEEP_RESUME_REVIEW` result is lifecycle evidence for that exact run only—not a provider or HUD authorization.
 
 Generated Power Curve cards must link the exact raw anonymized JSON and method used to create them. Do not crop or cover the fixture, draft, phase-alignment, repetition, failure, or non-universal-limit labels. Never rename a rate/power index as Joules per token or work unit when the declared windows differ.
 

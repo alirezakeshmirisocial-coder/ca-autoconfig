@@ -28,6 +28,18 @@ $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 Import-Module (Join-Path $PSScriptRoot '..\benchmark\PowerCurve.psm1') -Force
 
+function ConvertTo-UtcDateTime {
+    param($Value, [string]$FieldName)
+    if ($Value -is [DateTime]) { return ([DateTime]$Value).ToUniversalTime() }
+    try {
+        return [DateTime]::Parse(
+            [string]$Value,
+            [Globalization.CultureInfo]::InvariantCulture,
+            ([Globalization.DateTimeStyles]::AssumeUniversal -bor [Globalization.DateTimeStyles]::AdjustToUniversal))
+    }
+    catch { throw "$FieldName must be a valid date-time value." }
+}
+
 $resolvedWindows = (Resolve-Path -LiteralPath $WindowsReportPath).Path
 $resolvedWorkload = (Resolve-Path -LiteralPath $WorkloadRunPath).Path
 $resolvedOutput = [IO.Path]::GetFullPath($OutputPath)
@@ -95,11 +107,7 @@ if ([bool]$privacy.containsGpuUuid -or [bool]$privacy.containsMachineName -or
     throw 'The workload run violates the schema-v3 privacy boundary.'
 }
 
-$dateStyles = [Globalization.DateTimeStyles]::AssumeUniversal -bor [Globalization.DateTimeStyles]::AdjustToUniversal
-$windowsEnd = [DateTime]::Parse(
-    [string]$windows.capturedUtc,
-    [Globalization.CultureInfo]::InvariantCulture,
-    $dateStyles)
+$windowsEnd = ConvertTo-UtcDateTime $windows.capturedUtc 'windows.capturedUtc'
 $windowsElapsedMilliseconds = [long]$windows.elapsedMilliseconds
 if ($windowsElapsedMilliseconds -le 0) { throw 'The Windows report has no positive elapsed window.' }
 $windowsStart = $windowsEnd.AddMilliseconds(-$windowsElapsedMilliseconds)
@@ -109,14 +117,8 @@ $endedProperty = $workload.measurement.PSObject.Properties['endedUtc']
 if ($null -eq $startedProperty -or $null -eq $endedProperty) {
     throw 'The workload run needs explicit measurement.startedUtc and measurement.endedUtc values for time alignment.'
 }
-$workloadStart = [DateTime]::Parse(
-    [string]$startedProperty.Value,
-    [Globalization.CultureInfo]::InvariantCulture,
-    $dateStyles)
-$workloadEnd = [DateTime]::Parse(
-    [string]$endedProperty.Value,
-    [Globalization.CultureInfo]::InvariantCulture,
-    $dateStyles)
+$workloadStart = ConvertTo-UtcDateTime $startedProperty.Value 'workload.measurement.startedUtc'
+$workloadEnd = ConvertTo-UtcDateTime $endedProperty.Value 'workload.measurement.endedUtc'
 $workloadWindowSeconds = ($workloadEnd - $workloadStart).TotalSeconds
 if ($workloadWindowSeconds -le 0) { throw 'The workload measurement window is not positive.' }
 $workloadSeconds = [int]$workload.protocol.sampleSeconds

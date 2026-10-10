@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "createdUtc": "2026-10-10T16:10:24.2858001Z",
+  "scenario": "manual-windows-sleep-resume",
+  "status": "NO_RESUME_OBSERVED",
+  "reasonCodes": [
+    "no-new-resume-event"
+  ],
+  "promotionAuthorized": false,
+  "valuesCompared": false,
+  "manualReviewRequired": true,
+  "thresholds": {
+    "minimumPreSleepSeconds": 10,
+    "minimumPostWakeSeconds": 10
+  },
+  "pollingWindow": {
+    "startUtc": "2026-10-10T16:07:21.6422099Z",
+    "endUtc": "2026-10-10T16:09:21.9869192Z",
+    "wallClockSeconds": 120.345,
+    "reportElapsedSeconds": 120.024,
+    "reportCapturedUtc": "2026-10-10T16:09:21.8828569Z",
+    "completed": 61,
+    "fullMappings": 61,
+    "partialMappings": 0,
+    "unavailable": 0,
+    "suppressed": 0,
+    "engineValid": 61,
+    "memoryValid": 61,
+    "failureReasonCounts": []
+  },
+  "powerEvent": {
+    "provider": "Microsoft-Windows-Power-Troubleshooter",
+    "eventId": 1,
+    "eventLogReadSucceeded": true,
+    "observedEventCount": 0,
+    "timestampsValid": false,
+    "withinPollingWindow": false,
+    "sleepTimeUtc": null,
+    "wakeTimeUtc": null,
+    "preSleepSeconds": null,
+    "sleepSeconds": null,
+    "postWakeSeconds": null
+  },
+  "inputHashes": {
+    "windowsReportSha256": "1d4a227d9de9b37e7abbd0372d15d7296e1628779199acf8759b1ce3ee20f963"
+  },
+  "privacy": {
+    "inputFilenameIncluded": false,
+    "eventRecordIdIncluded": false,
+    "computerNameIncluded": false,
+    "userIdentityIncluded": false,
+    "wakeSourceIncluded": false,
+    "rawEventXmlIncluded": false,
+    "rawAdapterIdentifiersIncluded": false
+  },
+  "analysisHardwareWrites": false,
+  "analysisNetworkAccess": false,
+  "analysisElevationRequested": false,
+  "canUseInHud": false
+}

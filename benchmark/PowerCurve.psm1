@@ -152,8 +152,16 @@ function Assert-CAPowerCurveRun {
         if ($null -ne $startedProperty) {
             $dateStyles = [Globalization.DateTimeStyles]::AssumeUniversal -bor [Globalization.DateTimeStyles]::AdjustToUniversal
             try {
-                $measurementStarted = [DateTime]::Parse([string]$startedProperty.Value, [Globalization.CultureInfo]::InvariantCulture, $dateStyles)
-                $measurementEnded = [DateTime]::Parse([string]$endedProperty.Value, [Globalization.CultureInfo]::InvariantCulture, $dateStyles)
+                $measurementStarted = if ($startedProperty.Value -is [DateTime]) {
+                    ([DateTime]$startedProperty.Value).ToUniversalTime()
+                } else {
+                    [DateTime]::Parse([string]$startedProperty.Value, [Globalization.CultureInfo]::InvariantCulture, $dateStyles)
+                }
+                $measurementEnded = if ($endedProperty.Value -is [DateTime]) {
+                    ([DateTime]$endedProperty.Value).ToUniversalTime()
+                } else {
+                    [DateTime]::Parse([string]$endedProperty.Value, [Globalization.CultureInfo]::InvariantCulture, $dateStyles)
+                }
             }
             catch {
                 throw 'run.measurement.startedUtc and endedUtc must be valid date-time values.'

@@ -56,6 +56,25 @@ The gate requires a `live` passed workload run with explicit `measurement.starte
 
 The maintainer host had Ollama available but no installed models, and no identified local llama.cpp or ComfyUI model input. No model was downloaded to manufacture a result. Therefore this repository currently includes deterministic fixture validation of the linker, not loaded-inference evidence.
 
+## Manual sleep/resume lane
+
+After a current self-contained source build, start the bounded lifecycle harness as a standard user:
+
+```powershell
+.\tools\Invoke-WindowsGpuSleepResumeValidation.ps1 `
+  -DurationSeconds 300 `
+  -PollMilliseconds 2000 `
+  -MinimumPreSleepSeconds 10 `
+  -MinimumPostWakeSeconds 10 `
+  -ResultPath .\windows-gpu-pdh-raw-sleep-resume.json
+```
+
+The harness starts only the explicit `pdh-raw` collector in a hidden child process. It tells the tester when to put Windows to sleep manually, waits for the bounded collector, then reads new `Microsoft-Windows-Power-Troubleshooter` event ID 1 records. It never calls a suspend API or utility, changes a power plan, touches GPU controls, requests elevation, or uses the network.
+
+The separate `.sleep-resume-summary.json` hashes the untouched polling report and keeps only sanitized sleep/wake timestamps plus aggregate collection counts. Computer/user identity, event record ID, wake source, raw event XML, file paths, and raw adapter identifiers are omitted. Exactly one event must fall inside the observed wall-clock collection window with the requested awake margin on both sides. Missing/multiple/out-of-window events and every partial, unavailable, or overlapped provider collection remain explicit failures.
+
+Even `READY_FOR_MANUAL_SLEEP_RESUME_REVIEW` sets `promotionAuthorized=false` and `canUseInHud=false`. The [120-second no-sleep control report](../evidence/windows-gpu-pdh-raw-no-resume-control-120s-2026-10-10.json) and [linked summary](../evidence/windows-gpu-pdh-raw-no-resume-control-summary-120s-2026-10-10.json) verified the negative path: the event log was readable, zero new resume events produced `NO_RESUME_OBSERVED`, and the provider still completed 61/61 full engine/memory collections with no partial, unavailable, or overlapping collection. The repository report SHA-256 is `1d4a227d9de9b37e7abbd0372d15d7296e1628779199acf8759b1ce3ee20f963`; the linked summary SHA-256 is `c971476afcbcb240098a7d3e823f2cedc4c28b7f56d16a564b4fe3378f6e9a69`. No live sleep was initiated, so actual lifecycle compatibility is still unproven.
+
 ## Reproduce without enabling the HUD
 
 From a current source build:
@@ -86,7 +105,7 @@ The harness writes the untouched polling report plus a separate `.churn-summary.
 ## Remaining proof
 
 - Deterministic coverage and one low-load live browser run now prove the intended process lifecycle: a new nonzero engine fails only its first interval, recovers once an adjacent baseline exists, and disappears without leaving a stale row. The offline linker is ready, but loaded inference/process churn still needs a real local model input and independent evidence.
-- Repeat the 600-second result after sleep/resume and during a loaded local-AI workload; retain every intermediate failure.
+- Run the prepared manual sleep/resume lane and the loaded local-AI workflow on real hardware; retain every intermediate failure.
 - Loaded inference and image-generation runs must agree with an independent vendor source within a declared sampling tolerance.
 - Sleep/resume, loaded process churn, driver reset, adapter reorder, and stale-data behavior need explicit system tests.
 - External Windows 10/11 results must cover NVIDIA, AMD, Intel, integrated/discrete, a non-English display language, and an inaccessible-counter environment.

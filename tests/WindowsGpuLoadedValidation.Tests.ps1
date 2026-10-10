@@ -48,11 +48,11 @@ try {
     $baseWorkload = Get-Content -Raw -LiteralPath $fixturePath | ConvertFrom-Json
     $baseWorkload.createdUtc = '2026-10-10T12:00:04Z'
     $baseWorkload.protocol.sampleSeconds = 4
-    $baseWorkload.measurement | Add-Member -NotePropertyName startedUtc -NotePropertyValue '2026-10-10T12:00:00Z'
-    $baseWorkload.measurement | Add-Member -NotePropertyName endedUtc -NotePropertyValue '2026-10-10T12:00:04Z'
+    $baseWorkload.measurement | Add-Member -NotePropertyName startedUtc -NotePropertyValue '2026-10-10T12:00:00.250Z'
+    $baseWorkload.measurement | Add-Member -NotePropertyName endedUtc -NotePropertyValue '2026-10-10T12:00:04.250Z'
     $baseWindows = [pscustomobject][ordered]@{
         schemaVersion = 3
-        capturedUtc = '2026-10-10T12:00:10Z'
+        capturedUtc = '2026-10-10T12:00:10.250Z'
         source = 'live-windows-polling-read-only'
         counterProvider = 'windows-pdh-raw-engine'
         elapsedMilliseconds = 10000
@@ -81,6 +81,7 @@ try {
     $readyCase = Invoke-Case $baseWindows $liveWorkload 'ready'
     Assert-True ($readyCase.Result.Status -eq 'READY_FOR_MANUAL_VALUE_COMPARISON' -and
         [double]$readyCase.Summary.overlap.coveragePercent -eq 100 -and
+        $readyCase.Raw -match '"endUtc"\s*:\s*"2026-10-10T12:00:10\.2500000Z"' -and
         [bool]$readyCase.Result.AllWorkloadGpusLoaded -and
         -not [bool]$readyCase.Summary.valuesCompared -and
         -not [bool]$readyCase.Summary.canUseInHud) 'Aligned loaded evidence received the wrong boundary.'
@@ -95,8 +96,8 @@ try {
     Write-Output 'PASS provider partials remain blocking evidence'
 
     $misalignedWorkload = $liveWorkload | ConvertTo-Json -Depth 20 | ConvertFrom-Json
-    $misalignedWorkload.measurement.startedUtc = '2026-10-10T13:00:00Z'
-    $misalignedWorkload.measurement.endedUtc = '2026-10-10T13:00:04Z'
+    $misalignedWorkload.measurement.startedUtc = '2026-10-10T13:00:00.250Z'
+    $misalignedWorkload.measurement.endedUtc = '2026-10-10T13:00:04.250Z'
     $misalignedCase = Invoke-Case $baseWindows $misalignedWorkload 'misaligned'
     Assert-True ($misalignedCase.Result.Status -eq 'INSUFFICIENT_WINDOW_OVERLAP' -and
         [double]$misalignedCase.Summary.overlap.seconds -eq 0) 'Non-overlapping evidence was treated as simultaneous.'
@@ -135,7 +136,7 @@ try {
     catch { $threw = $true }
     Assert-True ($threw -and -not (Test-Path -LiteralPath $untimedOutput)) 'An inferred workload window was accepted as explicit timing evidence.'
     $inconsistentWindowWorkload = $liveWorkload | ConvertTo-Json -Depth 20 | ConvertFrom-Json
-    $inconsistentWindowWorkload.measurement.endedUtc = '2026-10-10T12:00:30Z'
+    $inconsistentWindowWorkload.measurement.endedUtc = '2026-10-10T12:00:30.250Z'
     $inconsistentWindowPath = Join-Path $temporaryRoot 'inconsistent-window-workload.json'
     $inconsistentWindowOutput = Join-Path $temporaryRoot 'inconsistent-window-summary.json'
     Write-Json $inconsistentWindowWorkload $inconsistentWindowPath
