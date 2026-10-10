@@ -67,5 +67,6 @@ No tracking is added to the desktop app. GitHub's aggregate repository/release c
 | 2026-10-10 | GitHub release + project Discussion | `v0.2.4-alpha.1` evidence-gated share cards | 0 | 0 | 0 | 0 | Deterministic SVG cards released with fixture/draft/measured gates and raw-evidence provenance; no real curve, external post, or vote solicitation. |
 | 2026-10-10 | GitHub release + project Discussion | `v0.2.4-alpha.2` phase-honest energy evidence | 0 | 0 | 0 | 0 | Schema-v3 prevents request/process power from being relabeled as phase-aligned Joules; no real curve, external post, or vote solicitation. |
 | 2026-10-10 | GitHub release + project Discussion | `v0.2.5-alpha.1` idle-power regression gate | 0 | 0 | 0 | 0 | Paired baseline/candidate gate blocks idle-regressing persistent clocks; fixture-only evidence, no real idle claim, external post, or vote solicitation. |
+| 2026-10-10 | GitHub public repository | Open-source visibility + workload topics | 0 | 0 | 0 | 0 | Secret/history/image audit passed; repository changed from private to public and anonymous access was verified. No external campaign or vote solicitation. |
 
 Add a row after a legitimate launch or collaboration. Never use referral tags to track people inside the application, buy traffic, solicit votes, or attribute normal organic traffic to a campaign without evidence.
