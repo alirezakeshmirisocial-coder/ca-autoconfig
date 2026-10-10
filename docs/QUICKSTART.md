@@ -37,7 +37,7 @@ Unblock-File -LiteralPath .\Verify-DesktopPackage.ps1
 
 The verifier checks the companion digest, traversal and absolute paths, case-insensitive duplicate entries, expansion size, required files, and declared version without extracting or executing the archive.
 
-## 3. Extract and install the default HUD
+## 3. Extract and try the HUD without installing
 
 After the verifier reports success:
 
@@ -47,6 +47,14 @@ Expand-Archive `
   -LiteralPath .\CA-AutoConfig-Desktop-v0.2.6-alpha.4-win-x64.zip `
   -DestinationPath .\CA-AutoConfig-v0.2.6-alpha.4
 Set-Location .\CA-AutoConfig-v0.2.6-alpha.4
+.\CAAutoConfig.exe
+```
+
+This portable trial starts the same standard-user HUD without creating a startup task or desktop shortcut. Use the tray icon to exit it.
+
+If you want the HUD to start at Logon and SessionUnlock, exit the portable trial from its tray icon first, then run:
+
+```powershell
 .\Install-DesktopApp.ps1
 ```
 
@@ -62,7 +70,7 @@ The installer copies the HUD to `%LOCALAPPDATA%\CASystemOverlay`, creates the `C
 
 Settings are local at `%LOCALAPPDATA%\CAAutoConfig\settings.json`. **Copy diagnostics** creates an inspectable report that omits usernames, machine names, GPU UUIDs, local paths, prompts, and outputs.
 
-## Remove the HUD
+## Remove the installed HUD
 
 From the extracted release directory:
 
@@ -71,6 +79,8 @@ From the extracted release directory:
 ```
 
 This removes the task, installed HUD files, and desktop shortcut. Local preferences remain for a future reinstall.
+
+If you only tried the portable executable, exit it from the tray and delete the extracted directory; no startup task or shortcut was created.
 
 ## Optional components are separate
 

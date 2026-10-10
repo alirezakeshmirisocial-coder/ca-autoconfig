@@ -31,8 +31,10 @@ $verifierUnblockIndex = $quickStart.IndexOf('Unblock-File -LiteralPath .\Verify-
 $verifyIndex = $quickStart.IndexOf('.\Verify-DesktopPackage.ps1', $verifierUnblockIndex + 1, [StringComparison]::Ordinal)
 $archiveUnblockIndex = $quickStart.IndexOf("Unblock-File -LiteralPath .\$archive", [StringComparison]::Ordinal)
 $expandIndex = $quickStart.IndexOf('Expand-Archive', [StringComparison]::Ordinal)
+$portableIndex = $quickStart.IndexOf('.\CAAutoConfig.exe', [StringComparison]::Ordinal)
 $installIndex = $quickStart.IndexOf('.\Install-DesktopApp.ps1', [StringComparison]::Ordinal)
-Assert-True ($hashIndex -ge 0 -and $hashIndex -lt $verifierUnblockIndex -and $verifierUnblockIndex -lt $verifyIndex -and $verifyIndex -lt $archiveUnblockIndex -and $archiveUnblockIndex -lt $expandIndex -and $expandIndex -lt $installIndex) 'Quick start does not preserve verify-before-extract-before-install ordering.'
+Assert-True ($hashIndex -ge 0 -and $hashIndex -lt $verifierUnblockIndex -and $verifierUnblockIndex -lt $verifyIndex -and $verifyIndex -lt $archiveUnblockIndex -and $archiveUnblockIndex -lt $expandIndex -and $expandIndex -lt $portableIndex -and $portableIndex -lt $installIndex) 'Quick start does not preserve verify-before-extract-before-portable-trial-before-install ordering.'
+Assert-True ($quickStart -match '(?i)portable trial starts.+without creating a startup task or desktop shortcut' -and $quickStart -match '(?i)exit the portable trial from its tray icon first' -and $release -match '(?i)portable, standard-user trial' -and $release.Contains('CAAutoConfig.exe')) 'Portable-trial state, release guidance, or exit-before-install boundary is missing.'
 
 Assert-True ($quickStart -match '(?i)unsigned' -and $quickStart -match '(?i)stop if any check fails') 'Unsigned-alpha or verification-failure boundary is missing.'
 Assert-True ($quickStart -match '(?i)does not request administrator rights' -and $quickStart -match '(?i)does not.+camera' -and $quickStart -match '(?i)(does not|no).+change GPU') 'Default-install privilege, camera, or hardware-write boundary is missing.'
@@ -41,4 +43,4 @@ Assert-True ($quickStart.Contains('.\Uninstall-SystemOverlay.ps1 -RemoveFiles'))
 Assert-True ($quickStart -match '(?i)not a universal recommendation' -and $quickStart -match '(?i)never applies') 'Power-advisor non-universal and no-auto-apply boundaries are missing.'
 Assert-True ($quickStart -notmatch '(?i)Invoke-WebRequest|Invoke-RestMethod|Start-BitsTransfer|\bcurl\b|\birm\b|ExecutionPolicy\s+Bypass') 'Quick start downloads or bypasses policy from an executable command.'
 
-Write-Host '10 quick-start tests passed. Asset identity, verify-first ordering, first-run controls, removal, and default safety boundaries are present.' -ForegroundColor Cyan
+Write-Host '11 quick-start tests passed. Asset identity, verify-first portable trial, first-run controls, removal, and default safety boundaries are present.' -ForegroundColor Cyan

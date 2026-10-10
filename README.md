@@ -21,10 +21,10 @@ CA AutoConfig is an open-source, lightweight Windows HUD and conservative GPU po
 The default self-contained install needs no .NET runtime, no administrator rights, no camera, and makes no GPU changes. The current alpha is unsigned, so verify it before extraction:
 
 1. Download the exact [ZIP](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/releases/download/v0.2.6-alpha.4/CA-AutoConfig-Desktop-v0.2.6-alpha.4-win-x64.zip), [SHA-256 file](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/releases/download/v0.2.6-alpha.4/CA-AutoConfig-Desktop-v0.2.6-alpha.4-win-x64.sha256), and [offline verifier](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/releases/download/v0.2.6-alpha.4/Verify-DesktopPackage.ps1) into one directory.
-2. Follow the [verify, extract, install, first-minute, and removal quick start](docs/QUICKSTART.md). The published ZIP SHA-256 is `0a71a120139bf10e36bdad1c816cbd07b9fbcac9651ef498ba214862b32f3b6d`.
+2. Follow the [verify, extract, portable trial, install, first-minute, and removal quick start](docs/QUICKSTART.md). The published ZIP SHA-256 is `0a71a120139bf10e36bdad1c816cbd07b9fbcac9651ef498ba214862b32f3b6d`.
 3. Unlock with the tiny control or `Ctrl+Alt+L`, choose a monitor on the visual map, drag the HUD, set your shortcut and opacity, then lock it again.
 
-The red profile indicator is a warning that the current-boot GPU limit was not verified; the HUD never fixes that by silently applying a setting.
+Run `CAAutoConfig.exe` directly after verification to try the HUD without adding startup state. The red profile indicator is a warning that the current-boot GPU limit was not verified; the HUD never fixes that by silently applying a setting.
 
 ## Current HUD features
 
