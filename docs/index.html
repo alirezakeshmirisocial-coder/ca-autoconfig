@@ -43,10 +43,10 @@
         <h1>Keep the workstation honest.</h1>
         <p class="hero-lede">A tiny click-through HUD that verifies whether your GPU profile survived this boot, keeps both cards readable, and helps you measure power limits before you trust them.</p>
         <div class="hero-actions">
-          <a class="primary-action" href="https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/releases/tag/v0.2.6-alpha.4">Download the latest alpha</a>
+          <a class="primary-action" href="https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/blob/main/docs/QUICKSTART.md">Try the portable HUD</a>
           <a class="text-action" href="https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/blob/main/docs/ARCHITECTURE.md">Read the architecture</a>
         </div>
-        <p class="alpha-note">Unsigned pre-release. Windows 10/11 and NVIDIA are the current supported path. GPU changes are separate, explicit and elevated.</p>
+        <p class="alpha-note">Unsigned pre-release <a href="https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/releases/tag/v0.2.6-alpha.4">v0.2.6-alpha.4</a>. Windows 10/11 and NVIDIA are the current supported path. GPU changes are separate, explicit and elevated.</p>
       </div>
 
       <figure class="hud-stage">
@@ -130,13 +130,16 @@
 
     <section class="install-section" id="install">
       <div>
-        <h2>Install the HUD. Keep mutation optional.</h2>
-        <p>Download the ZIP, checksum and standalone verifier from the latest release. Verify before extraction, then install the standard-user desktop app.</p>
+        <h2>Try first. Install startup only if it earns a place.</h2>
+        <p>Download the ZIP, checksum and standalone verifier. After verification and extraction, run the HUD directly without creating a task or shortcut. Install startup only after you decide to keep it.</p>
       </div>
-      <pre aria-label="PowerShell installation commands"><code>.\Verify-DesktopPackage.ps1 -PackagePath .\CA-AutoConfig-Desktop-v0.2.6-alpha.4-win-x64.zip -ExpectedVersion 0.2.6-alpha.4
+      <pre aria-label="Portable trial and optional startup commands"><code># After verification and extraction:
+# Portable trial
+.\CAAutoConfig.exe
+# Optional startup, after exiting the trial
 .\Install-DesktopApp.ps1</code></pre>
       <div class="install-actions">
-        <a class="primary-action" href="https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/releases/tag/v0.2.6-alpha.4">Open release v0.2.6-alpha.4</a>
+        <a class="primary-action" href="https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/blob/main/docs/QUICKSTART.md">Open the two-minute quick start</a>
         <a class="text-action" href="https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/discussions/9">Join one focused alpha test</a>
       </div>
     </section>

@@ -24,6 +24,10 @@ Assert-True ($html -match '<a class="skip-link" href="#main">') 'Keyboard skip l
 Assert-True ($html -match '<main id="main">' -and $html -match '<nav aria-label="Primary navigation">') 'Page landmarks are incomplete.'
 Assert-True ($html -match 'alt="CA AutoConfig HUD with a small lock control') 'HUD image does not have useful alternative text.'
 Assert-True ($html -match 'assets/social-preview\.png' -and $html -match 'og:image:width" content="1280"' -and $html -match 'og:image:height" content="640"') 'Open Graph preview path or dimensions are missing.'
+Assert-True ($html -match 'blob/main/docs/QUICKSTART\.md' -and $html -match 'Try the portable HUD' -and $html -match 'Open the two-minute quick start') 'Portable quick-start calls to action are missing.'
+$portableHtmlIndex = $html.IndexOf('.\CAAutoConfig.exe', [StringComparison]::Ordinal)
+$installHtmlIndex = $html.IndexOf('.\Install-DesktopApp.ps1', [StringComparison]::Ordinal)
+Assert-True ($portableHtmlIndex -ge 0 -and $portableHtmlIndex -lt $installHtmlIndex -and $html -match '(?i)without creating a task or shortcut' -and $html -match '(?i)install startup only after') 'Homepage does not preserve portable-trial-before-optional-install ordering.'
 Assert-True ($socialPreviewSource -match '<svg[^>]+width="1280"[^>]+height="640"' -and $socialPreviewSource -match '<title' -and $socialPreviewSource -match '<desc') 'Social-preview source is missing dimensions or accessible text.'
 Assert-True ($socialPreviewSource -notmatch '(?i)<script|(?:xlink:)?href="https?://') 'Social-preview source contains script or a remote runtime asset.'
 Assert-True ($html -match 'v0\.2\.6-alpha\.4' -and $html -match 'Unsigned pre-release') 'Release link or alpha boundary is missing.'
@@ -47,4 +51,4 @@ finally {
 }
 Assert-True ((Get-Item -LiteralPath $socialPreviewPath).Length -lt 1MB) 'Social-preview PNG exceeds GitHub''s one-megabyte limit.'
 
-Write-Host '24 landing-page tests passed. The static site and social preview have no scripts, analytics, external fonts, or application-side network client.' -ForegroundColor Cyan
+Write-Host '26 landing-page tests passed. The static site and social preview have no scripts, analytics, external fonts, or application-side network client.' -ForegroundColor Cyan
