@@ -7,16 +7,22 @@ $cssPath = Join-Path $root 'docs\site.css'
 $imagePath = Join-Path $root 'docs\assets\hud-alpha.png'
 $socialPreviewPath = Join-Path $root 'docs\assets\social-preview.png'
 $socialPreviewSourcePath = Join-Path $root 'docs\assets\social-preview.svg'
+$robotsPath = Join-Path $root 'docs\robots.txt'
+$sitemapPath = Join-Path $root 'docs\sitemap.xml'
 $noJekyllPath = Join-Path $root 'docs\.nojekyll'
 $html = Get-Content -LiteralPath $htmlPath -Raw -Encoding UTF8
 $css = Get-Content -LiteralPath $cssPath -Raw -Encoding UTF8
 $socialPreviewSource = Get-Content -LiteralPath $socialPreviewSourcePath -Raw -Encoding UTF8
+$robots = Get-Content -LiteralPath $robotsPath -Raw -Encoding UTF8
+[xml]$sitemap = Get-Content -LiteralPath $sitemapPath -Raw -Encoding UTF8
 
 function Assert-True { param([bool]$Condition, [string]$Message); if (-not $Condition) { throw $Message } }
 
 Assert-True (Test-Path -LiteralPath $imagePath -PathType Leaf) 'Landing-page HUD image is missing.'
 Assert-True (Test-Path -LiteralPath $socialPreviewPath -PathType Leaf) 'Social-preview PNG is missing.'
 Assert-True (Test-Path -LiteralPath $socialPreviewSourcePath -PathType Leaf) 'Social-preview SVG source is missing.'
+Assert-True (Test-Path -LiteralPath $robotsPath -PathType Leaf) 'Root robots.txt is missing.'
+Assert-True (Test-Path -LiteralPath $sitemapPath -PathType Leaf) 'Root sitemap.xml is missing.'
 Assert-True (Test-Path -LiteralPath $noJekyllPath -PathType Leaf) 'The static Pages opt-out file is missing.'
 Assert-True ($html -match '<meta name="viewport"') 'Responsive viewport metadata is missing.'
 Assert-True ($html -match '<meta http-equiv="Content-Security-Policy"') 'Static Content Security Policy is missing.'
@@ -41,6 +47,15 @@ Assert-True ($css -match ':focus-visible' -and $css -match 'prefers-reduced-moti
 Assert-True ($css -notmatch '(?i)@import|url\(\s*["'']?https?://') 'Stylesheet loads an external resource.'
 Assert-True ($css -notmatch '(?i)animation\s*:') 'Landing page adds nonessential automatic animation.'
 
+$namespace = New-Object Xml.XmlNamespaceManager($sitemap.NameTable)
+$namespace.AddNamespace('sm', 'http://www.sitemaps.org/schemas/sitemap/0.9')
+$sitemapUrls = @($sitemap.SelectNodes('/sm:urlset/sm:url', $namespace))
+Assert-True ($sitemapUrls.Count -eq 1) 'Sitemap must expose exactly the one canonical public page.'
+Assert-True ([string]$sitemapUrls[0].loc -eq 'https://alirezakeshmirisocial-coder.github.io/ca-autoconfig/') 'Sitemap URL is not the absolute canonical homepage.'
+Assert-True ([string]$sitemapUrls[0].lastmod -match '^\d{4}-\d{2}-\d{2}$') 'Sitemap lastmod is missing or not an ISO date.'
+Assert-True ($robots -match '(?im)^User-agent:\s*\*$' -and $robots -match '(?im)^Allow:\s*/$' -and $robots -notmatch '(?im)^Disallow:') 'robots.txt does not explicitly permit the public site or unexpectedly disallows content.'
+Assert-True ($robots -match '(?im)^Sitemap:\s*https://alirezakeshmirisocial-coder\.github\.io/ca-autoconfig/sitemap\.xml$') 'robots.txt does not advertise the absolute sitemap URL.'
+
 Add-Type -AssemblyName System.Drawing
 $preview = [Drawing.Image]::FromFile($socialPreviewPath)
 try {
@@ -51,4 +66,4 @@ finally {
 }
 Assert-True ((Get-Item -LiteralPath $socialPreviewPath).Length -lt 1MB) 'Social-preview PNG exceeds GitHub''s one-megabyte limit.'
 
-Write-Host '26 landing-page tests passed. The static site and social preview have no scripts, analytics, external fonts, or application-side network client.' -ForegroundColor Cyan
+Write-Host '33 landing-page and discovery tests passed. The static site, social preview, robots file, and sitemap have no scripts, analytics, external fonts, or application-side network client.' -ForegroundColor Cyan

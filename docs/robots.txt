@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://alirezakeshmirisocial-coder.github.io/ca-autoconfig/sitemap.xml
