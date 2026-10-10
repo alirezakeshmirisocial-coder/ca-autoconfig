@@ -102,12 +102,15 @@ flowchart TB
     combined -->|InstallPresenceMonitor| presence[Camera presence monitor]
     manual[Separate guard installer] --> guard[Unlock guard]
 
+    ollama[Local Ollama adapter] --> curve[Anonymized power-curve run]
+    smi2[nvidia-smi query only] --> curve
     lab[Adaptive cooling lab] --> advice[Deterministic advice only<br/>CanApply = false]
     advice -. no actuator .-> gpu
 ```
 
 - The presence lab performs local enrollment and inference. Its SFace path stores embeddings, not raw camera frames, and its test mode never locks Windows.
 - The unlock guard can relock Windows after a failed challenge, but it is a separate installation and is not a replacement for Windows Hello, BitLocker, or operating-system access control.
+- The Ollama adapter sends a user-supplied prompt to loopback by default, samples NVIDIA telemetry during that request, and exports neither prompt nor generated text. Remote endpoints require an explicit flag. It cannot pull models, elevate, or change a GPU profile.
 - The adaptive cooling assembly is deterministic and hardware-independent. It has no hardware adapter, process launch, persistence, network access, or write path; `CanApply` is always `false`.
 
 See [PRIVACY.md](../PRIVACY.md), [SECURITY.md](../SECURITY.md), and the [adaptive cooling design](../fan-control/ADAPTIVE_FAN_SYSTEM.md) for the detailed policies.
@@ -120,6 +123,7 @@ See [PRIVACY.md](../PRIVACY.md), [SECURITY.md](../SECURITY.md), and the [adaptiv
 | Settings event | Ask the existing user-session process to open its settings window | Arbitrary commands or payloads |
 | GPU installer | Validate explicit values; request UAC; install one fixed task action | Silent elevation; inferred GPU targets; universal power presets |
 | GPU task | Run the protected apply script as SYSTEM; write result/log files | User-controlled command lines; hidden profile changes |
+| Ollama benchmark | Call a local model; read official timing counters; query NVIDIA telemetry; write an anonymized run | Model pulls; implicit remote prompts; GPU writes; prompt/response export |
 | Presence experiment | Local camera inference after opt-in | Default installation; cloud face processing; raw-frame retention in SFace mode |
 | Cooling simulation | Return bounded advice and emergency status | Device writes or authorization to apply advice |
 
@@ -142,7 +146,7 @@ See [PRIVACY.md](../PRIVACY.md), [SECURITY.md](../SECURITY.md), and the [adaptiv
 | HUD core | `tests/SystemOverlay.Smoke.Tests.ps1` compiles the shared source, round-trips settings, validates live multi-GPU telemetry, and exercises 13 deterministic NVIDIA identity/state/success/failure cases. |
 | Compiled app | `tests/DesktopApp.Smoke.Tests.ps1` builds and launches the .NET entry point in a no-hardware-write smoke mode. |
 | Privileged helper | `tests/GpuLimits.Safety.Tests.ps1` checks explicit targets, preflight-before-write, rollback, ACL intent, and safe combined-installer defaults without changing hardware. |
-| Power-curve lab | `benchmark/Run-Tests.ps1` validates calculations, missing values, privacy rejection, fixture dry-run reporting, and the absence of NVIDIA mutation flags. |
+| Power-curve lab | `benchmark/Run-Tests.ps1` runs 14 schema/report tests plus nine Ollama parsing/orchestration tests in both PowerShell runtimes, including remote-endpoint rejection, concurrent fixture telemetry, and failed-request preservation. |
 | Cooling model | `fan-control/Run-Tests.ps1` runs the isolated safety, calibration, prediction, drift, and emergency scenarios. |
 | Demo | `tools/Capture-HudDemo.ps1` uses `PrintWindow` on CA AutoConfig windows only, verifies state transitions, and restores the HUD to locked mode. |
 

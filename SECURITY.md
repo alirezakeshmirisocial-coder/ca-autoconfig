@@ -19,4 +19,5 @@ We aim to acknowledge a complete report within three business days. A fix and di
 - The SYSTEM task executes only an administrator-owned, non-reparse-point script path that normal users can read but cannot modify.
 - Power recommendations are read-only candidates until the user explicitly starts a benchmark and confirms an apply operation.
 - Recommendations must remain inside vendor-reported limits and must not exceed the vendor default.
+- The Ollama adapter is loopback-only by default, never pulls a model, and has no GPU-write or elevation path; remote prompt transmission requires an explicit flag.
 - The RGB-camera presence feature is not liveness detection and is not a replacement for Windows Hello, BitLocker, or a strong Windows credential.

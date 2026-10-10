@@ -15,7 +15,7 @@ The installer copies `CAAutoConfig.exe` to `%LOCALAPPDATA%\CASystemOverlay` and 
 
 The tray icon, tiny lock pill, monitor map, custom shortcut, opacity, and saved position behave the same as the PowerShell-hosted alpha. Both hosts share schema-versioned settings at `%LOCALAPPDATA%\CAAutoConfig\settings.json`. A host that encounters a newer settings schema falls back safely and refuses to overwrite that file.
 
-The release ZIP also includes the optional [`benchmark`](../benchmark/POWER_CURVE_METHOD.md) lab. It records query-only NVIDIA telemetry beside throughput you measured from a workload, rejects common machine identifiers, and produces a scoped Markdown comparison. It is not part of the startup task and cannot change a GPU profile.
+The release ZIP also includes the optional [`benchmark`](../benchmark/POWER_CURVE_METHOD.md) lab. It records query-only NVIDIA telemetry beside throughput you measured from a workload, rejects common machine identifiers, and produces a scoped Markdown comparison. Its local-first Ollama adapter can measure official prompt/generation counters during the same window as GPU telemetry without exporting the prompt or response. The lab is not part of the startup task and cannot change a GPU profile.
 
 ## Remove
 

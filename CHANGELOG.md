@@ -4,6 +4,12 @@ This project follows semantic versioning after `v1.0.0`. Pre-1.0 releases may ch
 
 ## Unreleased
 
+## v0.2.2-alpha.1 — Local Ollama power-run adapter
+
+- Added a local-first Ollama power-run adapter that samples NVIDIA telemetry during a deterministic generation request and derives uncached prompt/generation throughput from official API counters.
+- Kept workload collection read-only: no model pull, GPU mutation, elevation, prompt export, response export, or implicit remote endpoint.
+- Added nine deterministic Ollama adapter tests, including remote-endpoint rejection, a concurrent local fixture run, and a failed-request export, in Windows PowerShell and PowerShell 7.
+
 ## v0.2.1-alpha.3 — Stable GPU identity and control-path repair
 
 - Resolved user-selected GPU indices to stable NVIDIA UUIDs before elevation and pinned the protected scheduled task to those identities.

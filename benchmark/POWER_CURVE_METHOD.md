@@ -35,6 +35,28 @@ powershell.exe -NoProfile -File .\benchmark\Run-Tests.ps1
 
 ## Record one real run
 
+### Ollama: measure workload and GPUs together
+
+Install the model yourself, keep Ollama running locally, and use a fixed public benchmark prompt. The adapter calls the local `/api/generate` endpoint with `stream=false`, temperature `0`, seed `42`, and explicit context/output sizes while it samples NVIDIA telemetry:
+
+```powershell
+.\benchmark\Invoke-OllamaPowerRun.ps1 `
+  -Model 'qwen2.5-coder:14b' `
+  -BenchmarkId 'public-code-prompt-v1' `
+  -Prompt 'Write a deterministic 512-token explanation of matrix multiplication.' `
+  -GpuIndexList '0,1' `
+  -NumCtx 4096 `
+  -NumPredict 512 `
+  -Repetition 1 `
+  -OutputPath .\artifacts\runs\ollama-profile-a-r1.json
+```
+
+`BenchmarkId` is a non-sensitive identifier for the exact prompt/protocol. Keep it unchanged only when the prompt and workload are unchanged. The raw prompt and generated response are used in memory but are never written to the schema-v1 export. Model quantization comes from `/api/show`; prompt and generation rates come from Ollama's `prompt_eval_*` and `eval_*` counters. Cached prompt tokens are excluded from prompt throughput. See the official [generate-response fields](https://docs.ollama.com/api/generate) and [model-details endpoint](https://docs.ollama.com/api-reference/show-model-details).
+
+The adapter does not pull models or change GPU settings. It records a run as `incomplete` when generation ends before the default ten-second measurement window, and as `failed` when the measured request or its metrics fail. Local loopback is the default; a non-loopback endpoint requires `-AllowRemoteEndpoint` because it sends the supplied prompt to that server. Apply each candidate power profile through the separate reviewed workflow, then record at least three interleaved repetitions per profile.
+
+### Manual or other workloads
+
 Start the workload yourself and wait until it is ready to benchmark. Obtain prompt/generation throughput from the workload's own benchmark output, then keep the same workload running while the recorder observes the selected GPUs:
 
 ```powershell
@@ -53,7 +75,7 @@ Start the workload yourself and wait until it is ready to benchmark. Obtain prom
   -OutputPath .\artifacts\runs\profile-a-r1.json
 ```
 
-The recorder queries `nvidia-smi`; it does not launch the workload and cannot change the active profile. Profile selection remains an explicit, separate action. This separation keeps benchmark collection usable without administrator rights and prevents an analysis script from becoming a hardware actuator.
+The generic recorder queries `nvidia-smi`; it does not launch the workload and cannot change the active profile. Profile selection remains an explicit, separate action. This separation keeps benchmark collection usable without administrator rights and prevents an analysis script from becoming a hardware actuator.
 
 Use an `incomplete` or `failed` result instead of inventing throughput when the workload resets or does not finish:
 
