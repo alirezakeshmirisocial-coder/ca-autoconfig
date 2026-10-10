@@ -29,8 +29,12 @@ function Assert-CAPowerCurvePrivacy {
     param([Parameter(Mandatory = $true)]$Run)
 
     $forbiddenNames = @(
-        'uuid', 'computer', 'hostname', 'machine', 'username', 'user',
-        'serial', 'pcibusid', 'path', 'command', 'commandline'
+        'uuid', 'gpuuuid',
+        'computer', 'computername', 'hostname', 'machine', 'machinename',
+        'username', 'user', 'userid', 'account', 'accountname',
+        'serial', 'serialnumber', 'pcibus', 'pcibusid',
+        'path', 'filepath', 'directory', 'directorypath',
+        'command', 'rawcommand', 'commandline'
     )
 
     function Visit-CAValue {

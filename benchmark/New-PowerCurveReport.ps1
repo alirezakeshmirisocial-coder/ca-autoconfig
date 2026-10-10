@@ -11,7 +11,10 @@ Import-Module (Join-Path $PSScriptRoot 'PowerCurve.psm1') -Force
 
 if ($DryRun -and $InputPath.Count -gt 0) { throw '-DryRun cannot be combined with -InputPath.' }
 if ($DryRun) {
-    $InputPath = @(Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot 'fixtures') -Filter '*.json' -File | Sort-Object Name | ForEach-Object FullName)
+    $InputPath = @(
+        (Join-Path $PSScriptRoot 'fixtures\dual-3090-280w.json'),
+        (Join-Path $PSScriptRoot 'fixtures\dual-3090-350w.json')
+    )
 }
 if ($InputPath.Count -eq 0) { throw 'Provide one or more schema-v1/v2 run files, or use -DryRun.' }
 

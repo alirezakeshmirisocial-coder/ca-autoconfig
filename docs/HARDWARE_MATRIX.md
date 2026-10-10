@@ -12,7 +12,7 @@ This matrix separates live maintainer checks, deterministic fixtures, and extern
 
 ## Maintainer workstation
 
-Last checked: 2026-10-10 with `v0.2.4-alpha.2`.
+Last checked: 2026-10-10 with `v0.2.5-alpha.1`.
 
 | Surface | Environment | Evidence | Result and boundary |
 | --- | --- | --- | --- |
@@ -24,6 +24,7 @@ Last checked: 2026-10-10 with `v0.2.4-alpha.2`.
 | Ollama adapter | Ollama 0.32.5, no installed model | Live boundary + deterministic fixture | Loopback/version and missing-model behavior verified; request/telemetry orchestration is fixture-tested. No throughput or efficiency result claimed. |
 | llama.cpp adapter | No `llama-bench` on PATH and no user-approved GGUF input | Deterministic fixture | Exact official JSON pp/tg parsing, process telemetry, failure retention, and path omission pass. No hardware result claimed. |
 | ComfyUI adapter | No listener on ports 8188/8189 and no supplied API workflow | Deterministic loopback fixture | Queue/history, seed-cache rejection, exact image count, schema-v3 aligned client-window image/J, failures, and redaction pass. No diffusion result claimed. |
+| Idle-power regression gate | Synthetic paired dual-3090 baseline/candidate evidence | Deterministic fixture | Three repetitions per condition, aggregate/per-GPU deltas, busy/missing/failed/mixed evidence rejection, and permanent fixture non-authorization pass. No live idle result or clock recommendation claimed. |
 | Presence experiment | Microsoft LifeCam Studio RGB webcam | Maintainer experiment only | Local RGB face matching is optional, spoofable, and separate from the default HUD. The device is not available as Windows Hello Face hardware. |
 
 ## External coverage
@@ -40,6 +41,6 @@ No external hardware reproduction has been accepted yet. That zero is intentiona
 
 ## Add a reproducible row
 
-Choose one test in the [design-partner intake](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/discussions/9), use the [hardware-result form](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/issues/new?template=hardware-result.yml), or join [Discussions](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/discussions). Include the release, Windows build, GPU board/model and driver, display layout, exact public workload protocol, warm-up and repetition count, and every failure or reset. Attach schema-v1/v2/v3 exports when relevant; only schema-v3 can prove phase alignment.
+Choose one test in the [design-partner intake](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/discussions/9), use the [hardware-result form](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/issues/new?template=hardware-result.yml), or join [Discussions](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/discussions). Include the release, Windows build, GPU board/model and driver, display layout, exact public workload protocol, warm-up and repetition count, and every failure or reset. Attach schema-v1/v2/v3 workload exports and idle-schema-v1 paired exports when relevant; only schema-v3 can prove workload phase alignment, and only live paired idle evidence can pass the idle gate.
 
 Remove usernames, machine names, GPU UUIDs, serials, personal paths, private prompts/workflows, tokens, and image content. Do not share a raw command if it contains private paths. Reports are reviewed before this table changes; stars are never a condition for inclusion.

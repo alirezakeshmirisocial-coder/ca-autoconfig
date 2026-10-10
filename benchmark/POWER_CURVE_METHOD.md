@@ -161,6 +161,52 @@ Use an `incomplete` or `failed` result instead of inventing throughput when the 
   -OutputPath .\artifacts\runs\profile-a-r2-failed.json
 ```
 
+## Gate persistent clock locks against idle power
+
+A workload-efficient clock lock can still be a poor always-on setting if it prevents the board from returning to its normal idle state. Record at least three quiet, paired runs for the same cards and driver. Apply or reset the profile through a separately reviewed workflow; the recorder below is query-only and never changes the active profile.
+
+First collect a vendor-auto baseline after the clocks have been reset and the desktop has settled:
+
+```powershell
+.\benchmark\Record-IdlePowerRun.ps1 `
+  -Condition baseline `
+  -ProfileLabel 'Vendor auto 350 W' `
+  -ClockPolicy vendor-auto `
+  -GpuIndexList '0,1' `
+  -SettleSeconds 30 `
+  -SampleSeconds 60 `
+  -Repetition 1 `
+  -OutputPath .\artifacts\idle\baseline-r1.json
+```
+
+Then, only after the user has explicitly applied the candidate elsewhere, record the persistent-lock condition:
+
+```powershell
+.\benchmark\Record-IdlePowerRun.ps1 `
+  -Condition candidate `
+  -ProfileLabel 'Locked 1700 MHz 280 W' `
+  -ClockPolicy persistent-graphics-lock `
+  -GraphicsClockMaximumMHz 1700 `
+  -GpuIndexList '0,1' `
+  -SettleSeconds 30 `
+  -SampleSeconds 60 `
+  -Repetition 1 `
+  -OutputPath .\artifacts\idle\candidate-r1.json
+```
+
+Interleave the conditions where practical, increment `-Repetition`, and close GPU workloads during every sample window. Generate the gate report from all paired exports:
+
+```powershell
+$idleRuns = Get-ChildItem .\artifacts\idle\*.json | ForEach-Object FullName
+.\benchmark\New-IdlePowerGateReport.ps1 `
+  -InputPath $idleRuns `
+  -OutputPath .\artifacts\idle-power-gate.md
+```
+
+The default gate requires three unique repetitions per condition, at least 30 seconds per run, complete board-power/utilization telemetry, mean utilization no higher than 5%, and p95 utilization no higher than 15%. Combined idle power must stay within both declared bounds (5 W and 10%), and every card must stay within both of its bounds (3 W and 15%); exceeding any one watt or percentage bound is enough to fail. Thresholds and per-GPU deltas are printed in the report.
+
+Fixture data returns `FIXTURE`, never `PASS`. A live `PASS` exposes only `CanProceedPastIdleGate`; it is not a hardware-limit recommendation. Workload failures, clock stability, temperature, rollback, administrator elevation, and explicit confirmation remain separate gates. See [the rationale and threat model](../docs/research/IDLE_POWER_REGRESSION.md).
+
 ## Compare runs
 
 ```powershell
@@ -182,6 +228,6 @@ Publish the card only beside the raw anonymized JSON and method. The card refuse
 
 ## Export schema and privacy
 
-[`schema-v1.json`](schema-v1.json) remains supported for token workloads. [`schema-v2.json`](schema-v2.json) adds an explicit rate/unit pair for image and other non-token workloads. [`schema-v3.json`](schema-v3.json) is the current writer format and adds mandatory power/rate-window provenance. All versions require explicit `null` values for missing throughput or telemetry; missing evidence never becomes zero. Before any report is produced, the module rejects fields named like UUID, hostname, user, path, command line, serial, or PCI bus ID and scans strings for common home/profile paths.
+[`schema-v1.json`](schema-v1.json) remains supported for token workloads. [`schema-v2.json`](schema-v2.json) adds an explicit rate/unit pair for image and other non-token workloads. [`schema-v3.json`](schema-v3.json) is the current workload writer format and adds mandatory power/rate-window provenance. [`idle-schema-v1.json`](idle-schema-v1.json) is a separate paired-idle evidence contract; it cannot be passed off as workload evidence. All versions require explicit `null` values for missing throughput or telemetry; missing evidence never becomes zero. Before any report is produced, the modules reject fields named like UUID, hostname, user, path, command line, serial, or PCI bus ID—including common camelCase variants—and scan strings for common home/profile paths.
 
 Review exports before posting. A model name or workload label that you type can still contain information you did not intend to share.

@@ -7,7 +7,7 @@
 
 CA AutoConfig is a lightweight Windows HUD and conservative GPU power companion for local-AI and multi-GPU workstations. It keeps essential CPU, memory, storage, CUDA/SM, VRAM, temperature, and board-power information visible without stealing focus from the applications underneath it.
 
-[Latest alpha](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/releases/tag/v0.2.4-alpha.2) · [Join one focused alpha test](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/discussions/9) · [Desktop preview](docs/DESKTOP_PREVIEW.md) · [Hardware matrix](docs/HARDWARE_MATRIX.md) · [Power-curve lab](benchmark/POWER_CURVE_METHOD.md) · [Architecture](docs/ARCHITECTURE.md) · [Roadmap](ROADMAP.md) · [Contributor issues](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/milestone/1) · [Discussions](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/discussions) · [Growth scorecard](docs/launch/GROWTH_SCORECARD.md)
+[Latest alpha](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/releases/tag/v0.2.5-alpha.1) · [Join one focused alpha test](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/discussions/9) · [Desktop preview](docs/DESKTOP_PREVIEW.md) · [Hardware matrix](docs/HARDWARE_MATRIX.md) · [Power-curve lab](benchmark/POWER_CURVE_METHOD.md) · [Architecture](docs/ARCHITECTURE.md) · [Roadmap](ROADMAP.md) · [Contributor issues](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/milestone/1) · [Discussions](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/discussions) · [Growth scorecard](docs/launch/GROWTH_SCORECARD.md)
 
 ![Three-step CA AutoConfig demo showing the locked HUD, edit mode, and monitor and shortcut settings](docs/assets/hud-demo.gif)
 
@@ -59,12 +59,15 @@ Try the complete calculation and privacy pipeline on synthetic fixtures:
 ```powershell
 .\benchmark\New-PowerCurveReport.ps1 -DryRun -OutputPath .\artifacts\fixture-power-curve.md
 .\benchmark\New-PowerCurveCard.ps1 -DryRun -OutputPath .\artifacts\fixture-power-curve.svg
+.\benchmark\New-IdlePowerGateReport.ps1 -DryRun -OutputPath .\artifacts\fixture-idle-gate.md
 .\benchmark\Run-Tests.ps1
 ```
 
 The generated report and share card compare only matching workload fingerprints and describe the leading point according to its evidence grade—not as a universal GPU limit. Fixture cards carry a permanent **NOT HARDWARE EVIDENCE** label; under-repeated live datasets carry **DRAFT / INSUFFICIENT REPETITIONS**; a measured card still requires its exact anonymized raw JSON and method.
 
 Why the phase boundary matters—and which current community/research signals drove schema-v3—is documented in [Phase-aligned energy evidence](docs/research/PHASE_ALIGNED_ENERGY.md).
+
+Persistent graphics-clock locks get a separate [idle-power regression gate](docs/research/IDLE_POWER_REGRESSION.md). The query-only recorder compares at least three vendor-auto baseline runs with three candidate runs, rejects missing/busy/mixed/failed evidence, and checks both whole-system-of-GPUs and per-card board-power deltas. A pass means only `CanProceedPastIdleGate`; workload stability, temperature, rollback, and explicit user confirmation remain mandatory before any apply recommendation.
 
 ![Synthetic dual-3090 power-curve fixture card with a visible not-hardware-evidence warning](docs/assets/fixture-power-curve.svg)
 

@@ -4,6 +4,12 @@ This project follows semantic versioning after `v1.0.0`. Pre-1.0 releases may ch
 
 ## Unreleased
 
+## v0.2.5-alpha.1 — Idle-safe clock candidates
+
+- Added a separate, query-only idle-power recorder, anonymized idle-schema-v1 contract, deterministic paired baseline/candidate fixtures, and a fail-closed regression report for persistent graphics-clock candidates.
+- The idle gate requires repeated live evidence, exact hardware/driver consistency, complete low-utilization telemetry, and aggregate plus per-GPU thresholds. Its strongest output is `CanProceedPastIdleGate`; fixture data and a gate pass can never become a final recommendation.
+- Expanded shared privacy-field rejection to common camelCase identifier variants such as `machineName`, `computerName`, and `gpuUuid`.
+
 ## v0.2.4-alpha.2 — Phase-honest energy evidence
 
 - Added schema-v3 measurement provenance for power, prompt, generation, and work-rate windows; current adapters now emit explicit phase semantics.

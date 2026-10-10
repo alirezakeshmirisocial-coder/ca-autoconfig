@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "runId": "fixture-idle-baseline-r1",
+  "createdUtc": "2026-10-10T00:00:00Z",
+  "source": "fixture",
+  "condition": "baseline",
+  "privacy": {
+    "containsGpuUuid": false,
+    "containsMachineName": false,
+    "containsUserName": false,
+    "containsPaths": false,
+    "containsRawCommand": false
+  },
+  "profile": {
+    "label": "Vendor auto 350 W",
+    "clockPolicy": "vendor-auto",
+    "graphicsClockMaximumMHz": null
+  },
+  "protocol": {
+    "settleSeconds": 30,
+    "sampleSeconds": 60,
+    "intervalMilliseconds": 10000,
+    "repetition": 1
+  },
+  "result": {
+    "status": "passed",
+    "error": null
+  },
+  "gpus": [
+    {
+      "index": 0,
+      "model": "NVIDIA GeForce RTX 3090",
+      "driver": "fixture-driver",
+      "powerLimitWatts": 350,
+      "samples": [
+        { "elapsedMilliseconds": 0, "powerDrawWatts": 29, "temperatureC": 36, "utilizationPercent": 1, "graphicsClockMHz": 210 },
+        { "elapsedMilliseconds": 10000, "powerDrawWatts": 30, "temperatureC": 36, "utilizationPercent": 0, "graphicsClockMHz": 210 },
+        { "elapsedMilliseconds": 20000, "powerDrawWatts": 31, "temperatureC": 37, "utilizationPercent": 2, "graphicsClockMHz": 210 },
+        { "elapsedMilliseconds": 30000, "powerDrawWatts": 29, "temperatureC": 37, "utilizationPercent": 1, "graphicsClockMHz": 210 },
+        { "elapsedMilliseconds": 40000, "powerDrawWatts": 30, "temperatureC": 37, "utilizationPercent": 0, "graphicsClockMHz": 210 },
+        { "elapsedMilliseconds": 50000, "powerDrawWatts": 31, "temperatureC": 37, "utilizationPercent": 1, "graphicsClockMHz": 210 }
+      ]
+    },
+    {
+      "index": 1,
+      "model": "NVIDIA GeForce RTX 3090",
+      "driver": "fixture-driver",
+      "powerLimitWatts": 350,
+      "samples": [
+        { "elapsedMilliseconds": 0, "powerDrawWatts": 30, "temperatureC": 38, "utilizationPercent": 0, "graphicsClockMHz": 210 },
+        { "elapsedMilliseconds": 10000, "powerDrawWatts": 31, "temperatureC": 38, "utilizationPercent": 1, "graphicsClockMHz": 210 },
+        { "elapsedMilliseconds": 20000, "powerDrawWatts": 29, "temperatureC": 38, "utilizationPercent": 0, "graphicsClockMHz": 210 },
+        { "elapsedMilliseconds": 30000, "powerDrawWatts": 30, "temperatureC": 38, "utilizationPercent": 1, "graphicsClockMHz": 210 },
+        { "elapsedMilliseconds": 40000, "powerDrawWatts": 31, "temperatureC": 39, "utilizationPercent": 2, "graphicsClockMHz": 210 },
+        { "elapsedMilliseconds": 50000, "powerDrawWatts": 29, "temperatureC": 39, "utilizationPercent": 0, "graphicsClockMHz": 210 }
+      ]
+    }
+  ]
+}
