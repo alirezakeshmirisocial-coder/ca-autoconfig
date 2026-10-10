@@ -44,7 +44,7 @@ The HUD must continue showing unknown/red when the provider cannot meet the cont
 ## Implementation sequence
 
 1. **Capability probe — implemented:** `Get-WindowsGpuCapability.ps1` enumerates available counter sets and video-controller names as a normal user. It returns only capability/status metadata and sanitized names, rejects raw identifier fields from fixtures, and can never authorize HUD use.
-2. **Recorded provider:** define deterministic multi-adapter fixtures for enumeration reorder, duplicate engine names, inaccessible counters, missing memory, integrated plus discrete graphics, and driver reset.
+2. **Recorded mapping core — implemented:** the pure `WindowsGpuCounterMapper` joins DXGI inventory and counter rows by an internal normalized LUID/physical-adapter key. Nine deterministic cases cover duplicate model names, counter and adapter enumeration reorder, unknown/malformed identities, missing memory, duplicate identities, privacy-safe output, and busiest-engine aggregation. It performs no hardware access and keeps `CanUseInHud=false`.
 3. **Read-only live provider:** sample without shell commands, network access, elevation, persistence, or hardware writes. Keep the existing two-second collector overlap guard.
 4. **Cross-hardware validation:** require Windows 10 and 11 results covering AMD, Intel, NVIDIA, integrated/discrete, and at least one inaccessible-counter environment.
 5. **HUD integration:** display the provider label and only supported fields. NVIDIA profile health remains an NVIDIA-specific state until equivalent identity and limit evidence exists.
@@ -67,3 +67,5 @@ Run the first-stage probe without changing the HUD or hardware:
 ```
 
 `CanProceedToMappingValidation` means only that the machine exposes the inputs needed for the next research stage. `CanUseInHud` remains `false` until the mapping and cross-hardware evidence above exists.
+
+The mapping core deliberately uses the maximum active engine percentage instead of summing engine counters. Summing 3D, copy, video, and compute engines can exceed 100% and misrepresent utilization. The live provider must prove that the same normalized key is obtained from DXGI and Windows performance counters within one sample before this result can enter the HUD.

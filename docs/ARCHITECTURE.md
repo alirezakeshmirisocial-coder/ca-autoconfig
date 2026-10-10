@@ -169,6 +169,7 @@ See [PRIVACY.md](../PRIVACY.md), [SECURITY.md](../SECURITY.md), and the [adaptiv
 | Compiled app | `tests/DesktopApp.Smoke.Tests.ps1` builds and launches the .NET entry point in a no-hardware-write smoke mode. |
 | Release package | `tests/DesktopPackageVerifier.Tests.ps1` runs nine deterministic cases for digest/filename/record matching, traversal and duplicate rejection, required files, declared version, and bounded expansion without extraction or execution. |
 | Clean-machine harness | `tests/CleanMachineSandbox.Tests.ps1` validates the offline `.wsb` policy, read-only input/narrow result mappings, fixed runner, and explicit-only launch behavior. A real Sandbox result remains a separate release gate. |
+| Windows GPU research | `tests/WindowsGpuCapability.Tests.ps1` runs seven query-boundary fixtures in both PowerShell runtimes. `CAAutoConfig.Telemetry.Tests` runs nine compiled same-name/reorder/incomplete-identity mapping cases without hardware access; neither stage can enable HUD data. |
 | GPU plan | `tests/GpuLimitPlan.Tests.ps1` runs seven deterministic fixture cases for inventory-only behavior, a shared no-raise power starting point, board range and clock ceilings, explicit power-increase acknowledgement, complete profiles, and absence of mutation/elevation. |
 | Privileged helper | `tests/GpuLimits.Safety.Tests.ps1` runs ten compiled fake-runner cases plus policy checks for strict commands, preflight-before-write, vendor max-clock enforcement, explicit power-increase acknowledgement, exact rollback, recovery, corrupt-record rejection, hash-pinned elevation, fixed tasks, confirmation, ACL intent, and safe defaults without changing hardware. |
 | Power-curve lab | `benchmark/Run-Tests.ps1` runs 28 schema/report/card tests, 12 idle-gate tests, 14 workload-advisor tests, nine Ollama tests, nine llama-bench tests, and eight ComfyUI tests in both PowerShell runtimes, including phase-aware energy labeling, paired idle regression, workload failure/reset/clock rejection, legacy downgrade safety, workload isolation, evidence-gated SVG output, cache rejection, remote-endpoint rejection, concurrent fixture telemetry, and privacy omission. |
@@ -183,7 +184,7 @@ The research basis and current phase-alignment boundary are recorded in [`resear
 
 The current public preview intentionally exposes the remaining work:
 
-1. Add a WDDM provider/fallback that satisfies the [Windows telemetry provider boundary](research/WINDOWS_GPU_TELEMETRY.md), including per-adapter identity, field-level capability, standard-user access, and fail-closed mapping.
+1. Connect the tested WDDM capability and mapping stages to a read-only live provider, then prove same-sample DXGI/counter identity, field-level capability, standard-user access, and fail-closed reset/reorder behavior before enabling it in the HUD.
 2. Sign binaries and exercise install, upgrade, uninstall, sleep, driver-reset, and clean-machine recovery in CI.
 3. Keep measured workload benchmarks separate from generic or vendor-independent claims.
 
