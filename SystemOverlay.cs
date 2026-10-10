@@ -1832,6 +1832,12 @@ namespace CA.SystemOverlay
         [DllImport("user32.dll")]
         private static extern bool SetProcessDPIAware();
 
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern bool SetProcessDpiAwarenessContext(IntPtr dpiContext);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern IntPtr SetThreadDpiAwarenessContext(IntPtr dpiContext);
+
         public static bool RequestSettings()
         {
             try
@@ -1855,7 +1861,17 @@ namespace CA.SystemOverlay
             {
                 if (!created)
                     return;
-                SetProcessDPIAware();
+                bool perMonitorAware = false;
+                try
+                {
+                    // DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2. This must be set before WinForms creates a window.
+                    perMonitorAware = SetThreadDpiAwarenessContext(new IntPtr(-4)) != IntPtr.Zero;
+                    if (!perMonitorAware)
+                        perMonitorAware = SetProcessDpiAwarenessContext(new IntPtr(-4));
+                }
+                catch (EntryPointNotFoundException) { }
+                if (!perMonitorAware)
+                    SetProcessDPIAware();
                 Application.EnableVisualStyles();
                 Application.SetCompatibleTextRenderingDefault(false);
                 using (OverlayContext context = new OverlayContext(nvidiaSmi, gpuStatePath, settingsPath, intervalMilliseconds, opacity, targetDeviceName, openSettingsOnStart))

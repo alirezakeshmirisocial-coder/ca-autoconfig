@@ -2,9 +2,13 @@
 
 CA AutoConfig is a lightweight Windows HUD and conservative GPU power companion for local-AI and multi-GPU workstations. It keeps essential CPU, memory, storage, CUDA/SM, VRAM, temperature, and board-power information visible without stealing focus from the applications underneath it.
 
-[Latest alpha](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/releases/tag/v0.1.0-alpha) · [Roadmap](ROADMAP.md) · [Discussions](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/discussions)
+[Latest alpha](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/releases/tag/v0.1.1-alpha) · [Roadmap](ROADMAP.md) · [Discussions](https://github.com/alirezakeshmirisocial-coder/ca-autoconfig/discussions)
+
+![CA AutoConfig HUD showing verified GPU limits, system load, storage, VRAM, power, and temperature](docs/assets/hud-alpha.png)
 
 > Status: personal alpha moving toward an open-source public preview. Windows and NVIDIA are the first supported platform; the face-presence experiment remains optional and is not a replacement for Windows Hello.
+
+![CA AutoConfig HUD showing GPU-limit, CPU, memory, and storage status](docs/assets/hud-alpha.png)
 
 ## Current HUD features
 
@@ -13,6 +17,7 @@ CA AutoConfig is a lightweight Windows HUD and conservative GPU power companion 
 - The global lock shortcut, opacity, display, and position are user-configurable and stored locally in `%LOCALAPPDATA%\CAAutoConfig\settings.json`.
 - Live NVIDIA telemetry includes GPU identity, CUDA/SM load, VRAM, power draw/cap, temperature, and graphics clock.
 - The read-only power advisor proposes a conservative benchmark starting point inside NVIDIA's reported minimum/default range. It never raises an existing lower cap and does not apply changes automatically.
+- An isolated adaptive-cooling policy now simulates fan and power advice from ambient temperature, inlet temperature, card heat, neighboring-system heat, fan telemetry, and a matched clean baseline. It is deliberately advice-only until physical tach validation and a crash-safe vendor-auto restore path exist.
 - The configured startup profile is verified from the current-boot state file and live GPU data. A failed or mismatched limit remains clearly red.
 
 Install or refresh the local HUD:
@@ -28,6 +33,19 @@ Run its smoke test:
 ```
 
 The current `280 W / 1700 MHz` profile is still managed separately by the elevated GPU helper. Treat advisor values as candidates until they have been benchmarked with the real AI workload.
+
+## Adaptive cooling lab
+
+The first cooling-system slice is a deterministic, hardware-independent simulation in [`fan-control`](fan-control/ADAPTIVE_FAN_SYSTEM.md). It models the useful quantity as temperature rise above measured room air, rather than chasing one fixed GPU temperature in every environment. A 40°C room therefore reduces the available thermal budget instead of forcing an impossible target or blindly selecting 100% fan.
+
+Its safety order is: protect the card, retain thermal headroom, avoid rapid fan/temperature cycling, then optimize noise and power. The policy includes separate core, hotspot, and VRAM limits; a five-minute observation gate; two-minute stable-load soak; hysteresis, dwell, and fan slew limits; multi-GPU heat input; maintenance-baseline comparison; sensor/fan fault latches; and bounded power-reduction advice. Numeric recommendations remain hidden when evidence is incomplete.
+
+Nothing in this lab changes GPU settings. `CanApply` is always `false`, vendor automatic fan control remains recommended, and emergencies advise stopping heavy work. Run the 35 synthetic safety scenarios in either supported PowerShell runtime:
+
+```powershell
+.\fan-control\Run-Tests.ps1
+pwsh -NoProfile -File .\fan-control\Run-Tests.ps1
+```
 
 See [ROADMAP.md](ROADMAP.md), [CONTRIBUTING.md](CONTRIBUTING.md), [PRIVACY.md](PRIVACY.md), [SECURITY.md](SECURITY.md), and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) for the public-release direction.
 
@@ -148,6 +166,12 @@ HUD در حالت عادی نیمه‌شفاف، بدون Focus و click-through
 - درصد فضای مصرف‌شدهٔ درایوهای اصلی؛ پارتیشن‌های کوچک Boot/Recovery برای جلوگیری از شلوغی نمایش داده نمی‌شوند.
 - برای هر GPU درصد `CUDA/SM`، مصرف VRAM، توان لحظه‌ای/سقف توان، دما و کلاک گرافیکی.
 - Power Advisor فقط یک نقطهٔ شروع محافظه‌کارانه را در بازهٔ مجاز کارت نشان می‌دهد. مقدار پیشنهادی به‌صورت خودکار اعمال نمی‌شود، از سقف پیش‌فرض کارت بالاتر نمی‌رود و cap پایین‌تر موجود را افزایش نمی‌دهد.
+
+### آزمایشگاه خنک‌سازی تطبیقی
+
+منطق اولیه در پوشهٔ `fan-control` به‌صورت کاملاً شبیه‌سازی‌شده پیاده‌سازی شده است. دمای اتاق و هوای ورودی، توان خود کارت، گرمای GPUهای دیگر، دور فن، محدودیت‌های همان مدل کارت و baseline تمیز را کنار هم می‌گذارد. در اتاق ۴۰ درجه هدف غیرممکن تعریف نمی‌کند؛ بودجهٔ حرارتی کمتر را نشان می‌دهد و در صورت نیاز کاهش توان یا workload را به‌جای فشار بی‌نتیجه به فن پیشنهاد می‌کند.
+
+برای کاهش thermal stress، تغییرات پیشنهادی فن دارای hysteresis، حد سرعت تغییر و زمان مکث است تا فن و دما مدام بالا و پایین نپرند. Core، hotspot و VRAM جداگانه کنترل می‌شوند و خطای سنسور، توقف فیزیکی فن یا نزدیک‌شدن سریع به حد حرارتی اولویت مطلق دارد. فعلاً این بخش فقط **Simulation / Advice** است: هیچ فرمان فن یا توان اجرا نمی‌کند و `CanApply` همیشه false می‌ماند تا tach واقعی، سازگاری هر مدل کارت، watchdog مستقل و بازگردانی تأییدشدهٔ vendor-auto روی سخت‌افزار واقعی آزمایش شوند.
 
 کنترل HUD از میانبر `CA AutoConfig` و دکمه‌های `Start HUD` و `Stop HUD` انجام می‌شود. نصب یا بازسازی جداگانه:
 

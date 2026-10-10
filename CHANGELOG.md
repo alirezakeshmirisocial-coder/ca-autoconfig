@@ -2,6 +2,12 @@
 
 This project follows semantic versioning after `v1.0.0`. Pre-1.0 releases may change installation and configuration details while preserving documented safety boundaries.
 
+## v0.1.1-alpha — High-DPI correction
+
+- Switched the HUD UI thread to per-monitor-v2 DPI awareness before WinForms creates windows.
+- Corrected clipping on mixed-DPI monitor layouts while preserving the selected monitor and lower-left placement.
+- Added a privacy-safe capture of the actual running HUD to the README.
+
 ## v0.1.0-alpha — Interactive HUD foundation
 
 - Added a tiny lock/unlock control that leaves the locked HUD click-through.
