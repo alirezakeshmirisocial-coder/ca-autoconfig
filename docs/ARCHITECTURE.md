@@ -183,7 +183,7 @@ The research basis and current phase-alignment boundary are recorded in [`resear
 
 The current public preview intentionally exposes the remaining work:
 
-1. Add a WDDM provider/fallback with the same capability and failure contract as the simulated NVIDIA source.
+1. Add a WDDM provider/fallback that satisfies the [Windows telemetry provider boundary](research/WINDOWS_GPU_TELEMETRY.md), including per-adapter identity, field-level capability, standard-user access, and fail-closed mapping.
 2. Sign binaries and exercise install, upgrade, uninstall, sleep, driver-reset, and clean-machine recovery in CI.
 3. Keep measured workload benchmarks separate from generic or vendor-independent claims.
 

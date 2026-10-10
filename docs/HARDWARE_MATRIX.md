@@ -41,8 +41,8 @@ No external hardware reproduction has been accepted yet. That zero is intentiona
 | --- | --- | --- | --- | --- | ---: |
 | NVIDIA RTX 20/40/50 series | Unverified | Unverified | Unverified | Unverified | 0 |
 | NVIDIA workstation/datacenter | Unverified | Unverified | Unverified | Unverified | 0 |
-| AMD | Unsupported in current alpha | — | WDDM/provider work open | — | 0 |
-| Intel | Unsupported in current alpha | — | WDDM/provider work open | — | 0 |
+| AMD | Unsupported in current alpha | — | [WDDM/provider contract](research/WINDOWS_GPU_TELEMETRY.md) open | — | 0 |
+| Intel | Unsupported in current alpha | — | [WDDM/provider contract](research/WINDOWS_GPU_TELEMETRY.md) open | — | 0 |
 | Windows 11 | Unverified externally | Unverified | Unverified | Unverified | 0 |
 
 ## Add a reproducible row
