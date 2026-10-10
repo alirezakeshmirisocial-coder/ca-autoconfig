@@ -46,8 +46,9 @@ The command performs no hardware write, elevation, network access, provider fall
 
 ## Remaining proof
 
+- Deterministic coverage now proves the intended process lifecycle: a new nonzero engine fails only its first interval, recovers once an adjacent baseline exists, and disappears without leaving a stale row. Live loaded process-churn evidence is still required.
 - Repeat the 600-second result after sleep/resume and under deliberate process churn; retain every intermediate failure.
 - Loaded inference and image-generation runs must agree with an independent vendor source within a declared sampling tolerance.
-- Sleep/resume, process churn, driver reset, adapter reorder, and stale-data behavior need explicit tests.
+- Sleep/resume, live process churn, driver reset, adapter reorder, and stale-data behavior need explicit system tests.
 - External Windows 10/11 results must cover NVIDIA, AMD, Intel, integrated/discrete, a non-English display language, and an inaccessible-counter environment.
 - Even a perfect single-host run keeps `CanUseInHud=false`; production promotion requires the broader contract above.

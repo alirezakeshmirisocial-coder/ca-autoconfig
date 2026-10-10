@@ -17,6 +17,7 @@ internal static class WindowsGpuPdhRawTests
             ("raw PDH retains an invalid current status", InvalidCurrentStatusIsRetained),
             ("raw PDH retains a calculation failure", CalculationFailureIsRetained),
             ("raw PDH aggregates only compatible duplicate identities", DuplicateCurrentIdentityIsGuarded),
+            ("raw PDH process churn fails once, recovers, and disappears cleanly", ProcessChurnIsExplicitAndRecovers),
             ("raw PDH public report omits the internal process identity", PublicReportIsSanitized)
         };
         int passed = 0;
@@ -138,6 +139,70 @@ internal static class WindowsGpuPdhRawTests
             formatter.CallCount == 0, "Incompatible duplicate raw identity was guessed or formatted.");
     }
 
+    private static void ProcessChurnIsExplicitAndRecovers()
+    {
+        const string newEngine = "pid_777_" + Adapter + "_eng_1_engtype_Compute";
+        List<PdhRawCounterSample> baseline = Samples(
+            EngineInstance,
+            NativePdhGpuCounterReader.ValidData,
+            10,
+            100);
+        List<PdhRawCounterSample> started = Samples(
+            EngineInstance,
+            NativePdhGpuCounterReader.ValidData,
+            20,
+            200);
+        started.AddRange(Samples(
+            newEngine,
+            NativePdhGpuCounterReader.ValidData,
+            5,
+            200));
+
+        FakeFormatter formatter = new FakeFormatter(true, 9, NativePdhGpuCounterReader.ValidData);
+        List<PdhGpuCounterSample> first = RawPdhEnginePairing.Format(baseline, started, formatter);
+        Assert(first.Count == 2 && formatter.CallCount == 1 &&
+            first.Exists(delegate(PdhGpuCounterSample sample)
+            {
+                return sample.InstanceName == newEngine &&
+                    sample.FailureReasonCode == "pdh-engine-baseline-missing";
+            }) &&
+            first.Exists(delegate(PdhGpuCounterSample sample)
+            {
+                return sample.InstanceName == EngineInstance &&
+                    String.IsNullOrWhiteSpace(sample.FailureReasonCode);
+            }), "A newly active process did not fail only its first interval.");
+
+        List<PdhRawCounterSample> continued = Samples(
+            EngineInstance,
+            NativePdhGpuCounterReader.ValidData,
+            30,
+            300);
+        continued.AddRange(Samples(
+            newEngine,
+            NativePdhGpuCounterReader.ValidData,
+            15,
+            300));
+        formatter = new FakeFormatter(true, 11, NativePdhGpuCounterReader.ValidData);
+        List<PdhGpuCounterSample> second = RawPdhEnginePairing.Format(started, continued, formatter);
+        Assert(second.Count == 2 && formatter.CallCount == 2 &&
+            second.TrueForAll(delegate(PdhGpuCounterSample sample)
+            {
+                return String.IsNullOrWhiteSpace(sample.FailureReasonCode);
+            }), "A continuing process did not recover after acquiring an adjacent baseline.");
+
+        List<PdhRawCounterSample> stopped = Samples(
+            EngineInstance,
+            NativePdhGpuCounterReader.ValidData,
+            40,
+            400);
+        formatter = new FakeFormatter(true, 8, NativePdhGpuCounterReader.ValidData);
+        List<PdhGpuCounterSample> third = RawPdhEnginePairing.Format(continued, stopped, formatter);
+        Assert(third.Count == 1 && formatter.CallCount == 1 &&
+            third[0].InstanceName == EngineInstance &&
+            String.IsNullOrWhiteSpace(third[0].FailureReasonCode),
+            "A stopped process left a stale public engine sample or failure.");
+    }
+
     private static void PublicReportIsSanitized()
     {
         PdhWindowsGpuCounterSource counterSource = new PdhWindowsGpuCounterSource(new BaselineMissingReader());
@@ -153,7 +218,11 @@ internal static class WindowsGpuPdhRawTests
             !report.ElevationRequested && !report.RawAdapterIdentifiersIncluded, "Raw research report weakened a safety boundary.");
     }
 
-    private static List<PdhRawCounterSample> Samples(string name, uint status, long firstValue)
+    private static List<PdhRawCounterSample> Samples(
+        string name,
+        uint status,
+        long firstValue,
+        long secondValue = 100)
     {
         return new List<PdhRawCounterSample>
         {
@@ -164,7 +233,7 @@ internal static class WindowsGpuPdhRawTests
                 {
                     CounterStatus = status,
                     FirstValue = firstValue,
-                    SecondValue = 100,
+                    SecondValue = secondValue,
                     MultiCount = 1
                 }
             }
