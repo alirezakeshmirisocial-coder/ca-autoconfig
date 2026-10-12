@@ -20,6 +20,27 @@ The public objective is 5,000 genuine GitHub stars. That is an outcome to work t
 
 This zero baseline is useful: it means future attribution is not mixed with an earlier launch.
 
+## Current monitoring snapshot — 2026-10-12
+
+| Signal | Value |
+| --- | ---: |
+| GitHub stars | 0 |
+| Forks | 0 |
+| Watchers | 0 |
+| Contributors | 1 |
+| Open issues | 5 |
+| Open pull requests | 0 |
+| Releases | 19 |
+| Latest release | `v0.2.6-alpha.4` (prerelease) |
+| Latest release asset downloads | ZIP 1; checksum 1; verifier 1 |
+| All release asset downloads | 5 |
+| 14-day unique visitors | 0 |
+| 14-day clones | 396 total; 172 unique cloners |
+| External design partners | 0 confirmed |
+| External participants in focused intake | 0 |
+
+These are GitHub's aggregate counters, captured without application telemetry. Clone and download counters can include maintainer validation, automation, caching, or other unattributed activity, so this snapshot does not treat them as external adoption. The next routine snapshot is due in one week unless a real contribution, accepted report, release, or distribution event occurs first.
+
 ## Current funnel
 
 | Stage | Exit condition | Current status |
